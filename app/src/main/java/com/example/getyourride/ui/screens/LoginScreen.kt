@@ -32,7 +32,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.ui.components.* // Fix: Import shared components
 
 @Composable
 fun LoginScreen(
@@ -250,67 +252,12 @@ fun LoginScreen(
         Spacer(Modifier.height(32.dp))
     }
 }
-
-// ─── Shared sub-components ────────────────────────────────────────────────────
-
+@Preview(showBackground = true, showSystemUi = true, name = "Login Screen")
 @Composable
-fun GyrTextField(
-    label         : String,
-    value         : String,
-    onValueChange : (String) -> Unit,
-    placeholder   : String,
-    leadingIcon   : androidx.compose.ui.graphics.vector.ImageVector,
-    keyboardType  : KeyboardType = KeyboardType.Text,
-    modifier      : Modifier = Modifier,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = modifier) {
-        Text(
-            text          = label.uppercase(),
-            fontSize      = 11.sp,
-            fontWeight    = FontWeight.SemiBold,
-            letterSpacing = 0.5.sp,
-            color         = NavyPrimary,
-        )
-        OutlinedTextField(
-            value         = value,
-            onValueChange = onValueChange,
-            placeholder   = { Text(placeholder, color = TextHint, fontSize = 14.sp) },
-            leadingIcon   = {
-                Icon(leadingIcon, contentDescription = null, tint = IconTint, modifier = Modifier.size(20.dp))
-            },
-            modifier        = Modifier.fillMaxWidth(),
-            shape           = RoundedCornerShape(10.dp),
-            singleLine      = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            colors          = gyrOutlinedTextFieldColors(),
-        )
+fun LoginScreenPreview() {
+    GetYourRideTheme {
+        LoginScreen()
     }
 }
 
-@Composable
-fun gyrOutlinedTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor   = NavyPrimary,
-    unfocusedBorderColor = BorderLight,
-    cursorColor          = NavyPrimary,
-    focusedTextColor     = TextPrimary,
-    unfocusedTextColor   = TextPrimary,
-    focusedContainerColor   = CardWhite,
-    unfocusedContainerColor = SurfaceGrey,
-)
-
-@Composable
-fun OrDivider() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier          = Modifier.fillMaxWidth(),
-    ) {
-        HorizontalDivider(modifier = Modifier.weight(1f), color = BorderLight)
-        Text(
-            text     = "OR",
-            fontSize = 12.sp,
-            color    = TextMuted,
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-        HorizontalDivider(modifier = Modifier.weight(1f), color = BorderLight)
-    }
-}
+// ── Shared sub-components moved to ui.components.GyrComponents.kt ──

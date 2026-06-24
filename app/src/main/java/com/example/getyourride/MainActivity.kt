@@ -1,17 +1,6 @@
-package com.example.getyourride
-
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.getyourride.ui.theme.GetYourRideTheme
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,29 +8,39 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             GetYourRideTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                val navController = rememberNavController()
+
+                NavHost(
+                    navController = navController,
+                    startDestination = "login"   // ← app starts here
+                ) {
+                    composable("login") {
+                        LoginScreen(
+                            onCreateAccountClick = { navController.navigate("signup") },
+                            onLoginClick = { email, password ->
+                                // TODO: hook up ViewModel later
+                                // for now just navigate to test
+                                navController.navigate("home")
+                            }
+                        )
+                    }
+
+                    composable("signup") {
+                        SignUpScreen(
+                            onBackClick = { navController.popBackStack() },
+                            onLoginClick = { navController.popBackStack() },
+                            onSignUpClick = { _, _, _, _, _ ->
+                                navController.navigate("home")
+                            }
+                        )
+                    }
+
+                    composable("home") {
+                        // placeholder until you build HomeScreen
+                        androidx.compose.material3.Text("Home Screen — coming soon")
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    GetYourRideTheme {
-        Greeting("Android")
     }
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.ui.components.* // Fix: Import shared components
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -379,29 +380,4 @@ fun SignUpScreen(
     }
 }
 
-// ── NSFAS radio row ────────────────────────────────────────────────────────────
-@Composable
-private fun NsfasRadioOption(
-    label    : String,
-    selected : Boolean,
-    onSelect : () -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier          = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect)
-            .padding(vertical = 2.dp),
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick  = onSelect,
-            colors   = RadioButtonDefaults.colors(selectedColor = NavyPrimary),
-        )
-        Text(
-            text     = label,
-            fontSize = 14.sp,
-            color    = if (selected) NavyPrimary else TextMuted,
-        )
-    }
-}
+// ── Shared sub-components moved to ui.components.GyrComponents.kt ──
