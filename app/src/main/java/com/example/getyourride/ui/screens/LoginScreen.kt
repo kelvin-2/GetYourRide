@@ -111,7 +111,7 @@ fun LoginScreen(
 
                 // Student ID / Email field
                 GyrTextField(
-                    label     = "Student ID or Email",
+                    label     = "Student Number or Email",
                     value     = studentIdOrEmail,
                     onValueChange = { studentIdOrEmail = it },
                     placeholder   = "e.g. 12345678",
@@ -222,7 +222,7 @@ fun LoginScreen(
 
         // ── Footer legal text ─────────────────────────────────────────────────
         val footerText = buildAnnotatedString {
-            append("By logging in, you agree to the University Transit ")
+            append("By logging in, you agree to the Get Your Ride ")
             withStyle(
                 SpanStyle(
                     color          = NavyPrimary,
