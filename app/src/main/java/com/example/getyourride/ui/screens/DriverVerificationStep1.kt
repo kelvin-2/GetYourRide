@@ -86,7 +86,7 @@ fun DriverStep1Verification(
         }
 
         DriverInfoNotice(
-            text = "Your details will be verified against the NMU Registrar records before your driver profile is approved.",
+            text = "Your details will be verified by our admins.",
             icon = Icons.Outlined.Info,
             tint = OrangeAccent,
         )
