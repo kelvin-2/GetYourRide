@@ -7,7 +7,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.getyourride.ui.screens.BecomeADriverScreen
 import com.example.getyourride.ui.screens.LoginScreen
 import com.example.getyourride.ui.screens.SignUpScreen
 import com.example.getyourride.ui.theme.GetYourRideTheme
@@ -35,14 +34,7 @@ class MainActivity : ComponentActivity() {
                         SignUpScreen(
                             onBackClick   = { navController.popBackStack() },
                             onLoginClick  = { navController.popBackStack() },
-                            onBecomeDriverClick = { navController.navigate("become_driver") },
                             onSignUpClick = { _, _, _, _, _ -> navController.navigate("home") }
-                        )
-                    }
-                    composable("become_driver"){
-                        BecomeADriverScreen(
-                            onBackToHome = { navController.popBackStack() },
-                            onSubmit     = { navController.navigate("home") }
                         )
                     }
 
