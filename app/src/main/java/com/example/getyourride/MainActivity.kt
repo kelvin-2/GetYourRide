@@ -10,6 +10,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.ui.screens.LoginScreen
 import com.example.getyourride.ui.screens.SignUpScreen
 import com.example.getyourride.ui.theme.GetYourRideTheme
+import com.example.getyourride.ui.screens.DriverStep1Screen
+import com.example.getyourride.ui.screens.DriverStep2Screen
+import com.example.getyourride.ui.screens.DriverStep3Screen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +37,26 @@ class MainActivity : ComponentActivity() {
                         SignUpScreen(
                             onBackClick   = { navController.popBackStack() },
                             onLoginClick  = { navController.popBackStack() },
+                            onBecomeDriverClick = { navController.navigate("driver_step_1") },
                             onSignUpClick = { _, _, _, _, _ -> navController.navigate("home") }
+                        )
+                    }
+                    composable("driver_step_1") {
+                        DriverStep1Screen(
+                            onBackClick = { navController.popBackStack() },
+                            onNextClick = { navController.navigate("driver_step_2") }
+                        )
+                    }
+                    composable("driver_step_2") {
+                        DriverStep2Screen(
+                            onBackClick = { navController.popBackStack() },
+                            onNextClick = { navController.navigate("driver_step_3") }
+                        )
+                    }
+                    composable("driver_step_3") {
+                        DriverStep3Screen(
+                            onBackClick = { navController.popBackStack() },
+                            onSubmitClick = { navController.navigate("home") }
                         )
                     }
 
