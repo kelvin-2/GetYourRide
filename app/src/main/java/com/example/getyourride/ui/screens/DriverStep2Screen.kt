@@ -67,6 +67,7 @@ private val DriverText = Color(0xFF1B1B1F)
 private val DriverTextMuted = Color(0xFF44464F)
 private val DriverOutline = Color(0xFF757780)
 private val DriverInactiveProgress = Color(0xFFE3E2E6)
+private val DriverError = Color(0xFFC62828)
 
 data class DriverStep2Data(
     val vehicleRegistrationNumber: String,
@@ -80,7 +81,8 @@ data class DriverStep2Data(
 @Composable
 fun DriverStep2Screen(
     onBackClick: () -> Unit = {},
-    onNextClick: (DriverStep2Data) -> Unit = {}
+    onNextClick: (DriverStep2Data) -> Unit = {},
+    errorMessage: String? = null
 ) {
     var vehicleRegistrationNumber by rememberSaveable {
         mutableStateOf("")
@@ -308,6 +310,12 @@ fun DriverStep2Screen(
                                 }
                             }
                         )
+
+                        if (!errorMessage.isNullOrBlank()) {
+                            DriverStep2ErrorText(
+                                text = errorMessage
+                            )
+                        }
                     }
                 )
 
@@ -505,6 +513,20 @@ private fun DriverStep2CapacityField(
                 }
             )
         }
+    )
+}
+
+@Composable
+private fun DriverStep2ErrorText(
+    text: String
+) {
+    Text(
+        text = text,
+        color = DriverError,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 4.dp)
     )
 }
 

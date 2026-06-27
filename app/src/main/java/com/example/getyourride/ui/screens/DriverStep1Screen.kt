@@ -23,8 +23,11 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +51,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,20 +67,23 @@ private val DriverText = Color(0xFF1B1B1F)
 private val DriverTextMuted = Color(0xFF44464F)
 private val DriverOutline = Color(0xFF757780)
 private val DriverInactiveProgress = Color(0xFFE3E2E6)
+private val DriverError = Color(0xFFC62828)
 
 data class DriverStep1Data(
     val surname: String,
     val firstName: String,
     val studentNumber: String,
     val contactNumber: String,
-    val universityEmail: String
+    val universityEmail: String,
+    val password: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverStep1Screen(
     onBackClick: () -> Unit = {},
-    onNextClick: (DriverStep1Data) -> Unit = {}
+    onNextClick: (DriverStep1Data) -> Unit = {},
+    errorMessage: String? = null
 ) {
     var surname by rememberSaveable {
         mutableStateOf("")
@@ -95,6 +103,14 @@ fun DriverStep1Screen(
 
     var universityEmail by rememberSaveable {
         mutableStateOf("")
+    }
+
+    var password by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var passwordVisible by rememberSaveable {
+        mutableStateOf(false)
     }
 
     Scaffold(
@@ -149,7 +165,8 @@ fun DriverStep1Screen(
                                 firstName = firstName,
                                 studentNumber = studentNumber,
                                 contactNumber = contactNumber,
-                                universityEmail = universityEmail
+                                universityEmail = universityEmail,
+                                password = password
                             )
                         )
                     },
@@ -271,6 +288,47 @@ fun DriverStep1Screen(
                             icon = Icons.Outlined.Email,
                             keyboardType = KeyboardType.Email
                         )
+
+                        DriverFormField(
+                            label = "Password",
+                            value = password,
+                            placeholder = "Create a login password",
+                            onValueChange = { password = it },
+                            icon = Icons.Outlined.Lock,
+                            keyboardType = KeyboardType.Password,
+                            visualTransformation = if (passwordVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        passwordVisible = !passwordVisible
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) {
+                                            Icons.Outlined.VisibilityOff
+                                        } else {
+                                            Icons.Outlined.Visibility
+                                        },
+                                        contentDescription = if (passwordVisible) {
+                                            "Hide password"
+                                        } else {
+                                            "Show password"
+                                        },
+                                        tint = DriverOutline
+                                    )
+                                }
+                            }
+                        )
+
+                        if (!errorMessage.isNullOrBlank()) {
+                            DriverStepErrorText(
+                                text = errorMessage
+                            )
+                        }
                     }
                 )
 
@@ -318,7 +376,9 @@ private fun DriverFormField(
     onValueChange: (String) -> Unit,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -352,6 +412,8 @@ private fun DriverFormField(
                         modifier = Modifier.size(22.dp)
                     )
                 },
+                trailingIcon = trailingIcon,
+                visualTransformation = visualTransformation,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = keyboardType
                 ),
@@ -370,6 +432,20 @@ private fun DriverFormField(
                 )
             )
         }
+    )
+}
+
+@Composable
+private fun DriverStepErrorText(
+    text: String
+) {
+    Text(
+        text = text,
+        color = DriverError,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 4.dp)
     )
 }
 

@@ -67,6 +67,8 @@ private val DriverInactiveProgress = Color(0xFFE3E2E6)
 private val DriverPendingBackground = Color(0xFFFFF3CD)
 private val DriverPendingText = Color(0xFF8A5A00)
 private val DriverPrimaryFixed = Color(0xFFDAE2FF)
+private val DriverError = Color(0xFFC62828)
+private val DriverSuccess = Color(0xFF2E7D32)
 
 data class DriverStep3Data(
     val driversLicenceFileName: String,
@@ -77,7 +79,9 @@ data class DriverStep3Data(
 @Composable
 fun DriverStep3Screen(
     onBackClick: () -> Unit = {},
-    onSubmitClick: (DriverStep3Data) -> Unit = {}
+    onSubmitClick: (DriverStep3Data) -> Unit = {},
+    errorMessage: String? = null,
+    statusMessage: String? = null
 ) {
     var driversLicenceFileName by rememberSaveable {
         mutableStateOf("")
@@ -250,6 +254,20 @@ fun DriverStep3Screen(
                                 vehicleRegistrationFileName = "registration_doc_2023.pdf"
                             }
                         )
+
+                        if (!errorMessage.isNullOrBlank()) {
+                            DriverStep3MessageText(
+                                text = errorMessage,
+                                color = DriverError
+                            )
+                        }
+
+                        if (!statusMessage.isNullOrBlank()) {
+                            DriverStep3MessageText(
+                                text = statusMessage,
+                                color = DriverSuccess
+                            )
+                        }
                     }
                 )
 
@@ -259,6 +277,21 @@ fun DriverStep3Screen(
             }
         )
     }
+}
+
+@Composable
+private fun DriverStep3MessageText(
+    text: String,
+    color: Color
+) {
+    Text(
+        text = text,
+        color = color,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 4.dp)
+    )
 }
 
 @Composable
