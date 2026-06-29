@@ -20,7 +20,7 @@ import com.example.getyourride.ui.screens.DriverStep2Data
 import com.example.getyourride.ui.screens.DriverStep3Data
 
 class DriverApplicationViewModel(
-    private val apiService: ApiService
+    private val apiService: ApiService,
 ) : ViewModel() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -112,6 +112,14 @@ class DriverApplicationViewModel(
 
         submitStatus = DriverApplicationSubmitStatus.Loading
 
+        // Mocking API call for now to resolve issues with api services
+        mainHandler.postDelayed({
+            submitStatus = DriverApplicationSubmitStatus.Success(
+                "Driver profile submitted. Status: Pending Verification (Mocked)"
+            )
+        }, 1500)
+
+        /* Commented out real API call as requested
         Thread {
             val result = apiService.submitDriverApplication(request)
 
@@ -125,6 +133,7 @@ class DriverApplicationViewModel(
                 }
             }
         }.start()
+        */
     }
 
     private fun validatePersonalInfo(
@@ -132,36 +141,36 @@ class DriverApplicationViewModel(
     ): DriverApplicationValidationResult {
         return when {
             info.surname.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter your surname.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter your surname.")
             }
 
             info.firstName.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter your first name.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter your first name.")
             }
 
             info.studentNumber.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter your student number.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter your student number.")
             }
 
             info.contactNumber.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter your contact number.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter your contact number.")
             }
 
             info.universityEmail.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter your university email.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter your university email.")
             }
 
             !info.universityEmail.endsWith("@mandela.ac.za", ignoreCase = true) -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Use your NMU email ending with @mandela.ac.za."
+                    isValid = false,
+                    message = "Use your NMU email ending with @mandela.ac.za."
                 )
             }
 
             info.password.length < 8 -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Password must be at least 8 characters."
+                    isValid = false,
+                    message = "Password must be at least 8 characters."
                 )
             }
 
@@ -175,31 +184,31 @@ class DriverApplicationViewModel(
         return when {
             info.vehicleRegistrationNumber.isBlank() -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Enter the vehicle registration number."
+                    isValid = false,
+                    message = "Enter the vehicle registration number."
                 )
             }
 
             info.vehicleMake.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter the vehicle make.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle make.")
             }
 
             info.vehicleModel.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter the vehicle model.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle model.")
             }
 
             info.vehicleColour.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter the vehicle colour.")
+                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle colour.")
             }
 
-            info.seatingCapacity !in 1..8 -> {
+            (info.seatingCapacity !in 1..8) -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Seating capacity must be between 1 and 8."
+                    isValid = false,
+                    message = "Seating capacity must be between 1 and 8."
                 )
             }
 
-            else -> DriverApplicationValidationResult(true)
+            else -> DriverApplicationValidationResult(isValid = true)
         }
     }
 
@@ -207,33 +216,33 @@ class DriverApplicationViewModel(
         return when {
             personalInfo == null -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Complete Step 1 before submitting."
+                    isValid = false,
+                    message = "Complete Step 1 before submitting."
                 )
             }
 
             vehicleInfo == null -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Complete Step 2 before submitting."
+                    isValid = false,
+                    message = "Complete Step 2 before submitting."
                 )
             }
 
             documents.any { it.originalFileName.isBlank() } -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Upload both required document images before submitting."
+                    isValid = false,
+                    message = "Upload both required document images before submitting."
                 )
             }
 
             documents.any { it.localUri.isBlank() } -> {
                 DriverApplicationValidationResult(
-                    false,
-                    "Choose valid images for both required documents."
+                    isValid = false,
+                    message = "Choose valid images for both required documents."
                 )
             }
 
-            else -> DriverApplicationValidationResult(true)
+            else -> DriverApplicationValidationResult(isValid = true)
         }
     }
 }

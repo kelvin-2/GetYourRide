@@ -20,6 +20,7 @@ data class DriverVehicleInfo(
 data class DriverDocumentInfo(
     val documentType: DriverDocumentType,
     val originalFileName: String,
+    val localUri: String = "",
     val cloudUrl: String = ""
 )
 

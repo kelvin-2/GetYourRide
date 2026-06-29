@@ -25,7 +25,7 @@ interface ApiService {
         documentType: DriverDocumentType,
         fileName: String,
         contentType: String,
-        fileBytes: ByteArray
+        fileBytes: ByteArray,
     ): ApiResult<DriverDocumentInfo>
 
     fun offerRide(request: OfferRideRequest): ApiResult<OfferRideResponse>
@@ -81,7 +81,7 @@ class SpringBootApiService(
         documentType: DriverDocumentType,
         fileName: String,
         contentType: String,
-        fileBytes: ByteArray
+        fileBytes: ByteArray,
     ): ApiResult<DriverDocumentInfo> {
         val boundary = "GetYourRideBoundary${System.currentTimeMillis()}"
 
@@ -114,7 +114,7 @@ class SpringBootApiService(
             val responseCode = connection.responseCode
             val responseBody = connection.readBody(responseCode)
 
-            if (responseCode in 200..299) {
+            if ((responseCode in 200..299)) {
                 ApiResult.Success(
                     DriverDocumentInfo(
                         documentType = documentType,
@@ -182,7 +182,7 @@ class SpringBootApiService(
             val responseCode = connection.responseCode
             val responseBody = connection.readBody(responseCode)
 
-            if (responseCode in 200..299) {
+            if ((responseCode in 200..299)) {
                 ApiResult.Success(parser(responseBody))
             } else {
                 ApiResult.Error("Request failed: HTTP $responseCode $responseBody")
@@ -197,7 +197,7 @@ class SpringBootApiService(
     }
 
     private fun HttpURLConnection.readBody(responseCode: Int): String {
-        val stream = if (responseCode in 200..299) {
+        val stream = if ((responseCode in 200..299)) {
             inputStream
         } else {
             errorStream
