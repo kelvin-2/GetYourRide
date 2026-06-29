@@ -21,6 +21,7 @@ interface ApiService {
     fun submitDriverApplication(request: DriverApplicationRequest): ApiResult<DriverApplicationResponse>
 
     fun uploadDriverDocument(
+        applicationId: String,
         documentType: DriverDocumentType,
         fileName: String,
         contentType: String,
@@ -34,7 +35,11 @@ interface ApiService {
 
 sealed class ApiResult<out T> {
     data class Success<T>(val data: T) : ApiResult<T>()
-    data class Error(val message: String, val throwable: Throwable? = null) : ApiResult<Nothing>()
+
+    data class Error(
+        val message: String,
+        val throwable: Throwable? = null
+    ) : ApiResult<Nothing>()
 }
 
 class SpringBootApiService(
@@ -72,6 +77,7 @@ class SpringBootApiService(
     }
 
     override fun uploadDriverDocument(
+        applicationId: String,
         documentType: DriverDocumentType,
         fileName: String,
         contentType: String,
@@ -80,10 +86,13 @@ class SpringBootApiService(
         val boundary = "GetYourRideBoundary${System.currentTimeMillis()}"
 
         return try {
-            val connection = openConnection("/api/driver-applications/documents").apply {
+            val connection = openConnection(
+                "/api/driver-applications/$applicationId/documents"
+            ).apply {
                 requestMethod = "POST"
                 doOutput = true
                 setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                setRequestProperty("Accept", "application/json")
             }
 
             DataOutputStream(connection.outputStream).use { output ->
@@ -93,11 +102,12 @@ class SpringBootApiService(
 
                 output.writeBytes("--$boundary\r\n")
                 output.writeBytes(
-                    "Content-Disposition: form-data; name=\"file\"; filename=\"${fileName.escapeJson()}\"\r\n"
+                    "Content-Disposition: form-data; name=\"file\"; filename=\"${fileName.escapeMultipartFileName()}\"\r\n"
                 )
                 output.writeBytes("Content-Type: $contentType\r\n\r\n")
                 output.write(fileBytes)
-                output.writeBytes("\r\n--$boundary--\r\n")
+                output.writeBytes("\r\n")
+                output.writeBytes("--$boundary--\r\n")
                 output.flush()
             }
 
@@ -109,6 +119,7 @@ class SpringBootApiService(
                     DriverDocumentInfo(
                         documentType = documentType,
                         originalFileName = fileName,
+                        localUri = "",
                         cloudUrl = responseBody.extractJsonValue("cloudUrl").orEmpty()
                     )
                 )
@@ -120,7 +131,9 @@ class SpringBootApiService(
         }
     }
 
-    override fun offerRide(request: OfferRideRequest): ApiResult<OfferRideResponse> {
+    override fun offerRide(
+        request: OfferRideRequest
+    ): ApiResult<OfferRideResponse> {
         return postJson(
             endpoint = "/api/carpool-trips",
             body = request.toJson()
@@ -184,8 +197,15 @@ class SpringBootApiService(
     }
 
     private fun HttpURLConnection.readBody(responseCode: Int): String {
-        val stream = if (responseCode in 200..299) inputStream else errorStream
-        return stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        val stream = if (responseCode in 200..299) {
+            inputStream
+        } else {
+            errorStream
+        }
+
+        return stream?.bufferedReader()?.use { reader ->
+            reader.readText()
+        }.orEmpty()
     }
 }
 
@@ -255,7 +275,15 @@ private fun DeleteDriverProfileRequest.toJson(): String {
 }
 
 private fun String.escapeJson(): String {
-    return replace("\\", "\\\\").replace("\"", "\\\"")
+    return replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+}
+
+private fun String.escapeMultipartFileName(): String {
+    return replace("\\", "_")
+        .replace("\"", "_")
+        .replace("\r", "")
+        .replace("\n", "")
 }
 
 private fun String.extractJsonValue(key: String): String? {

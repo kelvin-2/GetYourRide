@@ -1,5 +1,11 @@
 package com.example.getyourride.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,7 +79,9 @@ private val DriverSuccess = Color(0xFF2E7D32)
 
 data class DriverStep3Data(
     val driversLicenceFileName: String,
-    val vehicleRegistrationFileName: String
+    val driversLicenceUri: String,
+    val vehicleRegistrationFileName: String,
+    val vehicleRegistrationUri: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,12 +92,42 @@ fun DriverStep3Screen(
     errorMessage: String? = null,
     statusMessage: String? = null
 ) {
+    val context = LocalContext.current
+
     var driversLicenceFileName by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var driversLicenceUri by rememberSaveable {
         mutableStateOf("")
     }
 
     var vehicleRegistrationFileName by rememberSaveable {
         mutableStateOf("")
+    }
+
+    var vehicleRegistrationUri by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    val driversLicencePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            persistReadPermission(context, uri)
+            driversLicenceUri = uri.toString()
+            driversLicenceFileName = getFileNameFromUri(context, uri)
+        }
+    }
+
+    val vehicleRegistrationPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            persistReadPermission(context, uri)
+            vehicleRegistrationUri = uri.toString()
+            vehicleRegistrationFileName = getFileNameFromUri(context, uri)
+        }
     }
 
     Scaffold(
@@ -164,7 +203,9 @@ fun DriverStep3Screen(
                                 onSubmitClick(
                                     DriverStep3Data(
                                         driversLicenceFileName = driversLicenceFileName,
-                                        vehicleRegistrationFileName = vehicleRegistrationFileName
+                                        driversLicenceUri = driversLicenceUri,
+                                        vehicleRegistrationFileName = vehicleRegistrationFileName,
+                                        vehicleRegistrationUri = vehicleRegistrationUri
                                     )
                                 )
                             },
@@ -238,20 +279,24 @@ fun DriverStep3Screen(
                         DriverDocumentCard(
                             title = "Driver's Licence",
                             fileName = driversLicenceFileName,
-                            emptyText = "No driver's licence selected",
+                            emptyText = "No driver's licence image selected",
                             icon = Icons.Outlined.Badge,
                             onChooseFileClick = {
-                                driversLicenceFileName = "licence_front_final.jpg"
+                                driversLicencePicker.launch(
+                                    arrayOf("image/*")
+                                )
                             }
                         )
 
                         DriverDocumentCard(
                             title = "Vehicle Registration",
                             fileName = vehicleRegistrationFileName,
-                            emptyText = "No vehicle registration selected",
+                            emptyText = "No vehicle registration image selected",
                             icon = Icons.Outlined.Description,
                             onChooseFileClick = {
-                                vehicleRegistrationFileName = "registration_doc_2023.pdf"
+                                vehicleRegistrationPicker.launch(
+                                    arrayOf("image/*")
+                                )
                             }
                         )
 
@@ -415,7 +460,7 @@ private fun DriverDocumentCard(
                     )
 
                     Text(
-                        text = "Choose File",
+                        text = if (fileName.isBlank()) "Choose Image" else "Change Image",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = DriverTextMuted
@@ -442,6 +487,45 @@ private fun DriverPendingBadge() {
             letterSpacing = 0.8.sp
         )
     }
+}
+
+private fun persistReadPermission(
+    context: Context,
+    uri: Uri
+) {
+    runCatching {
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+    }
+}
+
+private fun getFileNameFromUri(
+    context: Context,
+    uri: Uri
+): String {
+    var fileName: String? = null
+
+    if (uri.scheme == "content") {
+        context.contentResolver.query(
+            uri,
+            null,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+
+            if (nameIndex >= 0 && cursor.moveToFirst()) {
+                fileName = cursor.getString(nameIndex)
+            }
+        }
+    }
+
+    return fileName
+        ?: uri.lastPathSegment
+        ?: "selected_image"
 }
 
 @Preview(showBackground = true, showSystemUi = true)

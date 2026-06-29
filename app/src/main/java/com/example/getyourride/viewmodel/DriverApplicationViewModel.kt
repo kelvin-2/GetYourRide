@@ -86,11 +86,13 @@ class DriverApplicationViewModel(
         documents = listOf(
             DriverDocumentInfo(
                 documentType = DriverDocumentType.DriversLicence,
-                originalFileName = data.driversLicenceFileName.trim()
+                originalFileName = data.driversLicenceFileName.trim(),
+                localUri = data.driversLicenceUri.trim()
             ),
             DriverDocumentInfo(
                 documentType = DriverDocumentType.VehicleRegistration,
-                originalFileName = data.vehicleRegistrationFileName.trim()
+                originalFileName = data.vehicleRegistrationFileName.trim(),
+                localUri = data.vehicleRegistrationUri.trim()
             )
         )
 
@@ -112,6 +114,7 @@ class DriverApplicationViewModel(
 
         Thread {
             val result = apiService.submitDriverApplication(request)
+
             mainHandler.post {
                 submitStatus = when (result) {
                     is ApiResult.Success -> DriverApplicationSubmitStatus.Success(
@@ -128,15 +131,40 @@ class DriverApplicationViewModel(
         info: DriverPersonalInfo
     ): DriverApplicationValidationResult {
         return when {
-            info.surname.isBlank() -> DriverApplicationValidationResult(false, "Enter your surname.")
-            info.firstName.isBlank() -> DriverApplicationValidationResult(false, "Enter your first name.")
-            info.studentNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your student number.")
-            info.contactNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your contact number.")
-            info.universityEmail.isBlank() -> DriverApplicationValidationResult(false, "Enter your university email.")
-            !info.universityEmail.endsWith("@mandela.ac.za", ignoreCase = true) -> {
-                DriverApplicationValidationResult(false, "Use your NMU email ending with @mandela.ac.za.")
+            info.surname.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter your surname.")
             }
-            info.password.length < 8 -> DriverApplicationValidationResult(false, "Password must be at least 8 characters.")
+
+            info.firstName.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter your first name.")
+            }
+
+            info.studentNumber.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter your student number.")
+            }
+
+            info.contactNumber.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter your contact number.")
+            }
+
+            info.universityEmail.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter your university email.")
+            }
+
+            !info.universityEmail.endsWith("@mandela.ac.za", ignoreCase = true) -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Use your NMU email ending with @mandela.ac.za."
+                )
+            }
+
+            info.password.length < 8 -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Password must be at least 8 characters."
+                )
+            }
+
             else -> DriverApplicationValidationResult(true)
         }
     }
@@ -146,25 +174,65 @@ class DriverApplicationViewModel(
     ): DriverApplicationValidationResult {
         return when {
             info.vehicleRegistrationNumber.isBlank() -> {
-                DriverApplicationValidationResult(false, "Enter the vehicle registration number.")
+                DriverApplicationValidationResult(
+                    false,
+                    "Enter the vehicle registration number."
+                )
             }
-            info.vehicleMake.isBlank() -> DriverApplicationValidationResult(false, "Enter the vehicle make.")
-            info.vehicleModel.isBlank() -> DriverApplicationValidationResult(false, "Enter the vehicle model.")
-            info.vehicleColour.isBlank() -> DriverApplicationValidationResult(false, "Enter the vehicle colour.")
+
+            info.vehicleMake.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter the vehicle make.")
+            }
+
+            info.vehicleModel.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter the vehicle model.")
+            }
+
+            info.vehicleColour.isBlank() -> {
+                DriverApplicationValidationResult(false, "Enter the vehicle colour.")
+            }
+
             info.seatingCapacity !in 1..8 -> {
-                DriverApplicationValidationResult(false, "Seating capacity must be between 1 and 8.")
+                DriverApplicationValidationResult(
+                    false,
+                    "Seating capacity must be between 1 and 8."
+                )
             }
+
             else -> DriverApplicationValidationResult(true)
         }
     }
 
     private fun validateCompleteApplication(): DriverApplicationValidationResult {
         return when {
-            personalInfo == null -> DriverApplicationValidationResult(false, "Complete Step 1 before submitting.")
-            vehicleInfo == null -> DriverApplicationValidationResult(false, "Complete Step 2 before submitting.")
-            documents.any { it.originalFileName.isBlank() } -> {
-                DriverApplicationValidationResult(false, "Upload both required documents before submitting.")
+            personalInfo == null -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Complete Step 1 before submitting."
+                )
             }
+
+            vehicleInfo == null -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Complete Step 2 before submitting."
+                )
+            }
+
+            documents.any { it.originalFileName.isBlank() } -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Upload both required document images before submitting."
+                )
+            }
+
+            documents.any { it.localUri.isBlank() } -> {
+                DriverApplicationValidationResult(
+                    false,
+                    "Choose valid images for both required documents."
+                )
+            }
+
             else -> DriverApplicationValidationResult(true)
         }
     }
