@@ -134,13 +134,13 @@ private fun GreetingRow(userName: String, isNsfas: Boolean) {
                 shape = RoundedCornerShape(20.dp),
                 color = GreenSuccess.copy(alpha = 0.10f),
             ) {
-                Text(
-                    text       = "NSFAS STUDENT",
-                    fontSize   = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color      = GreenSuccess,
-                    modifier   = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                )
+//                Text(
+//                    text       = "NSFAS STUDET",
+//                    fontSize   = 10.sp,
+//                    fontWeight = FontWeight.Bold,
+//                    color      = GreenSuccess,
+//                    modifier   = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+//                )
             }
         }
     }
@@ -153,7 +153,7 @@ private fun HeroBookingCard(onBookNow: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            //.height(178.dp)              // was 160.dp — extra room so content doesn't feel cramped
             .clip(RoundedCornerShape(16.dp))
             // Navy gradient simulates the dark overlay on the background photo
             // TODO: replace with an actual image using:
@@ -170,8 +170,8 @@ private fun HeroBookingCard(onBookNow: () -> Unit) {
         Column(
             modifier            = Modifier
                 .align(Alignment.BottomStart)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(18.dp),                       // was 16.dp
+            verticalArrangement = Arrangement.spacedBy(8.dp), // was 6.dp — more space between lines
         ) {
             // Orange icon box
             Box(
@@ -184,17 +184,36 @@ private fun HeroBookingCard(onBookNow: () -> Unit) {
                 Icon(Icons.Outlined.PeopleAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
 
-            Text("Find a Carpool", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("Share a ride with fellow NMU students.", fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
+            Text(
+                text       = "Find a Carpool",
+                fontSize   = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color      = Color.White,
+                modifier   = Modifier.padding(top = 2.dp),  // small gap below icon
+            )
+            Text(
+                text     = "Share a ride with fellow NMU students.",
+                fontSize = 12.sp,
+                color    = Color.White.copy(alpha = 0.75f),
+                lineHeight = 16.sp,
+            )
 
-            // Book Now pill button
+            Spacer(Modifier.height(2.dp))
+
+            // Book Now pill button — extra horizontal padding so text isn't cramped
             Button(
                 onClick        = onBookNow,
                 shape          = RoundedCornerShape(20.dp),
                 colors         = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp), // was 20.dp/8.dp — pushed further
+                modifier       = Modifier.defaultMinSize(minHeight = 1.dp),           // removes Material's built-in min height
             ) {
-                Text("Book Now ›", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(
+                    text       = "Book Now  ›",
+                    fontSize   = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = Color.White,
+                )
             }
         }
     }
