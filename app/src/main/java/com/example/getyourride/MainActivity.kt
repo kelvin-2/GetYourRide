@@ -158,8 +158,7 @@ class MainActivity : ComponentActivity() {
                                     isFunded      = isFunded,
                                 )
                             },
-                            // ⚠️ Add these two params to SignUpScreen's signature
-                            // if they don't already exist — see note below file.
+
                             isLoading    = uiState is AuthUiState.Loading,
                             errorMessage = (uiState as? AuthUiState.Error)?.message,
                         )
