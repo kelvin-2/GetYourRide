@@ -103,10 +103,9 @@ class MainActivity : ComponentActivity() {
                             onBackClick          = { navController.popBackStack() },
                             onLoginClick         = { navController.popBackStack() },
                             onBecomeDriverClick  = { navController.navigate("driver_step_1") },
-                            onSignUpClick = { _, _, _, _, isFunded ->
+                            onSignUpClick = {firstName, lastName, studentNumber, email, password, isFunded->
                                 // The 5th param from SignUpScreen IS the NSFAS
                                 // radio answer the student picked — use it directly.
-                                isNsfasFunded = isFunded
                                 navController.navigate(homeRouteFor(isFunded)) {
                                     popUpTo("login") { inclusive = true }
                                 }
