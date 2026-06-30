@@ -2,6 +2,7 @@ package com.example.getyourride.ui.screens
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,11 +59,32 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.data.OfferRideRequest
+import com.example.getyourride.ui.components.StudentDriverBottomBar
+import com.example.getyourride.ui.components.StudentDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+/*
+ * OfferRideScreen
+ *
+ * This screen is used by an approved student driver to post a carpool ride.
+ *
+ * The driver enters:
+ * - pickup location
+ * - destination
+ * - ride date
+ * - ride time
+ * - available seats
+ * - fare per seat
+ *
+ * The screen also has the student driver bottom navigation menu:
+ * Home | Offer Ride | Profile
+ */
+
+// Screen colour palette.
+// Keeping colours here makes the screen easier to adjust later.
 private val OfferBackground = Color(0xFFFBF8FD)
 private val OfferPrimary = Color(0xFF011844)
 private val OfferTopBar = Color(0xFF1A2E5A)
@@ -81,10 +103,21 @@ private val OfferSuccess = Color(0xFF2E7D32)
 fun OfferRideScreen(
     onPostRideClick: (OfferRideRequest) -> Unit = {},
     errorMessage: String? = null,
-    statusMessage: String? = null
+    statusMessage: String? = null,
+
+    /*
+     * Bottom navigation callbacks.
+     *
+     * MainActivity decides where each button should navigate.
+     * This keeps this screen reusable and not directly tied to NavController.
+     */
+    onHomeClick: () -> Unit = {},
+    onOfferRideClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
+    // Form state for route details.
     var pickupLocation by rememberSaveable {
         mutableStateOf("")
     }
@@ -93,18 +126,22 @@ fun OfferRideScreen(
         mutableStateOf("")
     }
 
+    // Default date is today.
     var rideDate by rememberSaveable {
         mutableStateOf(currentRideDateText())
     }
 
+    // Default time is at least 30 minutes from now.
     var rideTime by rememberSaveable {
         mutableStateOf(minimumRideTimeText())
     }
 
+    // Student driver can offer between 1 and 7 seats.
     var availableSeats by rememberSaveable {
         mutableStateOf(3)
     }
 
+    // Kept as text because the user types it. It is converted to Double when posting.
     var farePerSeat by rememberSaveable {
         mutableStateOf("")
     }
@@ -136,9 +173,26 @@ fun OfferRideScreen(
                 )
             )
         },
+
+        /*
+         * Bottom menu for student driver screens.
+         * Offer Ride is selected because the user is currently on this screen.
+         */
+        bottomBar = {
+            StudentDriverBottomBar(
+                selectedItem = StudentDriverBottomBarItem.OfferRide,
+                onHomeClick = onHomeClick,
+                onOfferRideClick = onOfferRideClick,
+                onProfileClick = onProfileClick
+            )
+        },
         containerColor = OfferBackground
     ) { innerPadding ->
 
+        /*
+         * Main content area.
+         * It scrolls so smaller phones can still access the Post Ride button.
+         */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -167,13 +221,16 @@ fun OfferRideScreen(
                 )
             }
 
+            /*
+             * Card containing all ride form fields.
+             */
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = OfferCardBackground,
                 shape = RoundedCornerShape(12.dp),
                 tonalElevation = 2.dp,
                 shadowElevation = 2.dp,
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     OfferBorder.copy(alpha = 0.3f)
                 )
@@ -219,6 +276,10 @@ fun OfferRideScreen(
                                     onDateSelected = { selectedDate ->
                                         rideDate = selectedDate
 
+                                        /*
+                                         * If the selected date/time becomes invalid,
+                                         * reset the time to the minimum allowed time.
+                                         */
                                         if (!isRideDateTimeAllowed(rideDate, rideTime)) {
                                             rideTime = minimumRideTimeText()
                                         }
@@ -298,6 +359,10 @@ fun OfferRideScreen(
                 }
             }
 
+            /*
+             * Submit button.
+             * It creates an OfferRideRequest and sends it to the ViewModel through MainActivity.
+             */
             Button(
                 onClick = {
                     onPostRideClick(
@@ -341,6 +406,9 @@ fun OfferRideScreen(
     }
 }
 
+/*
+ * Reusable text field used for pickup, destination and fare.
+ */
 @Composable
 private fun OfferTextField(
     value: String,
@@ -395,6 +463,11 @@ private fun OfferTextField(
     )
 }
 
+/*
+ * Read-only field for date and time.
+ *
+ * The transparent clickable Box on top makes the whole field clickable.
+ */
 @Composable
 private fun OfferPickerField(
     value: String,
@@ -451,6 +524,9 @@ private fun OfferPickerField(
     }
 }
 
+/*
+ * Opens Android date picker and prevents choosing dates before today.
+ */
 private fun showRideDatePicker(
     context: android.content.Context,
     selectedDate: String,
@@ -477,6 +553,12 @@ private fun showRideDatePicker(
     }.show()
 }
 
+/*
+ * Opens Android time picker.
+ *
+ * If the selected time is not at least 30 minutes from now,
+ * the screen falls back to the minimum allowed time.
+ */
 private fun showRideTimePicker(
     context: android.content.Context,
     selectedTime: String,
@@ -506,10 +588,17 @@ private fun showRideTimePicker(
     ).show()
 }
 
+/*
+ * Returns today's date in yyyy-MM-dd format.
+ */
 private fun currentRideDateText(): String {
     return formatRideDate(Calendar.getInstance())
 }
 
+/*
+ * Returns the earliest allowed ride time.
+ * Business rule: ride must be at least 30 minutes from now.
+ */
 private fun minimumRideTimeText(): String {
     return formatRideTime(
         Calendar.getInstance().apply {
@@ -518,6 +607,9 @@ private fun minimumRideTimeText(): String {
     )
 }
 
+/*
+ * Validates that selected date and time are at least 30 minutes from now.
+ */
 private fun isRideDateTimeAllowed(
     rideDate: String,
     rideTime: String
@@ -542,6 +634,9 @@ private fun isRideDateTimeAllowed(
     return !selectedDateTime.before(earliestAllowed)
 }
 
+/*
+ * Used by the DatePicker so the user cannot choose a date before today.
+ */
 private fun startOfTodayMillis(): Long {
     return Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
@@ -587,6 +682,14 @@ private fun formatRideTime(
     }.let(::formatRideTime)
 }
 
+/*
+ * Seat selector.
+ *
+ * The driver can reduce or increase seats.
+ * Limits are enforced in OfferRideScreen:
+ * - minimum 1
+ * - maximum 7
+ */
 @Composable
 private fun OfferSeatStepper(
     seats: Int,
@@ -653,6 +756,9 @@ private fun OfferSeatStepper(
     }
 }
 
+/*
+ * Small status/error text under the form.
+ */
 @Composable
 private fun OfferMessageText(
     text: String,
@@ -666,6 +772,10 @@ private fun OfferMessageText(
     )
 }
 
+/*
+ * Android Studio preview.
+ * This helps us see the screen without running the full app.
+ */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun OfferRideScreenPreview() {
