@@ -4,8 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,6 +21,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.network.SpringBootApiService
+import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.screens.Carpool.CarpoolHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileSettingsScreen
 import com.example.getyourride.ui.screens.DriverStep1Screen
 import com.example.getyourride.ui.screens.DriverStep2Screen
@@ -25,6 +35,20 @@ import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.OfferRideViewModel
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTING NOTES — how student type decides which dashboard they see
+//
+// After login/signup, the student is one of two types:
+//   - NSFAS funded  → routed to "shuttle_home" (fixed shuttle routes)
+//   - Self-funded   → routed to GyrRoutes.HOME = CarpoolHomeScreen (peer-to-peer)
+//
+// "isNsfasFunded" is currently a local Compose state variable set from the
+// SignUpScreen's NSFAS radio answer. Once your Spring Boot auth endpoint is
+// wired up, replace this with the value from the login API response instead
+// (e.g. response.user.isNsfasFunded) — everything else stays the same because
+// routing always goes through homeRouteFor() below.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,15 +56,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             GetYourRideTheme {
                 val navController = rememberNavController()
+
                 val apiService = remember {
                     SpringBootApiService(
                         baseUrl = "https://your-spring-boot-api.example.com"
                     )
                 }
                 val driverApplicationViewModel = remember {
-                    DriverApplicationViewModel(
-                        apiService = apiService
-                    )
+                    DriverApplicationViewModel(apiService = apiService)
                 }
                 val offerRideViewModel = remember {
                     OfferRideViewModel(apiService = apiService)
@@ -49,25 +72,49 @@ class MainActivity : ComponentActivity() {
                     DeleteDriverProfileViewModel(apiService = apiService)
                 }
 
+                // ── Student funding status — drives which dashboard they land on ──
+                // TODO: replace this default with the real value from your
+                // login API response once the backend is connected.
+                var isNsfasFunded by remember { mutableStateOf(false) }
+
                 NavHost(
                     navController    = navController,
                     startDestination = "login"
                 ) {
+
+                    // ── LOGIN ──────────────────────────────────────────────────────
                     composable("login") {
                         LoginScreen(
-                            onCreateAccountClick  = { navController.navigate("signup") },
-                            onLoginClick          = { _, _ -> navController.navigate("home") }
+                            onCreateAccountClick = { navController.navigate("signup") },
+                            onLoginClick = { _, _ ->
+                                // TODO: replace with real API call.
+                                // isNsfasFunded keeps whatever value it last had
+                                // (set during signup, or default false on fresh installs).
+                                navController.navigate(homeRouteFor(isNsfasFunded)) {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
                         )
                     }
 
+                    // ── SIGN UP ────────────────────────────────────────────────────
                     composable("signup") {
                         SignUpScreen(
-                            onBackClick   = { navController.popBackStack() },
-                            onLoginClick  = { navController.popBackStack() },
-                            onBecomeDriverClick = { navController.navigate("driver_step_1") },
-                            onSignUpClick = { _, _, _, _, _ -> navController.navigate("home") }
+                            onBackClick          = { navController.popBackStack() },
+                            onLoginClick         = { navController.popBackStack() },
+                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
+                            onSignUpClick = { _, _, _, _, isFunded ->
+                                // The 5th param from SignUpScreen IS the NSFAS
+                                // radio answer the student picked — use it directly.
+                                isNsfasFunded = isFunded
+                                navController.navigate(homeRouteFor(isFunded)) {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
                         )
                     }
+
+                    // ── BECOME A DRIVER FLOW (unchanged) ──────────────────────────
                     composable("driver_step_1") {
                         DriverStep1Screen(
                             onBackClick = { navController.popBackStack() },
@@ -92,7 +139,6 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("driver_step_3") {
                         val submitStatus = driverApplicationViewModel.submitStatus
-
                         DriverStep3Screen(
                             onBackClick = { navController.popBackStack() },
                             onSubmitClick = { step3Data ->
@@ -109,12 +155,9 @@ class MainActivity : ComponentActivity() {
 
                     composable("offer_ride") {
                         val submitStatus = offerRideViewModel.submitStatus
-
                         OfferRideScreen(
-                            onPostRideClick = { request ->
-                                offerRideViewModel.postRide(request)
-                            },
-                            errorMessage = offerRideViewModel.errorMessage,
+                            onPostRideClick = { request -> offerRideViewModel.postRide(request) },
+                            errorMessage    = offerRideViewModel.errorMessage,
                             statusMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Posting ride..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
@@ -125,12 +168,9 @@ class MainActivity : ComponentActivity() {
 
                     composable("driver_profile_settings") {
                         val submitStatus = deleteDriverProfileViewModel.submitStatus
-
                         DriverProfileSettingsScreen(
                             onBackClick = { navController.popBackStack() },
-                            onConfirmDeleteClick = {
-                                deleteDriverProfileViewModel.deactivateProfile()
-                            },
+                            onConfirmDeleteClick = { deleteDriverProfileViewModel.deactivateProfile() },
                             statusMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Deleting driver profile..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
@@ -143,26 +183,45 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    composable("home") {
-                        androidx.compose.foundation.layout.Column(
-                            modifier = androidx.compose.ui.Modifier.padding(24.dp),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+                    // ── CARPOOL DASHBOARD (self-funded students) ──────────────────
+                    composable(GyrRoutes.HOME) {
+                        CarpoolHomeScreen(
+                            navController = navController,
+                            onPostRide    = { navController.navigate("offer_ride") },
+                        )
+                    }
+
+                    // ── SHUTTLE DASHBOARD (NSFAS-funded students) ─────────────────
+                    // TODO: replace this placeholder with a real ShuttleHomeScreen
+                    // once it's built — same wiring pattern as CarpoolHomeScreen above.
+                    composable("shuttle_home") {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            androidx.compose.material3.Text("Home Screen - coming soon")
-                            androidx.compose.material3.Button(
-                                onClick = { navController.navigate("offer_ride") }
-                            ) {
-                                androidx.compose.material3.Text("Offer Ride")
+                            Text("Shuttle Home Screen — coming soon")
+                            Button(onClick = { navController.navigate("offer_ride") }) {
+                                Text("Offer Ride")
                             }
-                            androidx.compose.material3.Button(
-                                onClick = { navController.navigate("driver_profile_settings") }
-                            ) {
-                                androidx.compose.material3.Text("Delete Driver Profile")
+                            Button(onClick = { navController.navigate("driver_profile_settings") }) {
+                                Text("Delete Driver Profile")
                             }
                         }
                     }
+
+                    // Add GyrRoutes.RIDES / TRACK / PROFILE composables here as you build them
                 }
             }
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// homeRouteFor — single source of truth for "which dashboard does this student see"
+//
+// Called from both login and signup so the routing rule only lives in one place.
+// If you add a 3rd student type later, this is the only function to update.
+// ─────────────────────────────────────────────────────────────────────────────
+private fun homeRouteFor(isNsfasFunded: Boolean): String {
+    return if (isNsfasFunded) "shuttle_home" else GyrRoutes.HOME
 }
