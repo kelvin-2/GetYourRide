@@ -32,45 +32,48 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview //feat : feature
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.getyourride.ui.theme.*
-import com.example.getyourride.ui.components.* // Fix: Import shared components
+import com.example.getyourride.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
-    onBackClick: () -> Unit = {},
-    onSignUpClick: (fullName: String, studentNumber: String, email: String, password: String, isNsfasFunded: Boolean) -> Unit = { _, _, _, _, _ -> },
-    onBecomeDriverClick: () -> Unit = {},
-    onLoginClick: () -> Unit = {},
-    onTermsClick: () -> Unit = {},
-    onPrivacyClick: () -> Unit = {},
+    onBackClick          : () -> Unit = {},
+    onCreateAccountClick : () -> Unit = {},   // ✅ default added — preview now compiles
+    onLoginClick         : () -> Unit = {},   // ✅ zero-arg — just navigates back, not a real login call
+    onBecomeDriverClick  : () -> Unit = {},
+    onTermsClick         : () -> Unit = {},
+    onPrivacyClick       : () -> Unit = {},
+    onSignUpClick         : (fullName: String, studentNumber: String, email: String, password: String, isNsfasFunded: Boolean) -> Unit = { _, _, _, _, _ -> },
+    isLoading             : Boolean = false,   // ✅ now actually used below
+    errorMessage          : String? = null,    // ✅ now actually used below
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var studentNumber by remember { mutableStateOf("") }
+    var fullName        by remember { mutableStateOf("") }
+    var studentNumber   by remember { mutableStateOf("") }
     var universityEmail by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var password        by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isNsfasFunded by remember { mutableStateOf<Boolean?>(null) }   // null = not selected yet
-    var agreedToTerms by remember { mutableStateOf(false) }
+    var isNsfasFunded   by remember { mutableStateOf<Boolean?>(null) }
+    var agreedToTerms   by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Sign Up",
+                        text       = "Sign Up",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp,
-                        color = NavyPrimary,
+                        fontSize   = 16.sp,
+                        color      = NavyPrimary,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            imageVector        = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "Back",
-                            tint = NavyPrimary,
+                            tint               = NavyPrimary,
                         )
                     }
                 },
@@ -88,94 +91,80 @@ fun SignUpScreen(
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
 
-            // ── Page heading ──────────────────────────────────────────────────
             Text(
-                text = "Create Account",
-                fontSize = 22.sp,
+                text       = "Create Account",
+                fontSize   = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = NavyPrimary,
+                color      = NavyPrimary,
             )
 
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = "No Waiting. No Queues. Just Rides",
-                fontSize = 13.sp,
-                color = OrangeAccent,
+                text       = "No Waiting. No Queues. Just Rides",
+                fontSize   = 13.sp,
+                color      = OrangeAccent,
                 fontWeight = FontWeight.Medium,
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Form Card ─────────────────────────────────────────────────────
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite),
+                modifier  = Modifier.fillMaxWidth(),
+                shape     = RoundedCornerShape(12.dp),
+                colors    = CardDefaults.cardColors(containerColor = CardWhite),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier            = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
 
-                    // Full Name
                     GyrTextField(
-                        label = "Full Name",
-                        value = fullName,
+                        label         = "Full Name",
+                        value         = fullName,
                         onValueChange = { fullName = it },
-                        placeholder = "John Doe",
-                        leadingIcon = Icons.Outlined.Person,
+                        placeholder   = "John Doe",
+                        leadingIcon   = Icons.Outlined.Person,
                     )
 
-                    // Student Number
                     GyrTextField(
-                        label = "Student Number",
-                        value = studentNumber,
+                        label         = "Student Number",
+                        value         = studentNumber,
                         onValueChange = { studentNumber = it },
-                        placeholder = "8-digit ID",
-                        leadingIcon = Icons.Outlined.Badge,
-                        keyboardType = KeyboardType.Number,
+                        placeholder   = "8-digit ID",
+                        leadingIcon   = Icons.Outlined.Badge,
+                        keyboardType  = KeyboardType.Number,
                     )
 
-                    // University Email
                     GyrTextField(
-                        label = "University Email",
-                        value = universityEmail,
+                        label         = "University Email",
+                        value         = universityEmail,
                         onValueChange = { universityEmail = it },
-                        placeholder = "name@mandela.ac.za",
-                        leadingIcon = Icons.Outlined.Email,
-                        keyboardType = KeyboardType.Email,
+                        placeholder   = "name@mandela.ac.za",
+                        leadingIcon   = Icons.Outlined.Email,
+                        keyboardType  = KeyboardType.Email,
                     )
 
-                    // Password
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "PASSWORD",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            text          = "PASSWORD",
+                            fontSize      = 11.sp,
+                            fontWeight    = FontWeight.SemiBold,
                             letterSpacing = 0.5.sp,
-                            color = NavyPrimary,
+                            color         = NavyPrimary,
                         )
                         OutlinedTextField(
-                            value = password,
+                            value         = password,
                             onValueChange = { password = it },
-                            placeholder = {
-                                Text("Min. 8 characters", color = TextHint, fontSize = 14.sp)
-                            },
+                            placeholder   = { Text("Min. 8 characters", color = TextHint, fontSize = 14.sp) },
                             leadingIcon = {
-                                Icon(
-                                    Icons.Outlined.Lock,
-                                    contentDescription = null,
-                                    tint = IconTint,
-                                    modifier = Modifier.size(20.dp),
-                                )
+                                Icon(Icons.Outlined.Lock, contentDescription = null, tint = IconTint, modifier = Modifier.size(20.dp))
                             },
                             trailingIcon = {
                                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                     Icon(
-                                        imageVector = if (passwordVisible) Icons.Outlined.Visibility
-                                        else Icons.Outlined.VisibilityOff,
+                                        imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                                         contentDescription = if (passwordVisible) "Hide password" else "Show password",
                                         tint = IconTint,
                                     )
@@ -183,44 +172,42 @@ fun SignUpScreen(
                             },
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            singleLine = true,
-                            colors = gyrOutlinedTextFieldColors(),
+                            modifier        = Modifier.fillMaxWidth(),
+                            shape           = RoundedCornerShape(10.dp),
+                            singleLine      = true,
+                            colors          = gyrOutlinedTextFieldColors(),
                         )
                     }
 
-                    // ── NSFAS Funding ─────────────────────────────────────────
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "ARE YOU NSFAS FUNDED?",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            text          = "ARE YOU NSFAS FUNDED?",
+                            fontSize      = 11.sp,
+                            fontWeight    = FontWeight.SemiBold,
                             letterSpacing = 0.5.sp,
-                            color = NavyPrimary,
+                            color         = NavyPrimary,
                         )
                         NsfasRadioOption(
-                            label = "Yes, I am NSFAS Funded",
+                            label    = "Yes, I am NSFAS Funded",
                             selected = isNsfasFunded == true,
                             onSelect = { isNsfasFunded = true },
                         )
                         NsfasRadioOption(
-                            label = "No, I am self-funded",
+                            label    = "No, I am self-funded",
                             selected = isNsfasFunded == false,
                             onSelect = { isNsfasFunded = false },
                         )
                     }
 
-                    // ── Terms checkbox ────────────────────────────────────────
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier          = Modifier.fillMaxWidth(),
                     ) {
                         Checkbox(
-                            checked = agreedToTerms,
+                            checked         = agreedToTerms,
                             onCheckedChange = { agreedToTerms = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = NavyPrimary,
+                            colors          = CheckboxDefaults.colors(
+                                checkedColor   = NavyPrimary,
                                 checkmarkColor = Color.White,
                             ),
                             modifier = Modifier.size(20.dp),
@@ -229,34 +216,36 @@ fun SignUpScreen(
 
                         val termsText = buildAnnotatedString {
                             append("I agree to the ")
-                            withStyle(
-                                SpanStyle(
-                                    color = NavyPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textDecoration = TextDecoration.Underline,
-                                )
-                            ) { append("Terms of Service") }
+                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                                append("Terms of Service")
+                            }
                             append(" and ")
-                            withStyle(
-                                SpanStyle(
-                                    color = NavyPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textDecoration = TextDecoration.Underline,
-                                )
-                            ) { append("Privacy Policy") }
+                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                                append("Privacy Policy")
+                            }
                             append(" of GetYourRide.")
                         }
                         Text(
-                            text = termsText,
+                            text     = termsText,
                             fontSize = 13.sp,
-                            color = TextMuted,
+                            color    = TextMuted,
                             modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+
+                    // ── Error message — shows above the Sign Up button when present ──
+                    if (errorMessage != null) {
+                        Text(
+                            text     = errorMessage,
+                            fontSize = 13.sp,
+                            color    = DangerRed,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
                     Spacer(Modifier.height(4.dp))
 
-                    // Sign Up button (Navy primary)
+                    // ── Sign Up button — shows spinner + disables while loading ────
                     Button(
                         onClick = {
                             onSignUpClick(
@@ -267,78 +256,69 @@ fun SignUpScreen(
                                 isNsfasFunded == true,
                             )
                         },
-                        enabled = agreedToTerms && isNsfasFunded != null,
+                        enabled  = agreedToTerms && isNsfasFunded != null && !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape  = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = NavyPrimary,
+                            containerColor         = NavyPrimary,
                             disabledContainerColor = NavyPrimary.copy(alpha = 0.4f),
                         ),
                     ) {
-                        Text(
-                            text = "Sign Up",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(20.dp),
+                                color       = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text(
+                                text       = "Sign Up",
+                                fontSize   = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = Color.White,
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // ── Become a Driver promo ─────────────────────────────────────────
             val driverText = buildAnnotatedString {
                 append("Want to earn while you drive? ")
-                withStyle(
-                    SpanStyle(
-                        color = NavyPrimary,
-                        fontWeight = FontWeight.Bold,
-                        textDecoration = TextDecoration.Underline,
-                    )
-                ) { append("Become a Driver") }
+                withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline)) {
+                    append("Become a Driver")
+                }
             }
             Text(
-                text = driverText,
-                fontSize = 13.sp,
-                color = TextMuted,
+                text      = driverText,
+                fontSize  = 13.sp,
+                color     = TextMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onBecomeDriverClick() },
+                modifier  = Modifier.fillMaxWidth().clickable { onBecomeDriverClick() },
             )
 
             Spacer(Modifier.height(12.dp))
 
-            // ── Already have an account ───────────────────────────────────────
             val loginText = buildAnnotatedString {
                 append("Already have an account? ")
-                withStyle(
-                    SpanStyle(
-                        color = OrangeAccent,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                ) { append("Login") }
+                withStyle(SpanStyle(color = OrangeAccent, fontWeight = FontWeight.SemiBold)) {
+                    append("Login")
+                }
             }
             Text(
-                text = loginText,
-                fontSize = 13.sp,
-                color = TextMuted,
+                text      = loginText,
+                fontSize  = 13.sp,
+                color     = TextMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onLoginClick() },
+                modifier  = Modifier.fillMaxWidth().clickable { onLoginClick() },
             )
 
-            Spacer(Modifier.height(16.dp))
-
+            Spacer(Modifier.height(32.dp))
         }
-
-        Spacer(Modifier.height(32.dp))
     }
-
 }
 
 @Preview(showBackground = true, showSystemUi = true, name = "Sign Up Screen")
@@ -349,4 +329,18 @@ fun SignUpScreenPreview() {
     }
 }
 
-// ── Shared sub-components moved to ui.components.GyrComponents.kt ──
+@Preview(showBackground = true, showSystemUi = true, name = "Sign Up — Loading")
+@Composable
+fun SignUpScreenLoadingPreview() {
+    GetYourRideTheme {
+        SignUpScreen(isLoading = true)
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Sign Up — Error")
+@Composable
+fun SignUpScreenErrorPreview() {
+    GetYourRideTheme {
+        SignUpScreen(errorMessage = "Email already in use. Try logging in instead.")
+    }
+}

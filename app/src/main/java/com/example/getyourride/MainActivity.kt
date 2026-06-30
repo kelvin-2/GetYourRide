@@ -9,17 +9,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
+import com.example.getyourride.data.repository.StudentAuthRepository
+import com.example.getyourride.di.NetworkModule
 import com.example.getyourride.network.SpringBootApiService
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.screens.Carpool.CarpoolHomeScreen
@@ -31,6 +35,9 @@ import com.example.getyourride.ui.screens.LoginScreen
 import com.example.getyourride.ui.screens.OfferRideScreen
 import com.example.getyourride.ui.screens.SignUpScreen
 import com.example.getyourride.ui.theme.GetYourRideTheme
+import com.example.getyourride.viewmodel.AuthUiState
+import com.example.getyourride.viewmodel.AuthViewModel
+import com.example.getyourride.viewmodel.AuthViewModelFactory
 import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.OfferRideViewModel
@@ -42,11 +49,8 @@ import com.example.getyourride.viewmodel.OfferRideViewModel
 //   - NSFAS funded  → routed to "shuttle_home" (fixed shuttle routes)
 //   - Self-funded   → routed to GyrRoutes.HOME = CarpoolHomeScreen (peer-to-peer)
 //
-// "isNsfasFunded" is currently a local Compose state variable set from the
-// SignUpScreen's NSFAS radio answer. Once your Spring Boot auth endpoint is
-// wired up, replace this with the value from the login API response instead
-// (e.g. response.user.isNsfasFunded) — everything else stays the same because
-// routing always goes through homeRouteFor() below.
+// isNsfasFunded now comes from the REAL backend response (AuthResponse.isFunded)
+// returned by StudentAuthApi — set inside the LaunchedEffect blocks below.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MainActivity : ComponentActivity() {
@@ -57,6 +61,8 @@ class MainActivity : ComponentActivity() {
             GetYourRideTheme {
                 val navController = rememberNavController()
 
+                // ── Existing mock API service (driver flow, offer ride, etc.) ──────
+                // Unrelated to auth — left untouched.
                 val apiService = remember {
                     SpringBootApiService(
                         baseUrl = "https://your-spring-boot-api.example.com"
@@ -72,9 +78,16 @@ class MainActivity : ComponentActivity() {
                     DeleteDriverProfileViewModel(apiService = apiService)
                 }
 
+                // ── Real auth wiring — talks to StudentAuthController on :8080 ─────
+                val studentAuthRepository = remember {
+                    StudentAuthRepository(api = NetworkModule.studentAuthApi)
+                }
+                val authViewModel: AuthViewModel = viewModel(
+                    factory = AuthViewModelFactory(studentAuthRepository)
+                )
+
                 // ── Student funding status — drives which dashboard they land on ──
-                // TODO: replace this default with the real value from your
-                // login API response once the backend is connected.
+                // Set from the real AuthResponse.isFunded field once login/signup succeeds.
                 var isNsfasFunded by remember { mutableStateOf(false) }
 
                 NavHost(
@@ -84,33 +97,71 @@ class MainActivity : ComponentActivity() {
 
                     // ── LOGIN ──────────────────────────────────────────────────────
                     composable("login") {
-                        LoginScreen(
-                            onCreateAccountClick = { navController.navigate("signup") },
-                            onLoginClick = { _, _ ->
-                                // TODO: replace with real API call.
-                                // isNsfasFunded keeps whatever value it last had
-                                // (set during signup, or default false on fresh installs).
+                        val uiState = authViewModel.uiState
+
+                        // Fires once when login succeeds — navigates, then resets state
+                        // so re-entering this screen later doesn't auto-navigate again.
+                        LaunchedEffect(uiState) {
+                            if (uiState is AuthUiState.Success) {
+                                isNsfasFunded = uiState.response.isFunded ?: false
                                 navController.navigate(homeRouteFor(isNsfasFunded)) {
                                     popUpTo("login") { inclusive = true }
                                 }
+                                authViewModel.resetState()
                             }
+                        }
+
+                        LoginScreen(
+                            onCreateAccountClick = { navController.navigate("signup") },
+                            onLoginClick = { email, password ->
+                                authViewModel.login(email, password)
+                            },
+                            // ⚠️ Add these two params to LoginScreen's signature
+                            // if they don't already exist — see note below file.
+                            isLoading    = uiState is AuthUiState.Loading,
+                            errorMessage = (uiState as? AuthUiState.Error)?.message,
                         )
                     }
 
                     // ── SIGN UP ────────────────────────────────────────────────────
                     composable("signup") {
+                        val uiState = authViewModel.uiState
+
+                        LaunchedEffect(uiState) {
+                            if (uiState is AuthUiState.Success) {
+                                isNsfasFunded = uiState.response.isFunded ?: false
+                                navController.navigate(homeRouteFor(isNsfasFunded)) {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                                authViewModel.resetState()
+                            }
+                        }
+
                         SignUpScreen(
                             onBackClick          = { navController.popBackStack() },
                             onLoginClick         = { navController.popBackStack() },
                             onBecomeDriverClick  = { navController.navigate("driver_step_1") },
-                            onSignUpClick = { _, _, _, _, isFunded ->
-                                // The 5th param from SignUpScreen IS the NSFAS
-                                // radio answer the student picked — use it directly.
-                                isNsfasFunded = isFunded
-                                navController.navigate(homeRouteFor(isFunded)) {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            }
+                            onSignUpClick = { fullName, studentNumber, email, password, isFunded ->
+                                // SignUpScreen captures one "fullName" field, but the backend
+                                // wants firstName + lastName separately — split on first space.
+                                val nameParts = fullName.trim().split(" ", limit = 2)
+                                val firstName = nameParts.getOrElse(0) { "" }
+                                val lastName  = nameParts.getOrElse(1) { "" }
+
+                                authViewModel.register(
+                                    studentNumber = studentNumber,
+                                    firstName     = firstName,
+                                    lastName      = lastName,
+                                    email         = email,
+                                    phone         = "", // ⚠️ SignUpScreen has no phone field yet
+                                    password      = password,
+                                    isFunded      = isFunded,
+                                )
+                            },
+                            // ⚠️ Add these two params to SignUpScreen's signature
+                            // if they don't already exist — see note below file.
+                            isLoading    = uiState is AuthUiState.Loading,
+                            errorMessage = (uiState as? AuthUiState.Error)?.message,
                         )
                     }
 

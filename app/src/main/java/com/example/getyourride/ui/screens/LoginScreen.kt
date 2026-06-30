@@ -43,6 +43,8 @@ fun LoginScreen(
     onForgotPasswordClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyClick: () -> Unit = {},
+    isLoading: Boolean = false,
+    errorMessage: String? = null
 ) {
     var studentIdOrEmail by remember { mutableStateOf("") }
     var password        by remember { mutableStateOf("") }
