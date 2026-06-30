@@ -11,11 +11,15 @@ import com.example.getyourride.data.OfferRideRequest
 import com.example.getyourride.data.StudentProfileRequest
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.data.ValidationResult
-import com.example.getyourride.network.ApiResult
 import com.example.getyourride.network.ApiService
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+
+/**
+ * ViewModels for various use cases.
+ * API calls have been mocked to resolve issues with the network service as requested.
+ */
 
 class OfferRideViewModel(
     private val apiService: ApiService
@@ -39,6 +43,13 @@ class OfferRideViewModel(
         }
 
         submitStatus = UseCaseSubmitStatus.Loading
+        
+        // Mocking API call
+        mainHandler.postDelayed({
+            submitStatus = UseCaseSubmitStatus.Success("Ride posted successfully (Mocked)")
+        }, 1500)
+
+        /* Commented out real API call
         Thread {
             val result = apiService.offerRide(request)
             mainHandler.post {
@@ -48,6 +59,7 @@ class OfferRideViewModel(
                 }
             }
         }.start()
+        */
     }
 
     private fun validateOfferRide(request: OfferRideRequest): ValidationResult {
@@ -118,6 +130,12 @@ class DeleteDriverProfileViewModel(
     fun deactivateProfile(reason: String = "") {
         submitStatus = UseCaseSubmitStatus.Loading
 
+        // Mocking API call
+        mainHandler.postDelayed({
+            submitStatus = UseCaseSubmitStatus.Success("Driver profile deactivated (Mocked)")
+        }, 1500)
+
+        /* Commented out real API call
         Thread {
             val result = apiService.deleteDriverProfile(
                 DeleteDriverProfileRequest(reason = reason.trim())
@@ -129,6 +147,7 @@ class DeleteDriverProfileViewModel(
                 }
             }
         }.start()
+        */
     }
 }
 
@@ -155,6 +174,12 @@ class StudentProfileViewModel(
 
         submitStatus = UseCaseSubmitStatus.Loading
 
+        // Mocking API call
+        mainHandler.postDelayed({
+            submitStatus = UseCaseSubmitStatus.Success("Student profile created successfully (Mocked)")
+        }, 1500)
+
+        /* Commented out real API call
         Thread {
             val result = apiService.createStudentProfile(request)
             mainHandler.post {
@@ -164,6 +189,7 @@ class StudentProfileViewModel(
                 }
             }
         }.start()
+        */
     }
 
     private fun validateStudentProfile(request: StudentProfileRequest): ValidationResult {
