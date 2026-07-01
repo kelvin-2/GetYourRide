@@ -41,6 +41,12 @@ import com.example.getyourride.viewmodel.AuthViewModelFactory
 import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.OfferRideViewModel
+import com.example.getyourride.ui.screens.StudentDriverHomeScreen
+import com.example.getyourride.ui.screens.DriverProfileDetails
+import androidx.compose.runtime.LaunchedEffect
+import com.example.getyourride.ui.screens.RideAcceptedStudent
+import com.example.getyourride.ui.screens.StudentDriverPostedRide
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTING NOTES — how student type decides which dashboard they see
@@ -190,37 +196,142 @@ class MainActivity : ComponentActivity() {
                     composable("driver_step_3") {
                         val submitStatus = driverApplicationViewModel.submitStatus
                         DriverStep3Screen(
-                            onBackClick = { navController.popBackStack() },
+                            onBackClick = {
+                                navController.popBackStack()
+                            },
                             onSubmitClick = { step3Data ->
                                 driverApplicationViewModel.submitApplication(step3Data)
+
+                                navController.navigate("student_driver_home") {
+                                    popUpTo("driver_step_1") {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
                             },
                             errorMessage = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = when (submitStatus) {
-                                is DriverApplicationSubmitStatus.Loading -> "Submitting driver application..."
-                                is DriverApplicationSubmitStatus.Success -> submitStatus.message
+                            statusMessage = when (val status = driverApplicationViewModel.submitStatus) {
+                                is DriverApplicationSubmitStatus.Success -> status.message
+                                is DriverApplicationSubmitStatus.Error -> status.message
                                 else -> null
                             }
                         )
                     }
 
+                    //Offer a Ride page
                     composable("offer_ride") {
                         val submitStatus = offerRideViewModel.submitStatus
+
                         OfferRideScreen(
-                            onPostRideClick = { request -> offerRideViewModel.postRide(request) },
-                            errorMessage    = offerRideViewModel.errorMessage,
+                            onPostRideClick = { request ->
+                                offerRideViewModel.postRide(request)
+                            },
+                            errorMessage = offerRideViewModel.errorMessage,
                             statusMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Posting ride..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
                                 else -> null
+                            },
+                            onHomeClick = {
+                                navController.navigate("student_driver_home") {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onOfferRideClick = {
+                                navController.navigate("offer_ride") {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onProfileClick = {
+                                navController.navigate("driver_profile_settings")
+                            }
+                        )
+                    }
+                    //Home page for Student driver
+                    composable("student_driver_home") {
+                        var isDriverHomeRefreshing by remember {
+                            mutableStateOf(false)
+                        }
+
+                        /*
+                         * Temporary frontend refresh simulation.
+                         *
+                         * Later, this is where we will call the backend API to get:
+                         * - latest verification status
+                         * - latest posted rides
+                         * - latest accepted students
+                         */
+                        if (isDriverHomeRefreshing) {
+                            LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(1200)
+                                isDriverHomeRefreshing = false
+                            }
+                        }
+
+                        StudentDriverHomeScreen(
+                            driverName = "Ayabulela",
+                            verificationStatus = "Pending Verification",
+                            isRefreshing = isDriverHomeRefreshing,
+                            postedRides = listOf(
+                                StudentDriverPostedRide(
+                                    rideId = "1",
+                                    pickupLocation = "South Campus",
+                                    destination = "North Campus",
+                                    date = "2026-07-01",
+                                    time = "08:30",
+                                    availableSeats = 3,
+                                    farePerSeat = "R20.00",
+                                    acceptedStudents = listOf(
+                                        RideAcceptedStudent(
+                                            name = "Lanele Maqina",
+                                            studentNumber = "223456789"
+                                        ),
+                                        RideAcceptedStudent(
+                                            name = "Tichaona Mudingwa",
+                                            studentNumber = "224567890"
+                                        )
+                                    )
+                                )
+                            ),
+                            onRefreshClick = {
+                                isDriverHomeRefreshing = true
+                            },
+                            onHomeClick = {
+                                navController.navigate("student_driver_home") {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onOfferRideClick = {
+                                navController.navigate("offer_ride")
+                            },
+                            onProfileClick = {
+                                navController.navigate("driver_profile_settings")
                             }
                         )
                     }
 
                     composable("driver_profile_settings") {
                         val submitStatus = deleteDriverProfileViewModel.submitStatus
+
                         DriverProfileSettingsScreen(
-                            onBackClick = { navController.popBackStack() },
-                            onConfirmDeleteClick = { deleteDriverProfileViewModel.deactivateProfile() },
+                            profileDetails = DriverProfileDetails(
+                                firstName = "Ayabulela",
+                                surname = "Mtwesi",
+                                studentNumber = "223456789",
+                                contactNumber = "071 234 5678",
+                                universityEmail = "ayabulela@mandela.ac.za",
+                                vehicleMake = "Toyota",
+                                vehicleModel = "Corolla",
+                                vehicleRegistrationNumber = "ABC 123 EC",
+                                vehicleColour = "White",
+                                seatingCapacity = 4,
+                                verificationStatus = "Pending Verification",
+                                driversLicenceStatus = "Uploaded",
+                                vehicleRegistrationStatus = "Uploaded"
+                            ),
+                            onConfirmDeleteClick = {
+                                deleteDriverProfileViewModel.deactivateProfile()
+                            },
                             statusMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Deleting driver profile..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
@@ -229,6 +340,21 @@ class MainActivity : ComponentActivity() {
                             errorMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Error -> submitStatus.message
                                 else -> null
+                            },
+                            onHomeClick = {
+                                navController.navigate("student_driver_home") {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onOfferRideClick = {
+                                navController.navigate("offer_ride") {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onProfileClick = {
+                                navController.navigate("driver_profile_settings") {
+                                    launchSingleTop = true
+                                }
                             }
                         )
                     }
