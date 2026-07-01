@@ -363,7 +363,7 @@ class MainActivity : ComponentActivity() {
                     composable(GyrRoutes.HOME) {
                         CarpoolHomeScreen(
                             navController = navController,
-                            onPostRide    = { navController.navigate("offer_ride") },
+
                         )
                     }
 
