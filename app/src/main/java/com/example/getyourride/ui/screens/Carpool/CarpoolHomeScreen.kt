@@ -60,7 +60,7 @@ fun CarpoolHomeScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-            GreetingHeader(name = UserSession.firstName)
+
 
             FindCarpoolHeader(
                 pickupLocation      = "Campus North Entrance",
@@ -84,17 +84,7 @@ fun CarpoolHomeScreen(
     }
 }
 
-// ── 0. Greeting ─────────────────────────────────────────────────────────────
 
-@Composable
-private fun GreetingHeader(name: String?) {
-    Text(
-        text       = "Hi, ${name?.takeIf { it.isNotBlank() } ?: "there"} 👋",
-        fontSize   = 15.sp,
-        fontWeight = FontWeight.Medium,
-        color      = TextMuted,
-    )
-}
 
 // ── 1. Find a Carpool header ────────────────────────────────────────────────
 

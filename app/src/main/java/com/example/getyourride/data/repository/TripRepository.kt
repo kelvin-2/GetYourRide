@@ -7,7 +7,7 @@ class TripRepository(private val api: TripApi) {
 
     suspend fun getAvailableTrips(): Result<List<TripResponse>> {
         return try {
-            val response = api.getTripsByStatus("Scheduled") // was "SCHEDULED" — backend uses "Scheduled"
+            val response = api.getTripsByStatus("SCHEDULED")
             if (response.isSuccessful) {
                 Result.success(response.body() ?: emptyList())
             } else {
