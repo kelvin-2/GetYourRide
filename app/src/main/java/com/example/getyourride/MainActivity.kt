@@ -1,6 +1,9 @@
 package com.example.getyourride
-
+import com.example.getyourride.data.repository.TripRepository
+import com.example.getyourride.viewmodel.RideViewModel
+import com.example.getyourride.viewmodel.RideViewModelFactory
 import android.os.Bundle
+import com.example.getyourride.UserSession
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -109,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         // so re-entering this screen later doesn't auto-navigate again.
                         LaunchedEffect(uiState) {
                             if (uiState is AuthUiState.Success) {
+                                UserSession.save(uiState.response)   // ← save token + user data
                                 isNsfasFunded = uiState.response.isFunded ?: false
                                 navController.navigate(homeRouteFor(isNsfasFunded)) {
                                     popUpTo("login") { inclusive = true }
@@ -122,8 +126,6 @@ class MainActivity : ComponentActivity() {
                             onLoginClick = { email, password ->
                                 authViewModel.login(email, password)
                             },
-                            // ⚠️ Add these two params to LoginScreen's signature
-                            // if they don't already exist — see note below file.
                             isLoading    = uiState is AuthUiState.Loading,
                             errorMessage = (uiState as? AuthUiState.Error)?.message,
                         )
@@ -135,6 +137,7 @@ class MainActivity : ComponentActivity() {
 
                         LaunchedEffect(uiState) {
                             if (uiState is AuthUiState.Success) {
+                                UserSession.save(uiState.response)
                                 isNsfasFunded = uiState.response.isFunded ?: false
                                 navController.navigate(homeRouteFor(isNsfasFunded)) {
                                     popUpTo("login") { inclusive = true }
@@ -361,11 +364,18 @@ class MainActivity : ComponentActivity() {
 
                     // ── CARPOOL DASHBOARD (self-funded students) ──────────────────
                     composable(GyrRoutes.HOME) {
+                        val rideViewModel: RideViewModel = viewModel(
+                            factory = RideViewModelFactory(TripRepository(NetworkModule.tripApi))
+                        )
+
                         CarpoolHomeScreen(
+                            uiState = rideViewModel.uiState,
+                            onRetry = { rideViewModel.loadAvailableTrips() },
+                            onBookRide = { rideId -> /* TODO: wire request-ride endpoint later */ },
                             navController = navController,
-                            onPostRide    = { navController.navigate("offer_ride") },
                         )
                     }
+
 
                     // ── SHUTTLE DASHBOARD (NSFAS-funded students) ─────────────────
                     // TODO: replace this placeholder with a real ShuttleHomeScreen

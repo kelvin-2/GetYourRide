@@ -74,7 +74,7 @@ fun StudentLayout(
             GyrTopBar(
                 onBackClick   = null,      // home screens never show a back arrow
                 trailingLabel = null,      // no step label on main screens
-                showBell      = showBell,  // bell visible by default
+
             )
         },
 

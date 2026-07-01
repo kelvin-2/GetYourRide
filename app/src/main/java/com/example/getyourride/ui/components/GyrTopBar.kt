@@ -5,7 +5,7 @@
 // PURPOSE — Single top app bar used on every screen in the app.
 //
 // Two modes:
-//   1. Home screens  → no back arrow, optional bell icon on the right
+//   1. Home screens  → no back arrow, no trailing content
 //   2. Detail screens → back arrow on left, optional step label on right
 //
 // The progress bar (GyrStepProgressBar) is a separate composable
@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DirectionsBus
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.ui.theme.*
 
+// Slim navy tone for the top bar — a touch darker/tighter than NavyPrimary
+private val TopBarNavy = Color(0xFF0C1E42)
+
 /**
  * App-wide top bar.
  *
@@ -38,16 +40,12 @@ import com.example.getyourride.ui.theme.*
  *                       — Home screens: null (no back arrow)
  *                       — Detail screens: { navController.popBackStack() }
  * @param trailingLabel  Optional right-side text e.g. "STEP 1 OF 3".
- *                       Ignored if showBell is true.
- * @param showBell       Show notification bell on the right. Default false.
- *                       Set to true on all main student tab screens.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GyrTopBar(
     onBackClick   : (() -> Unit)? = null,
     trailingLabel : String?       = null,
-    showBell      : Boolean       = false,
 ) {
     TopAppBar(
         // ── Left side — back arrow or empty space ─────────────────────────────
@@ -76,48 +74,37 @@ fun GyrTopBar(
                 Icon(
                     imageVector        = Icons.Outlined.DirectionsBus,
                     contentDescription = null,
-                    tint               = Color.White,
-                    modifier           = Modifier.size(20.dp),
+                    tint               = OrangeAccent,
+                    modifier           = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text       = "GetYourRide",
-                    fontSize   = 16.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize   = 15.sp,
+                    fontWeight = FontWeight.Medium,
                     color      = Color.White,
                 )
             }
         },
 
-        // ── Right side — bell icon OR step label OR empty ─────────────────────
+        // ── Right side — step label OR empty ────────────────────────────────
         actions = {
-            when {
-                // Main student screens show the notification bell
-                showBell -> {
-                    IconButton(onClick = { /* TODO: navigate to notifications */ }) {
-                        Icon(
-                            imageVector        = Icons.Outlined.Notifications,
-                            contentDescription = "Notifications",
-                            tint               = Color.White,
-                        )
-                    }
-                }
-                // Multi-step flows show e.g. "STEP 1 OF 3"
-                trailingLabel != null -> {
-                    Text(
-                        text       = trailingLabel,
-                        fontSize   = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = Color.White.copy(alpha = 0.8f),
-                        modifier   = Modifier.padding(end = 16.dp),
-                    )
-                }
-                // Detail screens with only a back arrow — keep right side balanced
-                else -> Spacer(Modifier.width(48.dp))
+            if (trailingLabel != null) {
+                Text(
+                    text       = trailingLabel,
+                    fontSize   = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = Color.White.copy(alpha = 0.8f),
+                    modifier   = Modifier.padding(end = 16.dp),
+                )
+            } else {
+                // Keep title centred when there's nothing on the right
+                Spacer(Modifier.width(48.dp))
             }
         },
 
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = NavyPrimary),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = TopBarNavy),
+        modifier = Modifier.height(52.dp), // slimmer than the default 64.dp bar
     )
 }
 
@@ -157,10 +144,10 @@ fun GyrStepProgressBar(
 
 // ─── Previews ─────────────────────────────────────────────────────────────────
 
-@Preview(name = "TopBar — Home (with bell)")
+@Preview(name = "TopBar — Home")
 @Composable
 fun TopBarHomePreview() {
-    MaterialTheme { GyrTopBar(showBell = true) }
+    MaterialTheme { GyrTopBar() }
 }
 
 @Preview(name = "TopBar — Detail (back arrow + step label)")
