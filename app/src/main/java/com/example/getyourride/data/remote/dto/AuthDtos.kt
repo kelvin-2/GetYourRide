@@ -32,7 +32,7 @@ data class StudentRegisterRequest(
     val email         : String,
     val phone         : String,
     val password      : String,
-    val isFunded      : Boolean,  // ⚠️ requires backend field to be added — see note above
+    val isFunded      : Boolean,
 )
 
 // ── Response ────────────────────────────────────────────────────────────────
