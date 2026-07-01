@@ -2,6 +2,7 @@ package com.example.getyourride.di
 
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.api.StudentAuthApi
+import com.example.getyourride.data.remote.api.TripApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -51,6 +52,10 @@ object NetworkModule {
 
     val studentAuthApi: StudentAuthApi by lazy {
         retrofit.create(StudentAuthApi::class.java)
+    }
+    //trip api
+    val tripApi: TripApi by lazy {
+        retrofit.create(TripApi::class.java)
     }
 
     // Trips API — added once TripApi.kt exists (see below, pending DTO fields)

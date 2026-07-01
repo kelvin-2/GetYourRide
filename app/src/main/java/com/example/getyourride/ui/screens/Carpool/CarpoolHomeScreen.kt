@@ -1,17 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // CarpoolHomeScreen.kt
 // Package: com.example.getyourride.ui.screens.Carpool
-//
-// PURPOSE — Home dashboard for carpool students.
-//
-// This file only assembles components — it contains no raw UI primitives.
-// If something looks wrong, find the relevant component file to fix it:
-//
-//   Layout / nav bar issue   → StudentLayout.kt
-//   Carpool card issue       → CarpoolBookingCard.kt
-//   Section heading issue    → SectionHeader.kt
-//   Top bar issue            → GyrTopBar.kt
-//   Colors                   → GetYourRideColors.kt
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.ui.screens.Carpool
@@ -34,14 +23,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.UserSession
+import com.example.getyourride.data.mapper.toCarpoolRide
+import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.screens.Carpool.components.*
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.viewmodel.TripsUiState
 
 @Composable
 fun CarpoolHomeScreen(
-    // Callbacks — all defaulted so @Preview works without a NavController
+    uiState          : TripsUiState             = TripsUiState.Loading,
+    onRetry          : () -> Unit               = {},
     onBookRide       : (rideId: String) -> Unit = {},
     onViewAllRides   : () -> Unit               = {},
     onViewAllTrips   : () -> Unit               = {},
@@ -51,8 +45,6 @@ fun CarpoolHomeScreen(
     onNotifications  : () -> Unit               = {},
     navController    : androidx.navigation.NavController = rememberNavController(),
 ) {
-    // ── StudentLayout gives us the top bar + bottom nav for free ─────────────
-    // Just set currentRoute = HOME and everything else is handled
     StudentLayout(
         currentRoute  = GyrRoutes.HOME,
         navController = navController,
@@ -68,6 +60,8 @@ fun CarpoolHomeScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
+            GreetingHeader(name = UserSession.firstName)
+
             FindCarpoolHeader(
                 pickupLocation      = "Campus North Entrance",
                 destinationLocation = "Science Park / Downtown",
@@ -77,6 +71,8 @@ fun CarpoolHomeScreen(
             )
 
             AvailableRidesSection(
+                uiState    = uiState,
+                onRetry    = onRetry,
                 onBookRide = onBookRide,
                 onViewAll  = onViewAllRides,
             )
@@ -88,10 +84,19 @@ fun CarpoolHomeScreen(
     }
 }
 
-// ─── Section composables ——————————————————————————————————————————————────────
-// Each section is its own function so it can be previewed and debugged alone.
+// ── 0. Greeting ─────────────────────────────────────────────────────────────
 
-// ── 1. Find a Carpool header (title + pickup/destination card + search button) ─
+@Composable
+private fun GreetingHeader(name: String?) {
+    Text(
+        text       = "Hi, ${name?.takeIf { it.isNotBlank() } ?: "there"} 👋",
+        fontSize   = 15.sp,
+        fontWeight = FontWeight.Medium,
+        color      = TextMuted,
+    )
+}
+
+// ── 1. Find a Carpool header ────────────────────────────────────────────────
 
 @Composable
 private fun FindCarpoolHeader(
@@ -116,7 +121,6 @@ private fun FindCarpoolHeader(
 
         Spacer(Modifier.height(16.dp))
 
-        // Pickup + Destination card
         Card(
             modifier  = Modifier.fillMaxWidth(),
             shape     = RoundedCornerShape(16.dp),
@@ -146,7 +150,6 @@ private fun FindCarpoolHeader(
 
         Spacer(Modifier.height(14.dp))
 
-        // Search Rides button
         Button(
             onClick        = onSearchRides,
             shape          = RoundedCornerShape(24.dp),
@@ -197,29 +200,82 @@ private fun LocationInputField(
     }
 }
 
-// ── 2. Available rides (uses CarpoolBookingCard) ───────────────────────────────
+// ── 2. Available rides — now driven by TripsUiState from the backend ─────────
 
 @Composable
 private fun AvailableRidesSection(
+    uiState    : TripsUiState,
+    onRetry    : () -> Unit,
     onBookRide : (String) -> Unit,
     onViewAll  : () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(title = "Available Rides", onViewAll = onViewAll)
 
-        CarpoolBookingCard(
-            ride        = sampleRide1,
-            onBookClick = { onBookRide("ride_001") },
-        )
+        when (uiState) {
+            is TripsUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = OrangeAccent)
+                }
+            }
 
-        CarpoolBookingCard(
-            ride        = sampleRide2,
-            onBookClick = { onBookRide("ride_002") },
-        )
+            is TripsUiState.Error -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = CardDefaults.cardColors(containerColor = CardWhite),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text     = "Couldn't load rides — ${uiState.message}",
+                            fontSize = 13.sp,
+                            color    = TextMuted,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = onRetry,
+                            colors  = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
+                        ) {
+                            Text("Retry", color = Color.White)
+                        }
+                    }
+                }
+            }
+
+            is TripsUiState.Success -> {
+                if (uiState.trips.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = CardDefaults.cardColors(containerColor = CardWhite),
+                    ) {
+                        Text(
+                            text     = "No carpool rides available right now — check back soon.",
+                            fontSize = 13.sp,
+                            color    = TextMuted,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                } else {
+                    uiState.trips.forEach { trip: TripResponse ->
+                        CarpoolBookingCard(
+                            ride        = trip.toCarpoolRide(),
+                            onBookClick = { onBookRide(trip.tripId.toString()) },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
-// ── 3. Recent trips ───────────────────────────────────────────────────────────
+// ── 3. Recent trips ─────────────────────────────────────────────────────────
 
 @Composable
 private fun RecentTripsSection(onViewAll: () -> Unit) {
@@ -242,7 +298,6 @@ private fun RecentTripsSection(onViewAll: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Summerstrand → South Campus", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
                     Text("Yesterday, 13 Oct", fontSize = 12.sp, color = TextMuted)
-                    // Star rating row
                     Row {
                         repeat(4) {
                             Icon(Icons.Outlined.Star, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(14.dp))
@@ -251,7 +306,6 @@ private fun RecentTripsSection(onViewAll: () -> Unit) {
                     }
                 }
 
-                // Completed badge
                 Surface(
                     shape = RoundedCornerShape(6.dp),
                     color = StatusCompleted.copy(alpha = 0.12f),
@@ -269,10 +323,10 @@ private fun RecentTripsSection(onViewAll: () -> Unit) {
     }
 }
 
-// ─── Preview ──────────────────────────────────────────────────────────────────
+// ─── Preview ────────────────────────────────────────────────────────────────
 
 @Preview(showBackground = true, showSystemUi = true, name = "Carpool Home")
 @Composable
 fun CarpoolHomePreview() {
-    MaterialTheme { CarpoolHomeScreen() }
+    MaterialTheme { CarpoolHomeScreen() } // defaults to Loading state
 }

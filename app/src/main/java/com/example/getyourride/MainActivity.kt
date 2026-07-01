@@ -1,5 +1,7 @@
 package com.example.getyourride
-
+import com.example.getyourride.data.repository.TripRepository
+import com.example.getyourride.viewmodel.RideViewModel
+import com.example.getyourride.viewmodel.RideViewModelFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
