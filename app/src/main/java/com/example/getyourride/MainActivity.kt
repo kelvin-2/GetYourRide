@@ -48,6 +48,7 @@ import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
 import androidx.compose.runtime.LaunchedEffect
 import com.example.getyourride.ui.screens.RideAcceptedStudent
+import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
 
 
@@ -393,6 +394,23 @@ class MainActivity : ComponentActivity() {
                                 Text("Delete Driver Profile")
                             }
                         }
+                    }
+                    composable(GyrRoutes.RIDES) {
+                        MyRidesScreen(
+                            navController = navController,
+                            rides = listOf(
+                                // temporary mock data so you can see the screen render —
+                                // swap this for a real ViewModel call once you have a
+                                // GET /trips/mine (or similar) endpoint on the backend
+                            ),
+                            onTrackRide = { rideId ->
+                                // TODO: navigate to your live-tracking screen once built
+                                // navController.navigate("track_ride/$rideId")
+                            },
+                            onCancelRide = { rideId ->
+                                // TODO: call your cancel-ride endpoint here
+                            },
+                        )
                     }
 
                     // Add GyrRoutes.RIDES / TRACK / PROFILE composables here as you build them
