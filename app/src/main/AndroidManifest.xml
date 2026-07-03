@@ -3,6 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for QR code scanning. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Prevents Play Store/device filtering problems caused by CAMERA permission. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
 
     <application
