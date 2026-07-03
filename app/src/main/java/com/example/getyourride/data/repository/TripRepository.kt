@@ -17,4 +17,18 @@ class TripRepository(private val api: TripApi) {
             Result.failure(e)
         }
     }
+    suspend fun getTrips() :Result<List<TripResponse>>{
+        return try{
+            val response=api.getAllTrips()
+            if(response.isSuccessful){
+                Result.success(response.body()?: emptyList())
+            }else{
+                Result.failure(Exception("Failed to get trips: ${response.code()}"))
+            }
+
+        }
+        catch ( e: Exception){
+            Result.failure(e)
+        }
+    }
 }

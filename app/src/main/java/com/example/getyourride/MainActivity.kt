@@ -48,10 +48,8 @@ import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
 import androidx.compose.runtime.LaunchedEffect
 import com.example.getyourride.ui.screens.RideAcceptedStudent
+import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
-import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverBoardingScreen
-import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverProfileScreen
-import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverScanQrScreen
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,7 +102,7 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController    = navController,
-                    startDestination = "shuttle_driver_boarding"
+                    startDestination = "login"
                 ) {
 
                     // ── LOGIN ──────────────────────────────────────────────────────
@@ -289,12 +287,12 @@ class MainActivity : ComponentActivity() {
                                     farePerSeat = "R20.00",
                                     acceptedStudents = listOf(
                                         RideAcceptedStudent(
-                                            name = "Dani Olmo",
-                                            studentNumber = "12345678"
+                                            name = "Lanele Maqina",
+                                            studentNumber = "223456789"
                                         ),
                                         RideAcceptedStudent(
-                                            name = "Lamine Yamal",
-                                            studentNumber = "243565785"
+                                            name = "Tichaona Mudingwa",
+                                            studentNumber = "224567890"
                                         )
                                     )
                                 )
@@ -397,69 +395,21 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    // Shuttle Driver
-                    composable("shuttle_driver_boarding") {
-                        ShuttleDriverBoardingScreen(
-                            onScanQrCodeClick = {
-                                navController.navigate("shuttle_driver_scan_qr") {
-                                    launchSingleTop = true
-                                }
+                    composable(GyrRoutes.RIDES) {
+                        MyRidesScreen(
+                            navController = navController,
+                            rides = listOf(
+                                // temporary mock data so you can see the screen render —
+                                // swap this for a real ViewModel call once you have a
+                                // GET /trips/mine (or similar) endpoint on the backend
+                            ),
+                            onTrackRide = { rideId ->
+                                // TODO: navigate to your live-tracking screen once built
+                                // navController.navigate("track_ride/$rideId")
                             },
-                            onBoardingClick = {
-                                navController.navigate("shuttle_driver_boarding") {
-                                    launchSingleTop = true
-                                }
+                            onCancelRide = { rideId ->
+                                // TODO: call your cancel-ride endpoint here
                             },
-                            onProfileClick = {
-                                navController.navigate("shuttle_driver_profile") {
-                                    launchSingleTop = true
-                                }
-                            }
-                        )
-                    }
-                    composable("shuttle_driver_profile") {
-                        ShuttleDriverProfileScreen(
-                            onScanQrCodeClick = {
-                                navController.navigate("shuttle_driver_scan_qr") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onBoardingClick = {
-                                navController.navigate("shuttle_driver_boarding") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onProfileClick = {
-                                navController.navigate("shuttle_driver_profile") {
-                                    launchSingleTop = true
-                                }
-                            }
-                        )
-                    }
-                    composable("shuttle_driver_scan_qr") {
-                        ShuttleDriverScanQrScreen(
-                            onMarkAsBoardedClick = { bookingId ->
-                                /*
-                                 * TODO:
-                                 * Later call Spring Boot:
-                                 * update boarding_log.boarded_at for this bookingId.
-                                 */
-                            },
-                            onScanQrCodeClick = {
-                                navController.navigate("shuttle_driver_scan_qr") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onBoardingClick = {
-                                navController.navigate("shuttle_driver_boarding") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onProfileClick = {
-                                navController.navigate("shuttle_driver_profile") {
-                                    launchSingleTop = true
-                                }
-                            }
                         )
                     }
 
