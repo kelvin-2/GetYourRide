@@ -1,7 +1,9 @@
 package com.example.getyourride.data.repository
 
+
 import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 
 class TripRepository(private val api: TripApi) {
 
@@ -28,6 +30,18 @@ class TripRepository(private val api: TripApi) {
 
         }
         catch ( e: Exception){
+            Result.failure(e)
+        }
+    }
+    suspend fun cancelTrip(tripId: Long): Result<TripResponse> {
+        return try {
+            val response = api.cancelTrip(tripId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to cancel trip: ${response.code()}"))
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

@@ -344,10 +344,7 @@ class MainActivity : ComponentActivity() {
                                 // TODO: navigate to live tracking screen once built
                                 // navController.navigate("track_ride/$rideId")
                             },
-                            onCancelRide  = { rideId ->
-                                // TODO: call cancel booking endpoint, then reload
-                                // rideViewModel.loadAvailableTrips()
-                            },
+
                         )
                     }
                 }
