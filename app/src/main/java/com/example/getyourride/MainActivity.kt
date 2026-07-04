@@ -52,6 +52,9 @@ import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
+import com.example.getyourride.viewmodel.AllRidesViewModel
+import com.example.getyourride.viewmodel.AllRidesViewModelFactory
+import com.example.getyourride.viewmodel.AllTripsUiState
 
 class MainActivity : ComponentActivity() {
 
@@ -91,6 +94,11 @@ class MainActivity : ComponentActivity() {
                 // ViewModel, so a booking on one screen reflects on the other.
                 val rideViewModel: RideViewModel = viewModel(
                     factory = RideViewModelFactory(
+                        TripRepository(NetworkModule.tripApi)
+                    )
+                )
+                val allRidesViewModel: AllRidesViewModel = viewModel(
+                    factory = AllRidesViewModelFactory(
                         TripRepository(NetworkModule.tripApi)
                     )
                 )
@@ -327,7 +335,7 @@ class MainActivity : ComponentActivity() {
                     // above, so the data is already loaded — no extra API call on tab switch.
                     composable(GyrRoutes.RIDES) {
                         MyRidesScreen(
-                            viewModel     = rideViewModel,
+                            viewModel = allRidesViewModel,
                             navController = navController,
                             onTrackRide   = { rideId ->
                                 // TODO: navigate to live tracking screen once built

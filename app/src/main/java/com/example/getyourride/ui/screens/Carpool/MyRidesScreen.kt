@@ -27,8 +27,8 @@ import com.example.getyourride.ui.components.RideCard
 import com.example.getyourride.ui.components.RideStatus
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.theme.*
-import com.example.getyourride.viewmodel.RideViewModel
-import com.example.getyourride.viewmodel.TripsUiState
+import com.example.getyourride.viewmodel.AllRidesViewModel
+import com.example.getyourride.viewmodel.AllTripsUiState
 
 private enum class RideTab(val label: String) {
     UPCOMING("Upcoming"),
@@ -39,7 +39,7 @@ private enum class RideTab(val label: String) {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MyRidesScreen(
-    viewModel     : RideViewModel,
+    viewModel     : AllRidesViewModel,
     onTrackRide   : (String) -> Unit = {},
     onCancelRide  : (String) -> Unit = {},
     navController : androidx.navigation.NavController = rememberNavController(),
@@ -73,14 +73,14 @@ fun MyRidesScreen(
             when (uiState) {
 
                 // ── Loading ───────────────────────────────────────────────────
-                is TripsUiState.Loading -> {
+                is AllTripsUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = NavyPrimary)
                     }
                 }
 
                 // ── Error ─────────────────────────────────────────────────────
-                is TripsUiState.Error -> {
+                is AllTripsUiState.Error -> {
                     Column(
                         modifier            = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -89,7 +89,7 @@ fun MyRidesScreen(
                         Text(uiState.message, fontSize = 14.sp, color = DangerRed, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.loadAvailableTrips() },
+                            onClick = { viewModel.loadAllTrips() },
                             colors  = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
                             shape   = RoundedCornerShape(10.dp),
                         ) {
@@ -101,7 +101,7 @@ fun MyRidesScreen(
                 }
 
                 // ── Success ───────────────────────────────────────────────────
-                is TripsUiState.Success -> {
+                is AllTripsUiState.Success -> {
                     // Map TripResponse → RideCardData using our mapper
                     val allCards = uiState.trips.map { it.toRideCardData() }
 
