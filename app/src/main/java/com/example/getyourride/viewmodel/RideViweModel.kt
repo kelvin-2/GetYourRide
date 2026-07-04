@@ -1,5 +1,6 @@
 package com.example.getyourride.viewmodel
 
+import android.util.Log.e
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,6 +25,7 @@ class RideViewModel(private val repository: TripRepository) : ViewModel() {
         loadAvailableTrips()
     }
 
+    //gettting available trips using the //status code
     fun loadAvailableTrips() {
         viewModelScope.launch {
             uiState = TripsUiState.Loading
@@ -32,4 +34,6 @@ class RideViewModel(private val repository: TripRepository) : ViewModel() {
                 .onFailure { e -> uiState = TripsUiState.Error(e.message ?: "Something went wrong") }
         }
     }
+    //gets all trips no filter
+
 }

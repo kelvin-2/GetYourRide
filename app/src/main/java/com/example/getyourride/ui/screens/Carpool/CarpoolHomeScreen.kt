@@ -44,7 +44,9 @@ fun CarpoolHomeScreen(
     onSearchRides    : () -> Unit               = {},
     onNotifications  : () -> Unit               = {},
     navController    : androidx.navigation.NavController = rememberNavController(),
-) {
+)
+
+{
     StudentLayout(
         currentRoute  = GyrRoutes.HOME,
         navController = navController,

@@ -1,4 +1,7 @@
 package com.example.getyourride
+
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.example.getyourride.data.repository.TripRepository
 import com.example.getyourride.viewmodel.RideViewModel
 import com.example.getyourride.viewmodel.RideViewModelFactory
@@ -46,24 +49,16 @@ import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.OfferRideViewModel
 import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
-import androidx.compose.runtime.LaunchedEffect
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ROUTING NOTES — how student type decides which dashboard they see
-//
-// After login/signup, the student is one of two types:
-//   - NSFAS funded  → routed to "shuttle_home" (fixed shuttle routes)
-//   - Self-funded   → routed to GyrRoutes.HOME = CarpoolHomeScreen (peer-to-peer)
-//
-// isNsfasFunded now comes from the REAL backend response (AuthResponse.isFunded)
-// returned by StudentAuthApi — set inside the LaunchedEffect blocks below.
-// ─────────────────────────────────────────────────────────────────────────────
+import com.example.getyourride.viewmodel.AllRidesViewModel
+import com.example.getyourride.viewmodel.AllRidesViewModelFactory
+import com.example.getyourride.viewmodel.AllTripsUiState
 
 class MainActivity : ComponentActivity() {
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -71,12 +66,9 @@ class MainActivity : ComponentActivity() {
             GetYourRideTheme {
                 val navController = rememberNavController()
 
-                // ── Existing mock API service (driver flow, offer ride, etc.) ──────
-                // Unrelated to auth — left untouched.
+                // ── Existing mock API service (driver flow, offer ride) ────────
                 val apiService = remember {
-                    SpringBootApiService(
-                        baseUrl = "https://your-spring-boot-api.example.com"
-                    )
+                    SpringBootApiService(baseUrl = "https://your-spring-boot-api.example.com")
                 }
                 val driverApplicationViewModel = remember {
                     DriverApplicationViewModel(apiService = apiService)
@@ -88,7 +80,7 @@ class MainActivity : ComponentActivity() {
                     DeleteDriverProfileViewModel(apiService = apiService)
                 }
 
-                // ── Real auth wiring — talks to StudentAuthController on :8080 ─────
+                // ── Real auth — talks to StudentAuthController on :8080 ───────
                 val studentAuthRepository = remember {
                     StudentAuthRepository(api = NetworkModule.studentAuthApi)
                 }
@@ -96,8 +88,21 @@ class MainActivity : ComponentActivity() {
                     factory = AuthViewModelFactory(studentAuthRepository)
                 )
 
-                // ── Student funding status — drives which dashboard they land on ──
-                // Set from the real AuthResponse.isFunded field once login/signup succeeds.
+                // ── Shared RideViewModel — used by both RIDES and HOME tabs ───
+                // Created here so the same instance survives tab navigation.
+                // Both CarpoolHomeScreen and MyRidesScreen read from the same
+                // ViewModel, so a booking on one screen reflects on the other.
+                val rideViewModel: RideViewModel = viewModel(
+                    factory = RideViewModelFactory(
+                        TripRepository(NetworkModule.tripApi)
+                    )
+                )
+                val allRidesViewModel: AllRidesViewModel = viewModel(
+                    factory = AllRidesViewModelFactory(
+                        TripRepository(NetworkModule.tripApi)
+                    )
+                )
+
                 var isNsfasFunded by remember { mutableStateOf(false) }
 
                 NavHost(
@@ -105,15 +110,13 @@ class MainActivity : ComponentActivity() {
                     startDestination = "login"
                 ) {
 
-                    // ── LOGIN ──────────────────────────────────────────────────────
+                    // ── LOGIN ──────────────────────────────────────────────────
                     composable("login") {
                         val uiState = authViewModel.uiState
 
-                        // Fires once when login succeeds — navigates, then resets state
-                        // so re-entering this screen later doesn't auto-navigate again.
                         LaunchedEffect(uiState) {
                             if (uiState is AuthUiState.Success) {
-                                UserSession.save(uiState.response)   // ← save token + user data
+                                UserSession.save(uiState.response)
                                 isNsfasFunded = uiState.response.isFunded ?: false
                                 navController.navigate(homeRouteFor(isNsfasFunded)) {
                                     popUpTo("login") { inclusive = true }
@@ -124,7 +127,7 @@ class MainActivity : ComponentActivity() {
 
                         LoginScreen(
                             onCreateAccountClick = { navController.navigate("signup") },
-                            onLoginClick = { email, password ->
+                            onLoginClick         = { email, password ->
                                 authViewModel.login(email, password)
                             },
                             isLoading    = uiState is AuthUiState.Loading,
@@ -132,7 +135,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // ── SIGN UP ────────────────────────────────────────────────────
+                    // ── SIGN UP ────────────────────────────────────────────────
                     composable("signup") {
                         val uiState = authViewModel.uiState
 
@@ -148,37 +151,31 @@ class MainActivity : ComponentActivity() {
                         }
 
                         SignUpScreen(
-                            onBackClick          = { navController.popBackStack() },
-                            onLoginClick         = { navController.popBackStack() },
-                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
+                            onBackClick         = { navController.popBackStack() },
+                            onLoginClick        = { navController.popBackStack() },
+                            onBecomeDriverClick = { navController.navigate("driver_step_1") },
                             onSignUpClick = { fullName, studentNumber, email, password, isFunded ->
-                                // SignUpScreen captures one "fullName" field, but the backend
-                                // wants firstName + lastName separately — split on first space.
                                 val nameParts = fullName.trim().split(" ", limit = 2)
-                                val firstName = nameParts.getOrElse(0) { "" }
-                                val lastName  = nameParts.getOrElse(1) { "" }
-
                                 authViewModel.register(
                                     studentNumber = studentNumber,
-                                    firstName     = firstName,
-                                    lastName      = lastName,
+                                    firstName     = nameParts.getOrElse(0) { "" },
+                                    lastName      = nameParts.getOrElse(1) { "" },
                                     email         = email,
-                                    phone         = "", // ⚠️ SignUpScreen has no phone field yet
+                                    phone         = "",
                                     password      = password,
                                     isFunded      = isFunded,
                                 )
                             },
-
                             isLoading    = uiState is AuthUiState.Loading,
                             errorMessage = (uiState as? AuthUiState.Error)?.message,
                         )
                     }
 
-                    // ── BECOME A DRIVER FLOW (unchanged) ──────────────────────────
+                    // ── BECOME A DRIVER FLOW ───────────────────────────────────
                     composable("driver_step_1") {
                         DriverStep1Screen(
-                            onBackClick = { navController.popBackStack() },
-                            onNextClick = { step1Data ->
+                            onBackClick  = { navController.popBackStack() },
+                            onNextClick  = { step1Data ->
                                 if (driverApplicationViewModel.saveStep1(step1Data)) {
                                     navController.navigate("driver_step_2")
                                 }
@@ -188,8 +185,8 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("driver_step_2") {
                         DriverStep2Screen(
-                            onBackClick = { navController.popBackStack() },
-                            onNextClick = { step2Data ->
+                            onBackClick  = { navController.popBackStack() },
+                            onNextClick  = { step2Data ->
                                 if (driverApplicationViewModel.saveStep2(step2Data)) {
                                     navController.navigate("driver_step_3")
                                 }
@@ -198,73 +195,45 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("driver_step_3") {
-                        val submitStatus = driverApplicationViewModel.submitStatus
                         DriverStep3Screen(
-                            onBackClick = {
-                                navController.popBackStack()
-                            },
+                            onBackClick   = { navController.popBackStack() },
                             onSubmitClick = { step3Data ->
                                 driverApplicationViewModel.submitApplication(step3Data)
-
                                 navController.navigate("student_driver_home") {
-                                    popUpTo("driver_step_1") {
-                                        inclusive = true
-                                    }
+                                    popUpTo("driver_step_1") { inclusive = true }
                                     launchSingleTop = true
                                 }
                             },
-                            errorMessage = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = when (val status = driverApplicationViewModel.submitStatus) {
-                                is DriverApplicationSubmitStatus.Success -> status.message
-                                is DriverApplicationSubmitStatus.Error -> status.message
+                            errorMessage  = driverApplicationViewModel.step3ErrorMessage,
+                            statusMessage = when (val s = driverApplicationViewModel.submitStatus) {
+                                is DriverApplicationSubmitStatus.Success -> s.message
+                                is DriverApplicationSubmitStatus.Error   -> s.message
                                 else -> null
                             }
                         )
                     }
 
-                    //Offer a Ride page
+                    // ── OFFER RIDE ─────────────────────────────────────────────
                     composable("offer_ride") {
                         val submitStatus = offerRideViewModel.submitStatus
-
                         OfferRideScreen(
-                            onPostRideClick = { request ->
-                                offerRideViewModel.postRide(request)
-                            },
-                            errorMessage = offerRideViewModel.errorMessage,
-                            statusMessage = when (submitStatus) {
+                            onPostRideClick = { request -> offerRideViewModel.postRide(request) },
+                            errorMessage    = offerRideViewModel.errorMessage,
+                            statusMessage   = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Posting ride..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
                                 else -> null
                             },
-                            onHomeClick = {
-                                navController.navigate("student_driver_home") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onOfferRideClick = {
-                                navController.navigate("offer_ride") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onProfileClick = {
-                                navController.navigate("driver_profile_settings")
-                            }
+                            onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
+                            onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
+                            onProfileClick   = { navController.navigate("driver_profile_settings") }
                         )
                     }
-                    //Home page for Student driver
-                    composable("student_driver_home") {
-                        var isDriverHomeRefreshing by remember {
-                            mutableStateOf(false)
-                        }
 
-                        /*
-                         * Temporary frontend refresh simulation.
-                         *
-                         * Later, this is where we will call the backend API to get:
-                         * - latest verification status
-                         * - latest posted rides
-                         * - latest accepted students
-                         */
+                    // ── STUDENT DRIVER HOME ────────────────────────────────────
+                    composable("student_driver_home") {
+                        var isDriverHomeRefreshing by remember { mutableStateOf(false) }
+
                         if (isDriverHomeRefreshing) {
                             LaunchedEffect(Unit) {
                                 kotlinx.coroutines.delay(1200)
@@ -273,69 +242,51 @@ class MainActivity : ComponentActivity() {
                         }
 
                         StudentDriverHomeScreen(
-                            driverName = "Ayabulela",
+                            driverName         = "Ayabulela",
                             verificationStatus = "Pending Verification",
-                            isRefreshing = isDriverHomeRefreshing,
-                            postedRides = listOf(
+                            isRefreshing       = isDriverHomeRefreshing,
+                            postedRides        = listOf(
                                 StudentDriverPostedRide(
-                                    rideId = "1",
-                                    pickupLocation = "South Campus",
-                                    destination = "North Campus",
-                                    date = "2026-07-01",
-                                    time = "08:30",
-                                    availableSeats = 3,
-                                    farePerSeat = "R20.00",
+                                    rideId          = "1",
+                                    pickupLocation  = "South Campus",
+                                    destination     = "North Campus",
+                                    date            = "2026-07-01",
+                                    time            = "08:30",
+                                    availableSeats  = 3,
+                                    farePerSeat     = "R20.00",
                                     acceptedStudents = listOf(
-                                        RideAcceptedStudent(
-                                            name = "Lanele Maqina",
-                                            studentNumber = "223456789"
-                                        ),
-                                        RideAcceptedStudent(
-                                            name = "Tichaona Mudingwa",
-                                            studentNumber = "224567890"
-                                        )
+                                        RideAcceptedStudent("Lanele Maqina",    "223456789"),
+                                        RideAcceptedStudent("Tichaona Mudingwa","224567890"),
                                     )
                                 )
                             ),
-                            onRefreshClick = {
-                                isDriverHomeRefreshing = true
-                            },
-                            onHomeClick = {
-                                navController.navigate("student_driver_home") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onOfferRideClick = {
-                                navController.navigate("offer_ride")
-                            },
-                            onProfileClick = {
-                                navController.navigate("driver_profile_settings")
-                            }
+                            onRefreshClick   = { isDriverHomeRefreshing = true },
+                            onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
+                            onOfferRideClick = { navController.navigate("offer_ride") },
+                            onProfileClick   = { navController.navigate("driver_profile_settings") }
                         )
                     }
 
+                    // ── DRIVER PROFILE SETTINGS ────────────────────────────────
                     composable("driver_profile_settings") {
                         val submitStatus = deleteDriverProfileViewModel.submitStatus
-
                         DriverProfileSettingsScreen(
                             profileDetails = DriverProfileDetails(
-                                firstName = "Ayabulela",
-                                surname = "Mtwesi",
-                                studentNumber = "223456789",
-                                contactNumber = "071 234 5678",
-                                universityEmail = "ayabulela@mandela.ac.za",
-                                vehicleMake = "Toyota",
-                                vehicleModel = "Corolla",
-                                vehicleRegistrationNumber = "ABC 123 EC",
-                                vehicleColour = "White",
-                                seatingCapacity = 4,
-                                verificationStatus = "Pending Verification",
-                                driversLicenceStatus = "Uploaded",
-                                vehicleRegistrationStatus = "Uploaded"
+                                firstName                  = "Ayabulela",
+                                surname                    = "Mtwesi",
+                                studentNumber              = "223456789",
+                                contactNumber              = "071 234 5678",
+                                universityEmail            = "ayabulela@mandela.ac.za",
+                                vehicleMake                = "Toyota",
+                                vehicleModel               = "Corolla",
+                                vehicleRegistrationNumber  = "ABC 123 EC",
+                                vehicleColour              = "White",
+                                seatingCapacity            = 4,
+                                verificationStatus         = "Pending Verification",
+                                driversLicenceStatus       = "Uploaded",
+                                vehicleRegistrationStatus  = "Uploaded"
                             ),
-                            onConfirmDeleteClick = {
-                                deleteDriverProfileViewModel.deactivateProfile()
-                            },
+                            onConfirmDeleteClick = { deleteDriverProfileViewModel.deactivateProfile() },
                             statusMessage = when (submitStatus) {
                                 is UseCaseSubmitStatus.Loading -> "Deleting driver profile..."
                                 is UseCaseSubmitStatus.Success -> submitStatus.message
@@ -345,45 +296,30 @@ class MainActivity : ComponentActivity() {
                                 is UseCaseSubmitStatus.Error -> submitStatus.message
                                 else -> null
                             },
-                            onHomeClick = {
-                                navController.navigate("student_driver_home") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onOfferRideClick = {
-                                navController.navigate("offer_ride") {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onProfileClick = {
-                                navController.navigate("driver_profile_settings") {
-                                    launchSingleTop = true
-                                }
-                            }
+                            onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
+                            onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
+                            onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } }
                         )
                     }
 
-                    // ── CARPOOL DASHBOARD (self-funded students) ──────────────────
+                    // ── CARPOOL HOME (self-funded students) ────────────────────
                     composable(GyrRoutes.HOME) {
-                        val rideViewModel: RideViewModel = viewModel(
-                            factory = RideViewModelFactory(TripRepository(NetworkModule.tripApi))
-                        )
-
+                        LaunchedEffect(Unit) {
+                            rideViewModel.loadAvailableTrips()
+                        }
                         CarpoolHomeScreen(
-                            uiState = rideViewModel.uiState,
-                            onRetry = { rideViewModel.loadAvailableTrips() },
-                            onBookRide = { rideId -> /* TODO: wire request-ride endpoint later */ },
+                            uiState       = rideViewModel.uiState,
+                            onRetry       = { rideViewModel.loadAvailableTrips() },
+                            onBookRide    = { /* TODO: wire booking endpoint */ },
                             navController = navController,
                         )
                     }
 
-
-                    // ── SHUTTLE DASHBOARD (NSFAS-funded students) ─────────────────
-                    // TODO: replace this placeholder with a real ShuttleHomeScreen
-                    // once it's built — same wiring pattern as CarpoolHomeScreen above.
+                    // ── SHUTTLE HOME (NSFAS students) ──────────────────────────
+                    // TODO: replace placeholder with real ShuttleHomeScreen
                     composable("shuttle_home") {
                         Column(
-                            modifier = Modifier.padding(24.dp),
+                            modifier            = Modifier.padding(24.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("Shuttle Home Screen — coming soon")
@@ -395,37 +331,31 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+
+                    // ── MY RIDES (Rides tab) ───────────────────────────────────
+                    // CHANGED: now uses rideViewModel instead of a static list.
+                    // The same rideViewModel instance is shared with CarpoolHomeScreen
+                    // above, so the data is already loaded — no extra API call on tab switch.
                     composable(GyrRoutes.RIDES) {
                         MyRidesScreen(
+                            viewModel = allRidesViewModel,
                             navController = navController,
-                            rides = listOf(
-                                // temporary mock data so you can see the screen render —
-                                // swap this for a real ViewModel call once you have a
-                                // GET /trips/mine (or similar) endpoint on the backend
-                            ),
-                            onTrackRide = { rideId ->
-                                // TODO: navigate to your live-tracking screen once built
+                            onTrackRide   = { rideId ->
+                                // TODO: navigate to live tracking screen once built
                                 // navController.navigate("track_ride/$rideId")
                             },
-                            onCancelRide = { rideId ->
-                                // TODO: call your cancel-ride endpoint here
+                            onCancelRide  = { rideId ->
+                                // TODO: call cancel booking endpoint, then reload
+                                // rideViewModel.loadAvailableTrips()
                             },
                         )
                     }
-
-                    // Add GyrRoutes.RIDES / TRACK / PROFILE composables here as you build them
                 }
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// homeRouteFor — single source of truth for "which dashboard does this student see"
-//
-// Called from both login and signup so the routing rule only lives in one place.
-// If you add a 3rd student type later, this is the only function to update.
-// ─────────────────────────────────────────────────────────────────────────────
 private fun homeRouteFor(isNsfasFunded: Boolean): String {
     return if (isNsfasFunded) "shuttle_home" else GyrRoutes.HOME
 }

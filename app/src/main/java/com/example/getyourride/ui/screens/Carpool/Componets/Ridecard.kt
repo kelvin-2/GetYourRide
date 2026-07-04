@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.ui.theme.*
@@ -134,5 +135,27 @@ private fun StatusPill(status: RideStatus) {
             color      = color,
             modifier   = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RideCardPreview() {
+    val sampleRide = RideCardData(
+        id = "1",
+        driverName = "Alex Rivera",
+        carDescription = "Toyota Corolla",
+        plate = "ABC 123 EC",
+        status = RideStatus.ACTIVE,
+        pickup = "Engineering Bldg",
+        dropoff = "City Tech Hub",
+        dateLabel = "Today, 24 Oct",
+        timeLabel = "08:30 AM"
+    )
+
+    GetYourRideTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            RideCard(ride = sampleRide)
+        }
     }
 }

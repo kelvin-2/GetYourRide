@@ -19,5 +19,8 @@ data class TripResponse(
     val arrivalTime: String?,
     val availableSeats: Int,
     val price: BigDecimal,
-    val status: String
+    val status: String,
+    val vehicleModel    : String?   ,// "Ford Fiesta"
+    val vehicleColour   : String?,   // "Black"
+    val vehicleCapacity : Int?      // 4
 )
