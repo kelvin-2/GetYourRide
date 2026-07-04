@@ -16,10 +16,17 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,8 +50,10 @@ data class RideCardData(
 fun RideCard(
     ride         : RideCardData,
     onTrackRide  : () -> Unit = {},
-    onCancelRide : () -> Unit = {},
+    onCancelRide : () -> Unit = {}, // parent updates ride.status = CANCELLED (locally and/or via API) here
 ) {
+    var showCancelDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier  = Modifier.fillMaxWidth(),
         shape     = RoundedCornerShape(16.dp),
@@ -93,7 +102,7 @@ fun RideCard(
                         Text("Track Ride", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     }
                     OutlinedButton(
-                        onClick  = onCancelRide,
+                        onClick  = { showCancelDialog = true },
                         shape    = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f),
                     ) {
@@ -102,6 +111,29 @@ fun RideCard(
                 }
             }
         }
+    }
+
+    if (showCancelDialog) {
+        val message = buildAnnotatedString {
+            append("Are you sure you want to cancel your ride to ")
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = NavyPrimary)) {
+                append(ride.dropoff)
+            }
+            append("? This action cannot be undone.")
+        }
+        ConfirmationDialog(
+            data = ConfirmationDialogData(
+                title = "Cancel Booking?",
+                message = message,
+                confirmLabel = "Yes, Cancel Booking",
+                dismissLabel = "No, Keep It",
+            ),
+            onConfirm = {
+                showCancelDialog = false
+                onCancelRide()
+            },
+            onDismiss = { showCancelDialog = false },
+        )
     }
 }
 
@@ -123,7 +155,7 @@ private fun LocationLine(label: String, value: String, icon: androidx.compose.ui
 private fun StatusPill(status: RideStatus) {
     val (color, label) = when (status) {
         RideStatus.ACTIVE    -> StatusCompleted to "ACTIVE"
-        RideStatus.SCHEDULED   -> OrangeAccent to "SCHEDULED"
+        RideStatus.SCHEDULED -> OrangeAccent to "SCHEDULED"
         RideStatus.COMPLETED -> StatusCompleted to "COMPLETED"
         RideStatus.CANCELLED -> Color(0xFFD32F2F) to "CANCELLED"
     }
@@ -156,6 +188,28 @@ fun RideCardPreview() {
     GetYourRideTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             RideCard(ride = sampleRide)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RideCardCancelledPreview() {
+    val cancelledRide = RideCardData(
+        id = "2",
+        driverName = "Alex Rivera",
+        carDescription = "Toyota Corolla",
+        plate = "ABC 123 EC",
+        status = RideStatus.CANCELLED,
+        pickup = "Engineering Bldg",
+        dropoff = "East Residence",
+        dateLabel = "Today, 24 Oct",
+        timeLabel = "08:30 AM"
+    )
+
+    GetYourRideTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            RideCard(ride = cancelledRide)
         }
     }
 }
