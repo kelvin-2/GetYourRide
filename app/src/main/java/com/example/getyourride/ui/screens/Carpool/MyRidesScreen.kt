@@ -1,17 +1,15 @@
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MyRidesScreen.kt
-// Package: com.example.getyourride.ui.screens.Rides
-// ─────────────────────────────────────────────────────────────────────────────
-
 package com.example.getyourride.ui.screens.Rides
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,35 +17,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.data.mapper.toRideCardData  // ← correct import
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.RideCard
-import com.example.getyourride.ui.components.RideCardData
 import com.example.getyourride.ui.components.RideStatus
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.viewmodel.RideViewModel
+import com.example.getyourride.viewmodel.TripsUiState
 
-private enum class RideTab(val label: String) { UPCOMING("Upcoming"), PAST("Past"), CANCELLED("Cancelled") }
+private enum class RideTab(val label: String) {
+    UPCOMING("Upcoming"),
+    PAST("Past"),
+    CANCELLED("Cancelled"),
+}
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MyRidesScreen(
-    rides         : List<RideCardData>       = emptyList(),
-    onTrackRide   : (String) -> Unit         = {},
-    onCancelRide  : (String) -> Unit         = {},
+    viewModel     : RideViewModel,
+    onTrackRide   : (String) -> Unit = {},
+    onCancelRide  : (String) -> Unit = {},
     navController : androidx.navigation.NavController = rememberNavController(),
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
-
-    val filtered = rides.filter {
-        when (selectedTab) {
-            RideTab.UPCOMING  -> it.status == RideStatus.ACTIVE || it.status == RideStatus.SCHEDULED
-            RideTab.PAST      -> it.status == RideStatus.COMPLETED
-            RideTab.CANCELLED -> it.status == RideStatus.CANCELLED
-        }
-    }
+    val uiState = viewModel.uiState
 
     StudentLayout(
         currentRoute  = GyrRoutes.RIDES,
@@ -58,81 +56,91 @@ fun MyRidesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(SurfaceGrey)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(4.dp))
 
-            Text("My Rides", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NavyPrimary)
+            Text(
+                text       = "My Rides",
+                fontSize   = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color      = NavyPrimary,
+            )
 
             RideTabRow(selected = selectedTab, onSelect = { selectedTab = it })
 
-            if (filtered.isEmpty()) {
-                Text(
-                    text     = "No ${selectedTab.label.lowercase()} rides yet.",
-                    fontSize = 13.sp,
-                    color    = TextMuted,
-                    modifier = Modifier.padding(vertical = 24.dp),
-                )
-            } else {
-                filtered.forEach { ride ->
-                    RideCard(
-                        ride         = ride,
-                        onTrackRide  = { onTrackRide(ride.id) },
-                        onCancelRide = { onCancelRide(ride.id) },
-                    )
+            when (uiState) {
+
+                // ── Loading ───────────────────────────────────────────────────
+                is TripsUiState.Loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = NavyPrimary)
+                    }
+                }
+
+                // ── Error ─────────────────────────────────────────────────────
+                is TripsUiState.Error -> {
+                    Column(
+                        modifier            = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(uiState.message, fontSize = 14.sp, color = DangerRed, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.loadAvailableTrips() },
+                            colors  = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                            shape   = RoundedCornerShape(10.dp),
+                        ) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Try Again")
+                        }
+                    }
+                }
+
+                // ── Success ───────────────────────────────────────────────────
+                is TripsUiState.Success -> {
+                    // Map TripResponse → RideCardData using our mapper
+                    val allCards = uiState.trips.map { it.toRideCardData() }
+
+                    // Filter by selected tab
+                    val filtered = allCards.filter {
+                        when (selectedTab) {
+                            RideTab.UPCOMING  -> it.status == RideStatus.ACTIVE || it.status == RideStatus.SCHEDULED
+                            RideTab.PAST      -> it.status == RideStatus.COMPLETED
+                            RideTab.CANCELLED -> it.status == RideStatus.CANCELLED
+                        }
+                    }
+
+                    if (filtered.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text      = "No ${selectedTab.label.lowercase()} rides.",
+                                fontSize  = 14.sp,
+                                color     = TextMuted,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier            = Modifier.verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            filtered.forEach { ride ->
+                                RideCard(
+                                    ride         = ride,
+                                    onTrackRide  = { onTrackRide(ride.id) },
+                                    onCancelRide = { onCancelRide(ride.id) },
+                                )
+                            }
+                            Spacer(Modifier.height(20.dp))
+                        }
+                    }
                 }
             }
-
-            Spacer(Modifier.height(20.dp))
         }
-    }
-}
-
-// ─── Previews ────────────────────────────────────────────────────────────────
-
-@Preview(showBackground = true)
-@Composable
-fun MyRidesScreenPreview() {
-    val sampleRides = listOf(
-        RideCardData(
-            id = "1",
-            driverName = "Alex Rivera",
-            carDescription = "Toyota Corolla",
-            plate = "ABC 123 EC",
-            status = RideStatus.ACTIVE,
-            pickup = "Engineering Bldg",
-            dropoff = "City Tech Hub",
-            dateLabel = "Today, 24 Oct",
-            timeLabel = "08:30 AM"
-        ),
-        RideCardData(
-            id = "2",
-            driverName = "Thando Mokoena",
-            carDescription = "VW Polo",
-            plate = "XYZ 789 EC",
-            status = RideStatus.SCHEDULED,
-            pickup = "South Campus",
-            dropoff = "Summerstrand",
-            dateLabel = "Tomorrow, 25 Oct",
-            timeLabel = "09:15 AM"
-        ),
-        RideCardData(
-            id = "3",
-            driverName = "John Doe",
-            carDescription = "Ford Ranger",
-            plate = "LMN 456 EC",
-            status = RideStatus.COMPLETED,
-            pickup = "North Campus",
-            dropoff = "Central",
-            dateLabel = "Yesterday, 23 Oct",
-            timeLabel = "05:00 PM"
-        )
-    )
-
-    GetYourRideTheme {
-        MyRidesScreen(rides = sampleRides)
     }
 }
 
@@ -145,7 +153,7 @@ private fun RideTabRow(selected: RideTab, onSelect: (RideTab) -> Unit) {
             .background(BorderLight)
             .padding(4.dp),
     ) {
-        RideTab.values().forEach { tab ->
+        RideTab.entries.forEach { tab ->
             val isSelected = tab == selected
             Box(
                 modifier = Modifier
