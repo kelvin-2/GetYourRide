@@ -304,6 +304,9 @@ class MainActivity : ComponentActivity() {
 
                     // ── CARPOOL HOME (self-funded students) ────────────────────
                     composable(GyrRoutes.HOME) {
+                        LaunchedEffect(Unit) {
+                            rideViewModel.loadAvailableTrips()
+                        }
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },

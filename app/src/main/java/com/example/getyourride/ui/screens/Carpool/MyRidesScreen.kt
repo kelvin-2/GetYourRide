@@ -47,6 +47,11 @@ fun MyRidesScreen(
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
 
+    LaunchedEffect(Unit) {
+        viewModel.loadAllTrips()
+    }
+
+
     StudentLayout(
         currentRoute  = GyrRoutes.RIDES,
         navController = navController,
