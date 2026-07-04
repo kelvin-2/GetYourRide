@@ -41,4 +41,25 @@ class AllRidesViewModel(
                 }
         }
     }
+
+    fun cancelTrip(tripId: Long) {
+        viewModelScope.launch {
+            repository.cancelTrip(tripId)
+                .onSuccess { updatedTrip ->
+                    val currentState = uiState
+                    if (currentState is AllTripsUiState.Success) {
+                        uiState = AllTripsUiState.Success(
+                            currentState.trips.map { trip ->
+                                if (trip.tripId == tripId) updatedTrip else trip
+                            }
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    // Cancel failed — list stays as-is so the user doesn't lose
+                    // their other trips from view. Surface this to the user
+                    // (snackbar/toast) once you decide on an error-display pattern.
+                }
+        }
+    }
 }

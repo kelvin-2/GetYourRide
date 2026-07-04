@@ -41,16 +41,19 @@ private enum class RideTab(val label: String) {
 fun MyRidesScreen(
     viewModel     : AllRidesViewModel,
     onTrackRide   : (String) -> Unit = {},
-    onCancelRide  : (String) -> Unit = {},
     navController : androidx.navigation.NavController = rememberNavController(),
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
 
+    // NOTE: AllRidesViewModel already calls loadAllTrips() in its init{} block.
+    // If you want a fresh reload every time this screen is re-entered (e.g. after
+    // navigating back from another tab), keep this LaunchedEffect. If you only
+    // want the initial load, remove this and rely on init{} alone — otherwise
+    // you're firing two network calls back-to-back on first composition.
     LaunchedEffect(Unit) {
         viewModel.loadAllTrips()
     }
-
 
     StudentLayout(
         currentRoute  = GyrRoutes.RIDES,
@@ -137,7 +140,7 @@ fun MyRidesScreen(
                                 RideCard(
                                     ride         = ride,
                                     onTrackRide  = { onTrackRide(ride.id) },
-                                    onCancelRide = { onCancelRide(ride.id) },
+                                    onCancelRide = { viewModel.cancelTrip(ride.id.toLong()) },
                                 )
                             }
                             Spacer(Modifier.height(20.dp))
