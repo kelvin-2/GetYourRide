@@ -6,6 +6,7 @@
 package com.example.getyourride.ui.screens.Carpool
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,31 +25,45 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.mapper.toCarpoolRide
+import com.example.getyourride.data.remote.dto.AddressSuggestion
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.repository.GeocodingRepository
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.screens.Carpool.components.*
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.viewmodel.CarpoolSearchViewModel
+import com.example.getyourride.viewmodel.CarpoolSearchViewModelFactory
+import com.example.getyourride.viewmodel.LocationFieldState
 import com.example.getyourride.viewmodel.TripsUiState
+
+private fun buildGeocodingRepository(): GeocodingRepository {
+    return GeocodingRepository(com.example.getyourride.di.NetworkModule.geocodingApi)
+}
 
 @Composable
 fun CarpoolHomeScreen(
-    uiState          : TripsUiState             = TripsUiState.Loading,
-    onRetry          : () -> Unit               = {},
-    onBookRide       : (rideId: String) -> Unit = {},
-    onViewAllRides   : () -> Unit               = {},
-    onViewAllTrips   : () -> Unit               = {},
-    onPickupClick    : () -> Unit               = {},
-    onDestinationClick: () -> Unit              = {},
-    onSearchRides    : () -> Unit               = {},
-    onNotifications  : () -> Unit               = {},
-    navController    : androidx.navigation.NavController = rememberNavController(),
+    searchViewModel     : CarpoolSearchViewModel  = viewModel(
+        factory = CarpoolSearchViewModelFactory(buildGeocodingRepository())
+    ),
+    uiState             : TripsUiState             = TripsUiState.Loading,
+    onRetry             : () -> Unit               = {},
+    onBookRide          : (rideId: String) -> Unit = {},
+    onViewAllRides      : () -> Unit               = {},
+    onViewAllTrips      : () -> Unit               = {},
+    onSearchRides       : (pickup: AddressSuggestion, destination: AddressSuggestion) -> Unit = { _, _ -> },
+    onNotifications     : () -> Unit               = {},
+    navController       : androidx.navigation.NavController = rememberNavController(),
 )
 
 {
+    val pickupState by searchViewModel.pickup.collectAsState()
+    val destinationState by searchViewModel.destination.collectAsState()
+
     StudentLayout(
         currentRoute  = GyrRoutes.HOME,
         navController = navController,
@@ -62,14 +79,20 @@ fun CarpoolHomeScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-
-
             FindCarpoolHeader(
-                pickupLocation      = "Campus North Entrance",
-                destinationLocation = "Science Park / Downtown",
-                onPickupClick       = onPickupClick,
-                onDestinationClick  = onDestinationClick,
-                onSearchRides       = onSearchRides,
+                pickupState                     = pickupState,
+                destinationState                = destinationState,
+                onPickupTextChanged             = searchViewModel::onPickupTextChanged,
+                onPickupSuggestionSelected      = searchViewModel::onPickupSuggestionSelected,
+                onDestinationTextChanged        = searchViewModel::onDestinationTextChanged,
+                onDestinationSuggestionSelected = searchViewModel::onDestinationSuggestionSelected,
+                onSearchRides = {
+                    val pickup = pickupState.selected
+                    val destination = destinationState.selected
+                    if (pickup != null && destination != null) {
+                        onSearchRides(pickup, destination)
+                    }
+                },
             )
 
             AvailableRidesSection(
@@ -92,11 +115,13 @@ fun CarpoolHomeScreen(
 
 @Composable
 private fun FindCarpoolHeader(
-    pickupLocation      : String,
-    destinationLocation : String,
-    onPickupClick       : () -> Unit,
-    onDestinationClick  : () -> Unit,
-    onSearchRides       : () -> Unit,
+    pickupState                     : LocationFieldState,
+    destinationState                : LocationFieldState,
+    onPickupTextChanged             : (String) -> Unit,
+    onPickupSuggestionSelected      : (AddressSuggestion) -> Unit,
+    onDestinationTextChanged        : (String) -> Unit,
+    onDestinationSuggestionSelected : (AddressSuggestion) -> Unit,
+    onSearchRides                   : () -> Unit,
 ) {
     Column {
         Text(
@@ -120,22 +145,24 @@ private fun FindCarpoolHeader(
             elevation = CardDefaults.cardElevation(2.dp),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                LocationInputField(
-                    label     = "Pickup Location",
-                    value     = pickupLocation,
-                    icon      = Icons.Outlined.LocationOn,
-                    iconTint  = NavyPrimary,
-                    onClick   = onPickupClick,
+                AutocompleteLocationField(
+                    label                = "Pickup Location",
+                    state                = pickupState,
+                    icon                 = Icons.Outlined.LocationOn,
+                    iconTint             = NavyPrimary,
+                    onTextChanged        = onPickupTextChanged,
+                    onSuggestionSelected = onPickupSuggestionSelected,
                 )
 
                 Spacer(Modifier.height(14.dp))
 
-                LocationInputField(
-                    label     = "Destination",
-                    value     = destinationLocation,
-                    icon      = Icons.Outlined.Navigation,
-                    iconTint  = OrangeAccent,
-                    onClick   = onDestinationClick,
+                AutocompleteLocationField(
+                    label                = "Destination",
+                    state                = destinationState,
+                    icon                 = Icons.Outlined.Navigation,
+                    iconTint             = OrangeAccent,
+                    onTextChanged        = onDestinationTextChanged,
+                    onSuggestionSelected = onDestinationSuggestionSelected,
                 )
             }
         }
@@ -144,6 +171,7 @@ private fun FindCarpoolHeader(
 
         Button(
             onClick        = onSearchRides,
+            enabled        = pickupState.selected != null && destinationState.selected != null,
             shape          = RoundedCornerShape(24.dp),
             colors         = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
             contentPadding = PaddingValues(vertical = 14.dp),
@@ -161,13 +189,20 @@ private fun FindCarpoolHeader(
     }
 }
 
+/**
+ * Text field with live Nominatim-backed autocomplete.
+ * Debouncing (~350ms) and the 3-character minimum both live in
+ * CarpoolSearchViewModel, so this composable just renders whatever
+ * state it's handed.
+ */
 @Composable
-private fun LocationInputField(
-    label    : String,
-    value    : String,
-    icon     : androidx.compose.ui.graphics.vector.ImageVector,
-    iconTint : Color,
-    onClick  : () -> Unit,
+private fun AutocompleteLocationField(
+    label                : String,
+    state                : LocationFieldState,
+    icon                 : androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint             : Color,
+    onTextChanged        : (String) -> Unit,
+    onSuggestionSelected : (AddressSuggestion) -> Unit,
 ) {
     Column {
         Text(
@@ -177,17 +212,71 @@ private fun LocationInputField(
             color      = NavyPrimary,
         )
         Spacer(Modifier.height(6.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(SurfaceGrey)
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(text = value, fontSize = 13.sp, color = TextMuted)
+
+        OutlinedTextField(
+            value          = state.text,
+            onValueChange  = onTextChanged,
+            leadingIcon    = {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+            },
+            trailingIcon   = {
+                if (state.selected != null) {
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(18.dp))
+                }
+            },
+            placeholder    = { Text("Type an address...", fontSize = 13.sp, color = TextMuted) },
+            singleLine     = true,
+            shape          = RoundedCornerShape(10.dp),
+            colors         = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = SurfaceGrey,
+                focusedContainerColor   = SurfaceGrey,
+                unfocusedBorderColor    = Color.Transparent,
+                focusedBorderColor      = OrangeAccent,
+                unfocusedTextColor      = NavyPrimary,
+                focusedTextColor        = NavyPrimary,
+                cursorColor             = OrangeAccent,
+            ),
+            modifier       = Modifier.fillMaxWidth(),
+        )
+
+        if (state.isLoading) {
+            LinearProgressIndicator(
+                color    = OrangeAccent,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
+        }
+
+        if (state.suggestions.isNotEmpty() && state.selected == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SurfaceGrey),
+            ) {
+                state.suggestions.forEach { suggestion ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSuggestionSelected(suggestion) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.LocationOn,
+                            contentDescription = null,
+                            tint     = TextMuted,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text     = suggestion.displayName,
+                            fontSize = 13.sp,
+                            color    = TextMuted,
+                        )
+                    }
+                }
+            }
         }
     }
 }

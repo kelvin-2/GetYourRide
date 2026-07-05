@@ -12,15 +12,19 @@ data class TripResponse(
     val driverId: Long?,
     val driverName: String?,
     val registrationNumber: String?,
-    val tripType: String,          // "SHUTTLE" or "STUDENT_DRIVER"
+    val tripType: String,
     val departureStop: String,
+    val departureLat: Double?,
+    val departureLng: Double?,
     val destinationStop: String,
-    val departureTime: String,     // raw ISO string from backend, parsed in UI layer
+    val destinationLat: Double?,
+    val destinationLng: Double?,
+    val departureTime: String,
     val arrivalTime: String?,
     val availableSeats: Int,
     val price: BigDecimal,
     val status: String,
-    val vehicleModel    : String?   ,// "Ford Fiesta"
-    val vehicleColour   : String?,   // "Black"
-    val vehicleCapacity : Int?      // 4
+    val vehicleModel: String?,
+    val vehicleColour: String?,
+    val vehicleCapacity: Int?
 )

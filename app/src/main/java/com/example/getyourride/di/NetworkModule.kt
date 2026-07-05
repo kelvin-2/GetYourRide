@@ -1,6 +1,7 @@
 package com.example.getyourride.di
 
 import com.example.getyourride.UserSession
+import com.example.getyourride.data.remote.api.GeocodingApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
 import com.example.getyourride.data.remote.api.TripApi
 import okhttp3.OkHttpClient
@@ -59,6 +60,8 @@ object NetworkModule {
         retrofit.create(TripApi::class.java)
     }
 
-    // Trips API — added once TripApi.kt exists (see below, pending DTO fields)
-    // val tripApi: TripApi by lazy { retrofit.create(TripApi::class.java) }
+    // Geocoding API — powers pickup/destination address autocomplete
+    val geocodingApi: GeocodingApi by lazy {
+        retrofit.create(GeocodingApi::class.java)
+    }
 }

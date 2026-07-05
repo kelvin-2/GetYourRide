@@ -1,4 +1,7 @@
 package com.example.getyourride.data.remote.dto
 
-class AddressSuggestion {
-}
+data class AddressSuggestion(
+    val displayName: String,
+    val lat: Double,
+    val lon: Double
+)
