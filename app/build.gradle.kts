@@ -46,6 +46,7 @@ dependencies {
     // Fix: Added material-icons-extended for Outlined.DirectionsBus and ArrowBack icons
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
