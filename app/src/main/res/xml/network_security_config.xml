@@ -1,0 +1,6 @@
+<!-- res/xml/network_security_config.xml -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">192.168.0.181</domain>
+    </domain-config>
+</network-security-config>

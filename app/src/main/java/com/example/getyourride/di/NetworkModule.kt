@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
 
-    private const val BASE_URL = "http://192.168.0.181:8080/"
+    private const val BASE_URL = "http://192.168.0.182:8080/"
     // ⚠️ You had "http://localhost:8080/" — that will NOT work on the emulator.
     // localhost inside the emulator means the emulator itself, not your PC.
     // Your memory notes 10.0.2.2 as the correct base URL — switching back to that.
