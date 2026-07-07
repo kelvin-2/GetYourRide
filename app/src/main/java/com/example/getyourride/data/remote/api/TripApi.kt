@@ -1,5 +1,6 @@
 package com.example.getyourride.data.remote.api
 
+import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 import retrofit2.Response

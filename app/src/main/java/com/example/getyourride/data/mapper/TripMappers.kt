@@ -4,9 +4,10 @@
 //
 // PURPOSE — Converts TripResponse (raw API data) into UI models.
 //
-// Two mappers live here:
-//   toCarpoolRide()   → CarpoolRide  used by CarpoolHomeScreen available rides
-//   toRideCardData()  → RideCardData used by MyRidesScreen booked rides
+// Three mappers live here:
+//   toCarpoolRide()       → CarpoolRide       used by CarpoolHomeScreen available rides
+//   toRideRequestDetails() → RideRequestDetails used by RequestRideScreen booking flow
+//   toRideCardData()      → RideCardData      used by MyRidesScreen booked rides
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.data.mapper
@@ -63,20 +64,27 @@ fun TripResponse.toCarpoolRide(): CarpoolRide {
         pricePerSeat   = "R${price.setScale(2)}",
     )
 }
+
+// ─── 2. TripResponse → RideRequestDetails (booking flow on RequestRideScreen) ─
+
 @RequiresApi(Build.VERSION_CODES.O)
 fun TripResponse.toRideRequestDetails(): RideRequestDetails {
     return RideRequestDetails(
         tripId = tripId,
         driverName = driverName ?: "Driver",
         driverRating = 4.8,           // TODO: not in TripResponse yet — backend needs to add this
-        driverRidesCompleted = 0,             // TODO: not in TripResponse yet — backend needs to add this
+        driverRidesCompleted = 0,     // TODO: not in TripResponse yet — backend needs to add this
         driverAvatarUrl = null,
         carDescription = listOfNotNull(vehicleColour, vehicleModel)
             .joinToString(" ")
             .ifBlank { "Vehicle details unavailable" },
         plate = registrationNumber ?: "—",
         pickupLabel = departureStop,
+        pickupLat = departureLat,
+        pickupLng = departureLng,
         destinationLabel = destinationStop,
+        destinationLat = destinationLat,
+        destinationLng = destinationLng,
         departureTime = departureTime,   // still a raw ISO string — format this for display, see note below
         arrivalEstimate = arrivalTime ?: "—",
         seatsAvailable = availableSeats,
@@ -84,7 +92,7 @@ fun TripResponse.toRideRequestDetails(): RideRequestDetails {
     )
 }
 
-// ─── 2. TripResponse → RideCardData (booked rides on MyRidesScreen) ──────────
+// ─── 3. TripResponse → RideCardData (booked rides on MyRidesScreen) ──────────
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun TripResponse.toRideCardData(): RideCardData {

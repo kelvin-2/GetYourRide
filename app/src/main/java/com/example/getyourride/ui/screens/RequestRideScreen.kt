@@ -3,24 +3,24 @@
 // Package: com.example.getyourride.ui.screens.Rides
 //
 // PURPOSE — Shown when a student taps "Book Seat" on a carpool card.
-// Student selects how many seats, adds optional notes for the driver,
-// sees the total cost, then confirms or cancels the request.
+// Student reviews the ride, optionally sets a custom pickup via AddStopScreen,
+// sees the price, then confirms or cancels the request.
+//
+// Booking is fixed at 1 seat, no notes — matches the backend's
+// BookCarpoolRequest, which has no seats-count or notes field.
 //
 // NAVIGATION — Called from CarpoolHomeScreen:
 //   onBookRide = { tripId -> navController.navigate("request_ride/$tripId") }
 //
-// WIRING TODO (when backend booking endpoint is ready):
-//   onConfirmRequest = { seats, notes ->
-//       bookingViewModel.bookSeat(tripId, seats, notes)
-//   }
+// WIRING — bookingViewModel is scoped to this trip's booking flow (see
+// TripBookingViewModel) and shared with AddStopScreen via the nav back stack
+// entry, so a pickup chosen there flows back into the same booking state here.
 //
 // SUB-COMPONENTS (all private — only used by this screen):
 //   DriverInfoCard       → driver avatar, name, rating, vehicle
 //   RouteCard            → pickup + destination with optional stop
 //   TripDetailsRow       → departure time, arrival est., seats, price chips
-//   SeatStepperCard      → increment/decrement seat count
-//   NotesField           → optional message to driver
-//   TotalAmountRow       → seats × price summary
+//   TotalAmountRow       → price summary (always 1 seat)
 //
 // If something looks wrong visually:
 //   Colors  → GetYourRideColors.kt (NavyPrimary, OrangeAccent etc.)
@@ -36,12 +36,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,21 +47,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.ui.components.GyrTopBar
 import com.example.getyourride.ui.theme.*
+import com.example.getyourride.viewmodel.BookingUiState
+import com.example.getyourride.viewmodel.TripBookingViewModel
 
 // ─── Data model ───────────────────────────────────────────────────────────────
 
 /**
  * Everything the screen needs to display one ride request.
- * Populated from TripResponse via TripMapper when connecting to real API.
+ * Populated from TripResponse via TripMapper.toRideRequestDetails() when
+ * connecting to real API.
+ *
+ * pickupLat/pickupLng/destinationLat/destinationLng are nullable because
+ * some trips in the backend are saved without coordinates (departureLat is
+ * null in real sample data) — when null, the student must pick a pickup via
+ * AddStopScreen before they can confirm.
  *
  * @param driverAvatarUrl  Pass null to show initials fallback avatar
  */
@@ -76,7 +80,11 @@ data class RideRequestDetails(
     val carDescription       : String,   // e.g. "Silver Toyota Corolla"
     val plate                : String,   // e.g. "ABC-1234"
     val pickupLabel          : String,
+    val pickupLat            : Double?,
+    val pickupLng            : Double?,
     val destinationLabel     : String,
+    val destinationLat       : Double?,
+    val destinationLng       : Double?,
     val departureTime        : String,   // display string e.g. "08:30 AM"
     val arrivalEstimate      : String,   // display string e.g. "08:50 AM"
     val seatsAvailable       : Int,
@@ -88,16 +96,32 @@ data class RideRequestDetails(
 @Composable
 fun RequestRideScreen(
     ride             : RideRequestDetails,
+    bookingViewModel : TripBookingViewModel,
     onBackClick      : () -> Unit,
     onAddStopClick   : () -> Unit = {},
-    onConfirmRequest : (seats: Int, notes: String) -> Unit,
+    onBookingSuccess : (TripResponse) -> Unit,
     onCancel         : () -> Unit,
     modifier         : Modifier = Modifier,
 ) {
-    var seatCount by remember { mutableIntStateOf(1) }
-    var notes     by remember { mutableStateOf("") }
+    // If the trip already has known departure coordinates and the student
+    // hasn't manually picked a stop yet, this defaults pickupStop to them —
+    // so "Confirm" works immediately without forcing a detour through
+    // AddStopScreen. Safe to call repeatedly; it no-ops once a pickup is set.
+    LaunchedEffect(ride.tripId) {
+        bookingViewModel.initializeDefaultPickupIfNeeded(ride)
+    }
 
-    val totalAmount = ride.pricePerSeat * seatCount
+    val bookingState = bookingViewModel.bookingState
+
+    LaunchedEffect(bookingState) {
+        if (bookingState is BookingUiState.Success) {
+            onBookingSuccess(bookingState.trip)
+        }
+    }
+
+    // Reflects whichever pickup is currently active — the trip's own default,
+    // or whatever the student picked via AddStopScreen.
+    val effectivePickupLabel = bookingViewModel.pickupStop?.displayName ?: ride.pickupLabel
 
     Scaffold(
         containerColor = CardWhite,
@@ -106,7 +130,6 @@ fun RequestRideScreen(
             GyrTopBar(
                 onBackClick   = onBackClick,
                 trailingLabel = null,
-
             )
         },
     ) { innerPadding ->
@@ -123,7 +146,7 @@ fun RequestRideScreen(
             DriverInfoCard(ride = ride)
 
             RouteCard(
-                pickupLabel      = ride.pickupLabel,
+                pickupLabel      = effectivePickupLabel,
                 destinationLabel = ride.destinationLabel,
                 onAddStopClick   = onAddStopClick,
             )
@@ -135,34 +158,38 @@ fun RequestRideScreen(
                 pricePerSeat    = ride.pricePerSeat,
             )
 
-            SeatStepperCard(
-                seatCount    = seatCount,
-                maxSeats     = ride.seatsAvailable,
-                pricePerSeat = ride.pricePerSeat,
-                onIncrement  = { if (seatCount < ride.seatsAvailable) seatCount++ },
-                onDecrement  = { if (seatCount > 1) seatCount-- },
-            )
+            TotalAmountRow(totalAmount = ride.pricePerSeat)
 
-            NotesField(
-                notes         = notes,
-                onNotesChange = { notes = it },
-            )
-
-            TotalAmountRow(totalAmount = totalAmount)
+            if (bookingState is BookingUiState.Error) {
+                Text(
+                    text     = bookingState.message,
+                    color    = DangerRed,
+                    fontSize = 13.sp,
+                )
+            }
 
             // ── Confirm button ────────────────────────────────────────────────
             Button(
-                onClick  = { onConfirmRequest(seatCount, notes) },
+                onClick  = { bookingViewModel.confirmBooking() },
+                enabled  = bookingState !is BookingUiState.Submitting,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(14.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
             ) {
-                Text(
-                    text       = "Confirm Request",
-                    fontSize   = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = Color.White,
-                )
+                if (bookingState is BookingUiState.Submitting) {
+                    CircularProgressIndicator(
+                        modifier    = Modifier.size(20.dp),
+                        color       = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(
+                        text       = "Confirm Request",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = Color.White,
+                    )
+                }
             }
 
             // ── Cancel link ───────────────────────────────────────────────────
@@ -380,93 +407,7 @@ private fun DetailChip(
     }
 }
 
-/** +/− stepper for selecting seat count with live price-per-seat label. */
-@Composable
-private fun SeatStepperCard(
-    seatCount    : Int,
-    maxSeats     : Int,
-    pricePerSeat : Double,
-    onIncrement  : () -> Unit,
-    onDecrement  : () -> Unit,
-) {
-    Card(
-        shape    = RoundedCornerShape(16.dp),
-        colors   = CardDefaults.cardColors(containerColor = SurfaceGrey),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier          = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Number of Seats", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
-                Text("R${"%.2f".format(pricePerSeat)} per person", fontSize = 12.sp, color = TextMuted)
-            }
-
-            StepperButton(icon = Icons.Filled.Remove, enabled = seatCount > 1,        onClick = onDecrement)
-            Text(
-                text       = seatCount.toString(),
-                fontSize   = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color      = OrangeAccent,
-                textAlign  = TextAlign.Center,
-                modifier   = Modifier.width(36.dp),
-            )
-            StepperButton(icon = Icons.Filled.Add,    enabled = seatCount < maxSeats, onClick = onIncrement)
-        }
-    }
-}
-
-/** Circular +/- button used in SeatStepperCard. */
-@Composable
-private fun StepperButton(
-    icon    : ImageVector,
-    enabled : Boolean,
-    onClick : () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(if (enabled) CardWhite else BorderLight)
-            .border(1.dp, BorderLight, CircleShape)
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector        = icon,
-            contentDescription = null,
-            tint               = if (enabled) NavyPrimary else TextMuted,
-            modifier           = Modifier.size(18.dp),
-        )
-    }
-}
-
-/** Optional free-text notes field for the driver. */
-@Composable
-private fun NotesField(
-    notes         : String,
-    onNotesChange : (String) -> Unit,
-) {
-    Column {
-        Text("Notes for Driver", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value         = notes,
-            onValueChange = onNotesChange,
-            placeholder   = { Text("e.g., Wait at the library stairs", fontSize = 13.sp, color = TextHint) },
-            modifier      = Modifier.fillMaxWidth().height(88.dp),
-            shape         = RoundedCornerShape(14.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            colors        = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor   = NavyPrimary,
-                unfocusedBorderColor = BorderLight,
-            ),
-        )
-    }
-}
-
-/** Final seats × price summary row shown above the confirm button. */
+/** Price summary row shown above the confirm button — always 1 seat. */
 @Composable
 private fun TotalAmountRow(totalAmount: Double) {
     Row(
@@ -485,57 +426,16 @@ private fun TotalAmountRow(totalAmount: Double) {
 }
 
 // ─── Previews ─────────────────────────────────────────────────────────────────
+// NOTE: Previews can't construct a real TripBookingViewModel (it needs a
+// TripRepository). If these previews need to keep rendering in Android
+// Studio's preview pane, they'll need a fake/no-op TripBookingViewModel or
+// should be temporarily commented out — let me know which you'd rather do.
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Request Ride — 2 seats")
+@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Request Ride — default pickup")
 @Composable
 private fun RequestRidePreview() {
     MaterialTheme {
-        RequestRideScreen(
-            ride = RideRequestDetails(
-                tripId               = 1L,
-                driverName           = "Kelvin M.",
-                driverRating         = 4.9,
-                driverRidesCompleted = 120,
-                driverAvatarUrl      = null,
-                carDescription       = "Silver Toyota Corolla",
-                plate                = "ABC-1234",
-                pickupLabel          = "Main Gate (NMU North Campus)",
-                destinationLabel     = "Engineering Hub",
-                departureTime        = "08:30 AM",
-                arrivalEstimate      = "08:50 AM",
-                seatsAvailable       = 2,
-                pricePerSeat         = 25.00,
-            ),
-            onBackClick      = {},
-            onConfirmRequest = { _, _ -> },
-            onCancel         = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Request Ride — 1 seat left")
-@Composable
-private fun RequestRideOneSeatPreview() {
-    MaterialTheme {
-        RequestRideScreen(
-            ride = RideRequestDetails(
-                tripId               = 2L,
-                driverName           = "Thandiwe N.",
-                driverRating         = 4.7,
-                driverRidesCompleted = 42,
-                driverAvatarUrl      = null,
-                carDescription       = "White VW Polo",
-                plate                = "NMU-2288",
-                pickupLabel          = "Missionvale Campus",
-                destinationLabel     = "South Campus Library",
-                departureTime        = "07:15 AM",
-                arrivalEstimate      = "07:40 AM",
-                seatsAvailable       = 1,
-                pricePerSeat         = 18.50,
-            ),
-            onBackClick      = {},
-            onConfirmRequest = { _, _ -> },
-            onCancel         = {},
-        )
+        // Preview left as a placeholder — needs a fake TripBookingViewModel
+        // to compile now that bookingViewModel is a required param.
     }
 }
