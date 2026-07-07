@@ -26,4 +26,17 @@ class GeocodingRepository(private val api: GeocodingApi) {
             Result.failure(e)
         }
     }
+
+    // Turns a GPS fix into a readable address. Unlike geocode(), there's no
+    // "found" flag from the backend to check - GeocodingService always returns
+    // an AddressSuggestion (falling back to a generic "Current Location" label
+    // if Nominatim has nothing tagged at that exact point), so any thrown
+    // exception here means a real network/server failure, not a "not found".
+    suspend fun reverseGeocode(lat: Double, lon: Double): Result<AddressSuggestion> {
+        return try {
+            Result.success(api.reverseGeocode(lat, lon))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

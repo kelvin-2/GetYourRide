@@ -26,5 +26,28 @@ data class TripResponse(
     val status: String,
     val vehicleModel: String?,
     val vehicleColour: String?,
-    val vehicleCapacity: Int?
+    val vehicleCapacity: Int?,
+    // NEW - matches the "stops" array your backend already returns per trip.
+    // Defaults to emptyList() so older/mocked responses without this field
+    // still parse fine instead of crashing Gson.
+    val stops: List<TripStopResponse> = emptyList()
+)
+
+/**
+ * One stop on a trip, as returned inside TripResponse.stops.
+ * Field names match your sample JSON exactly:
+ *   { "id": 4, "stopName": "...", "latitude": ..., "longitude": ...,
+ *     "stopOrder": 1, "studentId": 1, "studentName": "..." }
+ *
+ * studentId/studentName are null when the stop hasn't been claimed by a
+ * student yet (e.g. a driver-defined waypoint vs. a student's pickup stop).
+ */
+data class TripStopResponse(
+    val id: Long,
+    val stopName: String,
+    val latitude: Double,
+    val longitude: Double,
+    val stopOrder: Int,
+    val studentId: Long?,
+    val studentName: String?
 )

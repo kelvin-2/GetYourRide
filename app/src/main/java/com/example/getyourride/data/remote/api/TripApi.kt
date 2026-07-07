@@ -1,11 +1,13 @@
 package com.example.getyourride.data.remote.api
 
+import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -33,4 +35,10 @@ interface TripApi {
 
     @PATCH("api/trips/{id}/cancel")
     suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
+
+    @POST("api/trips/{tripId}/book")
+    suspend fun bookCarpool(
+        @Path("tripId") tripId: Long,
+        @Body request: BookCarpoolRequest
+    ): Response<TripResponse>
 }

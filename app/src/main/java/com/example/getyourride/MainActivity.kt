@@ -1,5 +1,6 @@
 package com.example.getyourride
-
+import com.example.getyourride.viewmodel.TripBookingViewModel
+import com.example.getyourride.viewmodel.TripBookingViewModelFactory
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.example.getyourride.data.repository.TripRepository
@@ -28,10 +29,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
+import com.example.getyourride.data.mapper.toRideRequestDetails
+import com.example.getyourride.data.repository.GeocodingRepository
 import com.example.getyourride.data.repository.StudentAuthRepository
 import com.example.getyourride.di.NetworkModule
 import com.example.getyourride.network.SpringBootApiService
 import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.screens.AddStopScreen
 import com.example.getyourride.ui.screens.Carpool.CarpoolHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileSettingsScreen
 import com.example.getyourride.ui.screens.DriverStep1Screen
@@ -51,10 +55,15 @@ import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
+import com.example.getyourride.ui.screens.Rides.RequestRideScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllRidesViewModelFactory
 import com.example.getyourride.viewmodel.AllTripsUiState
+import com.example.getyourride.viewmodel.StopSearchViewModel
+import com.example.getyourride.viewmodel.StopSearchViewModelFactory
+import com.example.getyourride.viewmodel.TripsUiState
+
 
 class MainActivity : ComponentActivity() {
 
@@ -310,7 +319,7 @@ class MainActivity : ComponentActivity() {
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
-                            onBookRide    = { /* TODO: wire booking endpoint */ },
+                            onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
                             navController = navController,
                         )
                     }
@@ -330,6 +339,80 @@ class MainActivity : ComponentActivity() {
                                 Text("Delete Driver Profile")
                             }
                         }
+                    }
+                    ///Request ride Screen
+                    ///Request ride Screen
+                    composable("request_ride/{tripId}") { backStackEntry ->
+                        val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
+
+                        val trip = (rideViewModel.uiState as? TripsUiState.Success)
+                            ?.trips
+                            ?.find { it.tripId == tripId }
+
+                        if (trip == null) {
+                            // Handles process death / deep link / stale state — bail out
+                            // instead of crashing RequestRideScreen with a null ride
+                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        } else {
+                            val tripBookingViewModel: TripBookingViewModel = viewModel(
+                                factory = TripBookingViewModelFactory(
+                                    tripId,
+                                    TripRepository(NetworkModule.tripApi)
+                                )
+                            )
+
+                            RequestRideScreen(
+                                ride             = trip.toRideRequestDetails(),
+                                bookingViewModel = tripBookingViewModel,
+                                navController    = navController,
+                                onBackClick      = { navController.popBackStack() },
+                                onAddStopClick   = { navController.navigate("add_stop/$tripId") },
+                                onBookingSuccess = {
+                                    // Refresh both lists so MyRidesScreen and CarpoolHomeScreen
+                                    // reflect the seat that just got taken.
+                                    rideViewModel.loadAvailableTrips()
+                                    navController.popBackStack()
+                                },
+                                onCancel = { navController.popBackStack() },
+                            )
+                        }
+                    }
+                    // ── ADD A STOP ─────────────────────────────────────────────
+
+                    composable("add_stop/{tripId}") { backStackEntry ->
+                        val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
+
+                        val stopSearchViewModel: StopSearchViewModel = viewModel(
+                            factory = StopSearchViewModelFactory(
+                                GeocodingRepository(NetworkModule.geocodingApi)
+                            )
+                        )
+
+                        // Grabs the SAME TripBookingViewModel instance the request_ride screen
+                        // is using, scoped to that entry's ViewModelStoreOwner rather than this
+                        // one — otherwise a plain viewModel() call here would create a second,
+                        // disconnected TripBookingViewModel and the picked stop would vanish
+                        // when we pop back.
+                        val requestRideEntry = remember(backStackEntry) {
+                            navController.getBackStackEntry("request_ride/$tripId")
+                        }
+                        val tripBookingViewModel: TripBookingViewModel = viewModel(
+                            viewModelStoreOwner = requestRideEntry,
+                            factory = TripBookingViewModelFactory(
+                                tripId,
+                                TripRepository(NetworkModule.tripApi)
+                            )
+                        )
+
+                        AddStopScreen(
+                            navController = navController,
+                            tripId = tripId,
+                            viewModel = stopSearchViewModel,
+                            onStopChosen = { stop ->
+                                tripBookingViewModel.choosePickupStop(stop)   // was setPickupStop
+                                navController.popBackStack()
+                            }
+                        )
                     }
 
                     // ── MY RIDES (Rides tab) ───────────────────────────────────

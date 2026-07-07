@@ -14,4 +14,9 @@ interface GeocodingApi {
 
     @POST("api/geocode")
     suspend fun geocode(@Body request: GeocodeRequest): GeocodeResult
+
+    // Turns a raw GPS fix into a readable address - same AddressSuggestion shape
+    // as suggest(), so "Current Location" saves as a stop exactly like a searched one.
+    @GET("api/geocode/reverse")
+    suspend fun reverseGeocode(@Query("lat") lat: Double, @Query("lon") lon: Double): AddressSuggestion
 }

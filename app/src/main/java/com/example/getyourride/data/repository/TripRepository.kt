@@ -3,7 +3,7 @@ package com.example.getyourride.data.repository
 import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
-
+import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 class TripRepository(private val api: TripApi) {
 
     suspend fun getAvailableTrips(): Result<List<TripResponse>> {
@@ -62,4 +62,19 @@ class TripRepository(private val api: TripApi) {
             Result.failure(e)
         }
     }
+
+    suspend fun bookCarpool(tripId: Long, request: BookCarpoolRequest): Result<TripResponse> {
+        return try {
+            val response = api.bookCarpool(tripId, request)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to book trip: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+
 }
