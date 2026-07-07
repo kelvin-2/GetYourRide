@@ -28,7 +28,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.ui.screens.Rides
-
+import androidx.navigation.NavController
+import com.example.getyourride.ui.screens.StopResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -97,6 +98,7 @@ data class RideRequestDetails(
 fun RequestRideScreen(
     ride             : RideRequestDetails,
     bookingViewModel : TripBookingViewModel,
+    navController    : NavController,
     onBackClick      : () -> Unit,
     onAddStopClick   : () -> Unit = {},
     onBookingSuccess : (TripResponse) -> Unit,
@@ -111,6 +113,18 @@ fun RequestRideScreen(
         bookingViewModel.initializeDefaultPickupIfNeeded(ride)
     }
 
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
+    val selectedStop = savedStateHandle
+        ?.getStateFlow<StopResult?>("selected_stop", null)
+        ?.collectAsState()
+
+    LaunchedEffect(selectedStop?.value) {
+        selectedStop?.value?.let { stop ->
+            bookingViewModel.choosePickupStop(stop)
+            // consume it so it isn't re-applied on recomposition/re-entry
+            savedStateHandle?.remove<StopResult>("selected_stop")
+        }
+    }
     val bookingState = bookingViewModel.bookingState
 
     LaunchedEffect(bookingState) {

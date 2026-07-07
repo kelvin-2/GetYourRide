@@ -364,6 +364,7 @@ class MainActivity : ComponentActivity() {
                             RequestRideScreen(
                                 ride             = trip.toRideRequestDetails(),
                                 bookingViewModel = tripBookingViewModel,
+                                navController    = navController,
                                 onBackClick      = { navController.popBackStack() },
                                 onAddStopClick   = { navController.navigate("add_stop/$tripId") },
                                 onBookingSuccess = {
