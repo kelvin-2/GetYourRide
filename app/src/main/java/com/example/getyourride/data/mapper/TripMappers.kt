@@ -17,6 +17,7 @@ import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.ui.components.RideCardData
 import com.example.getyourride.ui.components.RideStatus
 import com.example.getyourride.ui.screens.Carpool.components.CarpoolRide
+import com.example.getyourride.ui.screens.Rides.RideRequestDetails
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -60,6 +61,26 @@ fun TripResponse.toCarpoolRide(): CarpoolRide {
         fromLocation   = departureStop,
         toLocation     = destinationStop,
         pricePerSeat   = "R${price.setScale(2)}",
+    )
+}
+@RequiresApi(Build.VERSION_CODES.O)
+fun TripResponse.toRideRequestDetails(): RideRequestDetails {
+    return RideRequestDetails(
+        tripId = tripId,
+        driverName = driverName ?: "Driver",
+        driverRating = 4.8,           // TODO: not in TripResponse yet — backend needs to add this
+        driverRidesCompleted = 0,             // TODO: not in TripResponse yet — backend needs to add this
+        driverAvatarUrl = null,
+        carDescription = listOfNotNull(vehicleColour, vehicleModel)
+            .joinToString(" ")
+            .ifBlank { "Vehicle details unavailable" },
+        plate = registrationNumber ?: "—",
+        pickupLabel = departureStop,
+        destinationLabel = destinationStop,
+        departureTime = departureTime,   // still a raw ISO string — format this for display, see note below
+        arrivalEstimate = arrivalTime ?: "—",
+        seatsAvailable = availableSeats,
+        pricePerSeat = price.toDouble(),
     )
 }
 

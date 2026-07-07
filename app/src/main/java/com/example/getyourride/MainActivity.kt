@@ -28,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
+import com.example.getyourride.data.mapper.toRideRequestDetails
 import com.example.getyourride.data.repository.StudentAuthRepository
 import com.example.getyourride.di.NetworkModule
 import com.example.getyourride.network.SpringBootApiService
@@ -51,10 +52,12 @@ import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
+import com.example.getyourride.ui.screens.Rides.RequestRideScreen
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllRidesViewModelFactory
 import com.example.getyourride.viewmodel.AllTripsUiState
+import com.example.getyourride.viewmodel.TripsUiState
 
 class MainActivity : ComponentActivity() {
 
@@ -310,7 +313,7 @@ class MainActivity : ComponentActivity() {
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
-                            onBookRide    = { /* TODO: wire booking endpoint */ },
+                            onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
                             navController = navController,
                         )
                     }
@@ -329,6 +332,29 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = { navController.navigate("driver_profile_settings") }) {
                                 Text("Delete Driver Profile")
                             }
+                        }
+                    }
+                    ///Request ride Screen
+                    composable("request_ride/{tripId}") { backStackEntry ->
+                        val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
+
+                        val trip = (rideViewModel.uiState as? TripsUiState.Success)
+                            ?.trips
+                            ?.find { it.tripId == tripId }
+
+                        if (trip == null) {
+                            // Handles process death / deep link / stale state — bail out
+                            // instead of crashing RequestRideScreen with a null ride
+                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        } else {
+                            RequestRideScreen(
+                                ride             = trip.toRideRequestDetails(),
+                                onBackClick      = { navController.popBackStack() },
+                                onConfirmRequest = { seats, notes ->
+                                    // TODO: call booking endpoint
+                                },
+                                onCancel         = { navController.popBackStack() },
+                            )
                         }
                     }
 
