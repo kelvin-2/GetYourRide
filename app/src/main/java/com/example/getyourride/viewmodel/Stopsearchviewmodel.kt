@@ -107,11 +107,3 @@ class StopSearchViewModel(
     }
 }
 
-class StopSearchViewModelFactory(
-    private val geocodingRepository: GeocodingRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST")
-        return StopSearchViewModel(geocodingRepository) as T
-    }
-}

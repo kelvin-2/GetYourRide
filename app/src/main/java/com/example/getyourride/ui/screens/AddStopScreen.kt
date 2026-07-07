@@ -2,6 +2,7 @@ package com.example.getyourride.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,6 +29,7 @@ import com.example.getyourride.viewmodel.StopSearchViewModel
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 
 // ---- Color palette (matches your existing app theme) ----
 private val NavyDark = Color(0xFF16214B)
@@ -62,6 +64,7 @@ data class StopResult(
 @Composable
 fun AddStopScreen(
     navController: NavController,
+    tripId: Long,
     recentLocations: List<String> = listOf(
         "Engineering Bldg",
         "Main Library",
@@ -83,20 +86,41 @@ fun AddStopScreen(
 
     val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // Recreated each time we start a fresh location lookup so a previous,
+    // still-in-flight request can be cancelled independently of a new one.
+    var cancellationTokenSource by remember { mutableStateOf(CancellationTokenSource()) }
+
+    // If the student navigates away while a GPS fix is still being resolved,
+    // cancel it so the callback doesn't fire and update state after this
+    // composable (and its ViewModel scope) is gone.
+    DisposableEffect(Unit) {
+        onDispose {
+            cancellationTokenSource.cancel()
+        }
+    }
+
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED
 
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     fun requestLiveLocation() {
         if (!hasLocationPermission()) {
             viewModel.markCurrentLocationFailed("Location permission not granted")
             return
         }
+
+        // Cancel any prior in-flight lookup before starting a new one (e.g. the
+        // student taps "Current Location" again while the first is still resolving).
+        cancellationTokenSource.cancel()
+        cancellationTokenSource = CancellationTokenSource()
+
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .build()
         try {
-            fusedClient.getCurrentLocation(request, null)
+            //live location
+            fusedClient.getCurrentLocation(request, cancellationTokenSource.token)
                 .addOnSuccessListener { location ->
                     if (location == null) {
                         viewModel.markCurrentLocationFailed("Couldn't get a GPS fix")

@@ -29,10 +29,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.data.mapper.toRideRequestDetails
+import com.example.getyourride.data.repository.GeocodingRepository
 import com.example.getyourride.data.repository.StudentAuthRepository
 import com.example.getyourride.di.NetworkModule
 import com.example.getyourride.network.SpringBootApiService
 import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.screens.AddStopScreen
 import com.example.getyourride.ui.screens.Carpool.CarpoolHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileSettingsScreen
 import com.example.getyourride.ui.screens.DriverStep1Screen
@@ -57,7 +59,10 @@ import com.example.getyourride.ui.screens.StudentDriverPostedRide
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllRidesViewModelFactory
 import com.example.getyourride.viewmodel.AllTripsUiState
+import com.example.getyourride.viewmodel.StopSearchViewModel
+import com.example.getyourride.viewmodel.StopSearchViewModelFactory
 import com.example.getyourride.viewmodel.TripsUiState
+
 
 class MainActivity : ComponentActivity() {
 
@@ -350,12 +355,29 @@ class MainActivity : ComponentActivity() {
                             RequestRideScreen(
                                 ride             = trip.toRideRequestDetails(),
                                 onBackClick      = { navController.popBackStack() },
+                                onAddStopClick   = { navController.navigate("add_stop/$tripId") },
                                 onConfirmRequest = { seats, notes ->
                                     // TODO: call booking endpoint
                                 },
                                 onCancel         = { navController.popBackStack() },
                             )
                         }
+                    }
+                    // ── ADD A STOP ─────────────────────────────────────────────
+                    composable("add_stop/{tripId}") { backStackEntry ->
+                        val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
+
+                        val stopSearchViewModel: StopSearchViewModel = viewModel(
+                            factory = StopSearchViewModelFactory(
+                                GeocodingRepository(NetworkModule.geocodingApi)
+                            )
+                        )
+
+                        AddStopScreen(
+                            navController = navController,
+                            tripId = tripId,
+                            viewModel = stopSearchViewModel,
+                        )
                     }
 
                     // ── MY RIDES (Rides tab) ───────────────────────────────────
