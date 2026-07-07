@@ -44,17 +44,13 @@ class TripBookingViewModel(
         private set
 
     /** Called from AddStopScreen when the student is choosing where to be picked up. */
-    fun setPickupStop(stop: StopResult) {
+    fun choosePickupStop(stop: StopResult) {
         pickupStop = stop
     }
 
     /** Called from AddStopScreen when the student is choosing an optional drop-off point. */
-    fun setDropOffStop(stop: StopResult) {
+    fun chooseDropOffStop(stop: StopResult) {
         dropOffStop = stop
-    }
-
-    fun clearDropOffStop() {
-        dropOffStop = null
     }
 
     /**

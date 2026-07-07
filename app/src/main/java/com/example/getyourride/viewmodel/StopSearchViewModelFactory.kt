@@ -11,4 +11,5 @@ class StopSearchViewModelFactory(
         @Suppress("UNCHECKED_CAST")
         return StopSearchViewModel(geocodingRepository) as T
     }
+    
 }

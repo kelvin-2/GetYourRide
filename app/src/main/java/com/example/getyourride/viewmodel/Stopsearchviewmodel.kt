@@ -43,7 +43,7 @@ class StopSearchViewModel(
     private fun observeQuery() {
         viewModelScope.launch {
             fieldQuery
-                .debounce(350)
+                .debounce(700)
                 .distinctUntilChanged()
                 .filter { it.length >= 3 }
                 .collectLatest { query ->
@@ -104,6 +104,21 @@ class StopSearchViewModel(
 
     fun markCurrentLocationFailed(message: String) {
         _currentLocation.value = CurrentLocationState.Failed(message)
+    }
+    /**
+     * Fallback for when the student typed a full address but never tapped a
+     * suggestion row (e.g. because suggest() returned no results). Resolves the
+     * raw typed text via the precise /api/geocode endpoint instead.
+     */
+    fun resolveTypedAddress(text: String, onResolved: (AddressSuggestion?) -> Unit) {
+        viewModelScope.launch {
+            val resolved = geocodingRepository.geocode(text).getOrNull()?.let { result ->
+                val lat = result.lat ?: return@let null
+                val lon = result.lon ?: return@let null
+                AddressSuggestion(displayName = result.matchedAddress ?: text, lat = lat, lon = lon)
+            }
+            onResolved(resolved)
+        }
     }
 }
 

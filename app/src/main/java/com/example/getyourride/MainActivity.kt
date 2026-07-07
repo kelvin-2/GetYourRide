@@ -1,5 +1,6 @@
 package com.example.getyourride
-
+import com.example.getyourride.viewmodel.TripBookingViewModel
+import com.example.getyourride.viewmodel.TripBookingViewModelFactory
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.example.getyourride.data.repository.TripRepository
@@ -340,6 +341,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     ///Request ride Screen
+                    ///Request ride Screen
                     composable("request_ride/{tripId}") { backStackEntry ->
                         val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
 
@@ -352,18 +354,30 @@ class MainActivity : ComponentActivity() {
                             // instead of crashing RequestRideScreen with a null ride
                             LaunchedEffect(Unit) { navController.popBackStack() }
                         } else {
+                            val tripBookingViewModel: TripBookingViewModel = viewModel(
+                                factory = TripBookingViewModelFactory(
+                                    tripId,
+                                    TripRepository(NetworkModule.tripApi)
+                                )
+                            )
+
                             RequestRideScreen(
                                 ride             = trip.toRideRequestDetails(),
+                                bookingViewModel = tripBookingViewModel,
                                 onBackClick      = { navController.popBackStack() },
                                 onAddStopClick   = { navController.navigate("add_stop/$tripId") },
-                                onConfirmRequest = { seats, notes ->
-                                    // TODO: call booking endpoint
+                                onBookingSuccess = {
+                                    // Refresh both lists so MyRidesScreen and CarpoolHomeScreen
+                                    // reflect the seat that just got taken.
+                                    rideViewModel.loadAvailableTrips()
+                                    navController.popBackStack()
                                 },
-                                onCancel         = { navController.popBackStack() },
+                                onCancel = { navController.popBackStack() },
                             )
                         }
                     }
                     // ── ADD A STOP ─────────────────────────────────────────────
+
                     composable("add_stop/{tripId}") { backStackEntry ->
                         val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
 
@@ -373,10 +387,30 @@ class MainActivity : ComponentActivity() {
                             )
                         )
 
+                        // Grabs the SAME TripBookingViewModel instance the request_ride screen
+                        // is using, scoped to that entry's ViewModelStoreOwner rather than this
+                        // one — otherwise a plain viewModel() call here would create a second,
+                        // disconnected TripBookingViewModel and the picked stop would vanish
+                        // when we pop back.
+                        val requestRideEntry = remember(backStackEntry) {
+                            navController.getBackStackEntry("request_ride/$tripId")
+                        }
+                        val tripBookingViewModel: TripBookingViewModel = viewModel(
+                            viewModelStoreOwner = requestRideEntry,
+                            factory = TripBookingViewModelFactory(
+                                tripId,
+                                TripRepository(NetworkModule.tripApi)
+                            )
+                        )
+
                         AddStopScreen(
                             navController = navController,
                             tripId = tripId,
                             viewModel = stopSearchViewModel,
+                            onStopChosen = { stop ->
+                                tripBookingViewModel.choosePickupStop(stop)   // was setPickupStop
+                                navController.popBackStack()
+                            }
                         )
                     }
 

@@ -166,6 +166,19 @@ fun AddStopScreen(
                             resolvedCurrent != null -> onStopChosen(
                                 StopResult(resolvedCurrent.displayName, resolvedCurrent.lat, resolvedCurrent.lon, isCurrentLocation = true)
                             )
+                            fieldState.text.isNotBlank() -> {
+                                // Nothing was tapped from suggestions (likely because
+                                // suggestions came back empty) but the student typed
+                                // something — fall back to the precise geocode
+                                // endpoint, same one resolveRecentLocation() uses.
+                                viewModel.resolveTypedAddress(fieldState.text) { resolved ->
+                                    if (resolved != null) {
+                                        onStopChosen(StopResult(resolved.displayName, resolved.lat, resolved.lon))
+                                    }
+                                    // If this also fails, the student stays on the
+                                    // screen — see note below about surfacing that.
+                                }
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
