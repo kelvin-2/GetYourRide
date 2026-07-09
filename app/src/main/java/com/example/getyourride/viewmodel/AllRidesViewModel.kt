@@ -22,9 +22,16 @@ class AllRidesViewModel(
     var uiState: AllTripsUiState by mutableStateOf(AllTripsUiState.Loading)
         private set
 
-    init {
-        loadAllTrips()
-    }
+    // NOTE: no init { loadAllTrips() } here on purpose — same reasoning as
+    // RideViewModel. This ViewModel is constructed at the top of
+    // MainActivity's setContent (app launch, pre-login), so an eager load
+    // here hits the backend with no auth token and gets a 403.
+    //
+    // IMPORTANT: unlike RideViewModel (which already gets reloaded by
+    // CarpoolHomeScreen's LaunchedEffect), MyRidesScreen's composable in
+    // MainActivity currently has NO LaunchedEffect calling loadAllTrips().
+    // You need to add one, or this screen will sit on TripsUiState.Loading
+    // forever. See the MainActivity snippet below.
 
     fun loadAllTrips() {
         viewModelScope.launch {

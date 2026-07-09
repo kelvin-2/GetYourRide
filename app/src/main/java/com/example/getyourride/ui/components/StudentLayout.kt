@@ -49,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.ui.theme.SurfaceGrey
 
 /**
  * Reusable layout wrapper for all student screens.
@@ -69,6 +70,7 @@ fun StudentLayout(
     content       : @Composable () -> Unit,
 ) {
     Scaffold(
+        containerColor = SurfaceGrey,
         // ── Top bar — consistent across all student screens ───────────────────
         topBar = {
             GyrTopBar(

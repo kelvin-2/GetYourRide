@@ -32,9 +32,17 @@ class RideViewModel(private val repository: TripRepository) : ViewModel() {
         val destinationLng: Double
     )
 
-    init {
-        loadAvailableTrips()
-    }
+    // NOTE: no init { loadAvailableTrips() } here on purpose.
+    //
+    // This ViewModel is constructed at the top of MainActivity's setContent,
+    // i.e. at app launch — before the student has logged in and before any
+    // auth token exists in UserSession. If this fired eagerly in init, it
+    // hit the trips endpoints with no Authorization header and the backend
+    // correctly returned 403, leaving uiState stuck in Error/Loading.
+    //
+    // Instead, CarpoolHomeScreen's own LaunchedEffect(Unit) in MainActivity
+    // calls loadAvailableTrips() every time the student actually enters the
+    // Home screen (post-login), which is the only time this should fire.
 
     // getting available trips using the status code
     fun loadAvailableTrips() {

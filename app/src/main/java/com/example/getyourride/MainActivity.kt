@@ -56,6 +56,10 @@ import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.Rides.RequestRideScreen
+// ── Booking confirmation screen + mapper (new) ─────────────────────────────
+import com.example.getyourride.ui.screens.Rides.BookingConfirmationDetails
+import com.example.getyourride.ui.screens.Rides.BookingConfirmedScreen
+import com.example.getyourride.ui.screens.Rides.toBookingConfirmationDetails
 import com.example.getyourride.ui.screens.StudentDriverPostedRide
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllRidesViewModelFactory
@@ -113,6 +117,11 @@ class MainActivity : ComponentActivity() {
                 )
 
                 var isNsfasFunded by remember { mutableStateOf(false) }
+
+                // NEW — holds the details for BookingConfirmedScreen. Set right
+                // before navigating to "booking_confirmed" and cleared once the
+                // student leaves that screen via "View My Rides".
+                var confirmedBooking by remember { mutableStateOf<BookingConfirmationDetails?>(null) }
 
                 NavHost(
                     navController    = navController,
@@ -314,7 +323,12 @@ class MainActivity : ComponentActivity() {
                     // ── CARPOOL HOME (self-funded students) ────────────────────
                     composable(GyrRoutes.HOME) {
                         LaunchedEffect(Unit) {
-                            rideViewModel.loadAvailableTrips()
+                            // Only load if it's the very first time (still in Loading state)
+                            // or if we explicitly want to refresh. This prevents a "white flash"
+                            // of the Loading state every time we pop back from RequestRideScreen.
+                            if (rideViewModel.uiState is TripsUiState.Loading) {
+                                rideViewModel.loadAvailableTrips()
+                            }
                         }
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
@@ -367,16 +381,51 @@ class MainActivity : ComponentActivity() {
                                 navController    = navController,
                                 onBackClick      = { navController.popBackStack() },
                                 onAddStopClick   = { navController.navigate("add_stop/$tripId") },
-                                onBookingSuccess = {
+                                onBookingSuccess = { confirmedTrip ->
                                     // Refresh both lists so MyRidesScreen and CarpoolHomeScreen
                                     // reflect the seat that just got taken.
                                     rideViewModel.loadAvailableTrips()
-                                    navController.popBackStack()
+
+                                    // Stash the confirmed booking's display details (reusing
+                                    // the same TripResponse -> RideRequestDetails mapper this
+                                    // screen already uses) so booking_confirmed can render it.
+                                    confirmedBooking = confirmedTrip.toRideRequestDetails()
+                                        .toBookingConfirmationDetails()
+
+                                    navController.navigate("booking_confirmed") {
+                                        popUpTo(GyrRoutes.HOME)
+                                    }
                                 },
                                 onCancel = { navController.popBackStack() },
                             )
                         }
                     }
+
+                    // ── BOOKING CONFIRMED ───────────────────────────────────────
+                    composable("booking_confirmed") {
+                        val booking = confirmedBooking
+
+                        if (booking == null) {
+                            // Defensive guard for process death / deep link — same
+                            // pattern as the null-trip check in request_ride/{tripId}.
+                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        } else {
+                            BookingConfirmedScreen(
+                                details = booking,
+                                onDownloadReceipt = {
+                                    // TODO: wire up once a receipt endpoint or client-side
+                                    // PDF/summary generation exists
+                                },
+                                onViewMyRides = {
+                                    confirmedBooking = null
+                                    navController.navigate(GyrRoutes.RIDES) {
+                                        popUpTo(GyrRoutes.HOME)
+                                    }
+                                },
+                            )
+                        }
+                    }
+
                     // ── ADD A STOP ─────────────────────────────────────────────
 
                     composable("add_stop/{tripId}") { backStackEntry ->
@@ -419,7 +468,13 @@ class MainActivity : ComponentActivity() {
                     // CHANGED: now uses rideViewModel instead of a static list.
                     // The same rideViewModel instance is shared with CarpoolHomeScreen
                     // above, so the data is already loaded — no extra API call on tab switch.
+
                     composable(GyrRoutes.RIDES) {
+                        LaunchedEffect(Unit) {
+                            if (allRidesViewModel.uiState is AllTripsUiState.Loading) {
+                                allRidesViewModel.loadAllTrips()
+                            }
+                        }
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
                             navController = navController,
@@ -427,7 +482,6 @@ class MainActivity : ComponentActivity() {
                                 // TODO: navigate to live tracking screen once built
                                 // navController.navigate("track_ride/$rideId")
                             },
-
                         )
                     }
                 }

@@ -46,15 +46,6 @@ fun MyRidesScreen(
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
 
-    // NOTE: AllRidesViewModel already calls loadAllTrips() in its init{} block.
-    // If you want a fresh reload every time this screen is re-entered (e.g. after
-    // navigating back from another tab), keep this LaunchedEffect. If you only
-    // want the initial load, remove this and rely on init{} alone — otherwise
-    // you're firing two network calls back-to-back on first composition.
-    LaunchedEffect(Unit) {
-        viewModel.loadAllTrips()
-    }
-
     StudentLayout(
         currentRoute  = GyrRoutes.RIDES,
         navController = navController,
