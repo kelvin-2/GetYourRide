@@ -323,7 +323,12 @@ class MainActivity : ComponentActivity() {
                     // ── CARPOOL HOME (self-funded students) ────────────────────
                     composable(GyrRoutes.HOME) {
                         LaunchedEffect(Unit) {
-                            rideViewModel.loadAvailableTrips()
+                            // Only load if it's the very first time (still in Loading state)
+                            // or if we explicitly want to refresh. This prevents a "white flash"
+                            // of the Loading state every time we pop back from RequestRideScreen.
+                            if (rideViewModel.uiState is TripsUiState.Loading) {
+                                rideViewModel.loadAvailableTrips()
+                            }
                         }
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
@@ -466,7 +471,9 @@ class MainActivity : ComponentActivity() {
 
                     composable(GyrRoutes.RIDES) {
                         LaunchedEffect(Unit) {
-                            allRidesViewModel.loadAllTrips()
+                            if (allRidesViewModel.uiState is AllTripsUiState.Loading) {
+                                allRidesViewModel.loadAllTrips()
+                            }
                         }
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
