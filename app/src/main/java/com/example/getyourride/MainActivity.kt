@@ -56,6 +56,7 @@ import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.Rides.RequestRideScreen
+import com.example.getyourride.ui.screens.Rides.RideRequestDetails
 // ── Booking confirmation screen + mapper (new) ─────────────────────────────
 import com.example.getyourride.ui.screens.Rides.BookingConfirmationDetails
 import com.example.getyourride.ui.screens.Rides.BookingConfirmedScreen
@@ -363,11 +364,20 @@ class MainActivity : ComponentActivity() {
                             ?.trips
                             ?.find { it.tripId == tripId }
 
-                        if (trip == null) {
-                            // Handles process death / deep link / stale state — bail out
-                            // instead of crashing RequestRideScreen with a null ride
-                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        // STASH the ride details so the screen doesn't disappear if the list
+                        // refreshes (e.g. on booking success).
+                        var stashedRide by remember(tripId) { mutableStateOf<RideRequestDetails?>(null) }
+                        if (trip != null) {
+                            stashedRide = trip.toRideRequestDetails()
+                        }
+
+                        if (stashedRide == null) {
+                            // Truly nothing to show. Pop back only if not currently loading.
+                            if (rideViewModel.uiState !is TripsUiState.Loading) {
+                                LaunchedEffect(Unit) { navController.popBackStack() }
+                            }
                         } else {
+                            val rideDetails = stashedRide!!
                             val tripBookingViewModel: TripBookingViewModel = viewModel(
                                 factory = TripBookingViewModelFactory(
                                     tripId,
@@ -376,7 +386,7 @@ class MainActivity : ComponentActivity() {
                             )
 
                             RequestRideScreen(
-                                ride             = trip.toRideRequestDetails(),
+                                ride             = rideDetails,
                                 bookingViewModel = tripBookingViewModel,
                                 navController    = navController,
                                 onBackClick      = { navController.popBackStack() },
@@ -386,11 +396,14 @@ class MainActivity : ComponentActivity() {
                                     // reflect the seat that just got taken.
                                     rideViewModel.loadAvailableTrips()
 
-                                    // Stash the confirmed booking's display details (reusing
-                                    // the same TripResponse -> RideRequestDetails mapper this
-                                    // screen already uses) so booking_confirmed can render it.
+                                    // Stash the confirmed booking's display details
                                     confirmedBooking = confirmedTrip.toRideRequestDetails()
                                         .toBookingConfirmationDetails()
+
+                                    android.util.Log.d("NAV", "Booking success! Navigating to confirmed. Data: $confirmedBooking")
+
+                                    // Reset ViewModel state so it doesn't trigger again on re-entry
+                                    tripBookingViewModel.resetState()
 
                                     navController.navigate("booking_confirmed") {
                                         popUpTo(GyrRoutes.HOME)
@@ -404,16 +417,15 @@ class MainActivity : ComponentActivity() {
                     // ── BOOKING CONFIRMED ───────────────────────────────────────
                     composable("booking_confirmed") {
                         val booking = confirmedBooking
-
+                        android.util.Log.d("NAV", "booking_confirmed composed, booking=$booking")
                         if (booking == null) {
-                            // Defensive guard for process death / deep link — same
+                            // Defensive guard for process death / deep link — sameb
                             // pattern as the null-trip check in request_ride/{tripId}.
                             LaunchedEffect(Unit) { navController.popBackStack() }
                         } else {
                             BookingConfirmedScreen(
                                 details = booking,
                                 onDownloadReceipt = {
-                                    // TODO: wire up once a receipt endpoint or client-side
                                     // PDF/summary generation exists
                                 },
                                 onViewMyRides = {
