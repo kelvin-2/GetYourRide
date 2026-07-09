@@ -15,17 +15,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,12 +52,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.domain.model.RideStatus
 import com.example.getyourride.domain.model.TripTrackingInfo
+import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.viewmodel.TrackingUiState
 import com.example.getyourride.viewmodel.TrackingViewModel
-import com.example.getyourride.viewmodel.TrackingViewModelFactory
+import com.example.getyourride.ui.theme.*
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -68,34 +73,43 @@ private val UniRideNavy = Color(0xFF141A33)
 private val CardGrey = Color(0xFFF5F6F8)
 
 /**
- * Stateful entry point — wire this into your NavHost.
- * Pulls the ViewModel, starts the socket connection, feeds state down to TrackingScreenContent.
+ * Stateful entry point — wired into NavHost in MainActivity.
+ *
+ * IMPORTANT: The ViewModel is now built and passed in by the caller
+ * (MainActivity's "track/{rideId}" composable), since building it here
+ * required a real socket instance at composition time. Keeping construction
+ * in MainActivity means MainActivity controls what socket implementation
+ * (real STOMP client vs MockRideLocationSocket) gets used, and this screen
+ * doesn't need to know or care.
  */
 @Composable
 fun TrackingScreen(
-    rideId: String,
+    viewModel: TrackingViewModel,
+    onBackClick: () -> Unit = {},
+    navController: androidx.navigation.NavController = rememberNavController(),
     onMessageDriver: () -> Unit = {},
     onCallDriver: () -> Unit = {},
     onCancelRide: () -> Unit = {},
-    viewModel: TrackingViewModel = viewModel(
-        factory = TrackingViewModelFactory(
-            rideId = rideId,
-            socket = TODO("pass your existing STOMP RideLocationSocket implementation here")
-        )
-    )
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(rideId) {
+    LaunchedEffect(viewModel) {
         viewModel.startTracking()
     }
 
-    TrackingScreenContent(
-        uiState = uiState,
-        onMessageDriver = onMessageDriver,
-        onCallDriver = onCallDriver,
-        onCancelRide = { viewModel.cancelRide(onCancelRide) }
-    )
+    StudentLayout(
+        currentRoute = GyrRoutes.TRACK,
+        navController = navController,
+        showBell = true
+    ) {
+        TrackingScreenContent(
+            uiState = uiState,
+            onBackClick = onBackClick,
+            onMessageDriver = onMessageDriver,
+            onCallDriver = onCallDriver,
+            onCancelRide = { viewModel.cancelRide(onCancelRide) }
+        )
+    }
 }
 
 /**
@@ -105,21 +119,36 @@ fun TrackingScreen(
 @Composable
 fun TrackingScreenContent(
     uiState: TrackingUiState,
+    onBackClick: () -> Unit = {},
     onMessageDriver: () -> Unit = {},
     onCallDriver: () -> Unit = {},
     onCancelRide: () -> Unit = {}
 ) {
-    Scaffold { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Box(modifier = Modifier.weight(1f)) {
-                OsmMapSection(uiState = uiState)
-            }
-            uiState.tripInfo?.let { info ->
-                DriverInfoCard(
-                    info = info,
-                    onMessageDriver = onMessageDriver,
-                    onCallDriver = onCallDriver,
-                    onCancelRide = onCancelRide
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            OsmMapSection(uiState = uiState)
+        }
+        uiState.tripInfo?.let { info ->
+            DriverInfoCard(
+                info = info,
+                onMessageDriver = onMessageDriver,
+                onCallDriver = onCallDriver,
+                onCancelRide = onCancelRide
+            )
+        } ?: run {
+            // Placeholder when no trip is active (e.g. from the Track tab)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No active ride to track.\nBook a ride to see live updates!",
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = TextMuted,
+                    fontSize = 14.sp
                 )
             }
         }

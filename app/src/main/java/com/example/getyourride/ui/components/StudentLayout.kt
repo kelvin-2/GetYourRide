@@ -67,6 +67,7 @@ fun StudentLayout(
     currentRoute  : String,
     navController : NavController,
     showBell      : Boolean = true,
+    onBackClick   : (() -> Unit)? = null, // Added optional back click
     content       : @Composable () -> Unit,
 ) {
     Scaffold(
@@ -74,9 +75,8 @@ fun StudentLayout(
         // ── Top bar — consistent across all student screens ───────────────────
         topBar = {
             GyrTopBar(
-                onBackClick   = null,      // home screens never show a back arrow
+                onBackClick   = onBackClick,      // Now passes through
                 trailingLabel = null,      // no step label on main screens
-
             )
         },
 

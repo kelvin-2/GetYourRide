@@ -51,6 +51,10 @@ import com.example.getyourride.viewmodel.AuthViewModelFactory
 import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.OfferRideViewModel
+import com.example.getyourride.viewmodel.MockRideLocationSocket
+import com.example.getyourride.viewmodel.TrackingViewModel
+import com.example.getyourride.viewmodel.TrackingViewModelFactory
+import com.example.getyourride.ui.screens.Tracking.TrackingScreen
 import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
 import com.example.getyourride.ui.screens.RideAcceptedStudent
@@ -491,9 +495,38 @@ class MainActivity : ComponentActivity() {
                             viewModel = allRidesViewModel,
                             navController = navController,
                             onTrackRide   = { rideId ->
-                                // TODO: navigate to live tracking screen once built
-                                // navController.navigate("track_ride/$rideId")
+                                navController.navigate("track/$rideId")
                             },
+                        )
+                    }
+
+                    // ── TRACK RIDE ─────────────────────────────────────────────
+                    // Route for the bottom nav tab (no ID)
+                    composable(GyrRoutes.TRACK) {
+                        val trackingViewModel: TrackingViewModel = viewModel(
+                            factory = TrackingViewModelFactory(
+                                rideId = "0", // Default state
+                                socket = remember { MockRideLocationSocket() }
+                            )
+                        )
+                        TrackingScreen(
+                            viewModel = trackingViewModel,
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    // Route for direct tracking from My Rides (with ID)
+                    composable("track/{rideId}") { backStackEntry ->
+                        val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
+                        val trackingViewModel: TrackingViewModel = viewModel(
+                            factory = TrackingViewModelFactory(
+                                rideId = rideId,
+                                socket = remember { MockRideLocationSocket() }
+                            )
+                        )
+                        TrackingScreen(
+                            viewModel = trackingViewModel,
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
                 }
