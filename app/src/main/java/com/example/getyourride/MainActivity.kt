@@ -61,7 +61,6 @@ import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.Rides.RequestRideScreen
 import com.example.getyourride.ui.screens.Rides.RideRequestDetails
-// ── Booking confirmation screen + mapper (new) ─────────────────────────────
 import com.example.getyourride.ui.screens.Rides.BookingConfirmationDetails
 import com.example.getyourride.ui.screens.Rides.BookingConfirmedScreen
 import com.example.getyourride.ui.screens.Rides.toBookingConfirmationDetails
@@ -359,7 +358,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    ///Request ride Screen
+
                     ///Request ride Screen
                     composable("request_ride/{tripId}") { backStackEntry ->
                         val tripId = backStackEntry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L

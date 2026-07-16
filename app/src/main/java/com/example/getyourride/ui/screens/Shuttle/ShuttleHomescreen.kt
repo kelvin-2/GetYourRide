@@ -1,4 +1,4 @@
-package com.example.getyourride.ui.screens.shuttle
+package com.example.getyourride.ui.screens.Shuttle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
