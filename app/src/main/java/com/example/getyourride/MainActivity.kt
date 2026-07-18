@@ -71,6 +71,17 @@ import com.example.getyourride.viewmodel.AllTripsUiState
 import com.example.getyourride.viewmodel.StopSearchViewModel
 import com.example.getyourride.viewmodel.StopSearchViewModelFactory
 import com.example.getyourride.viewmodel.TripsUiState
+import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import com.example.getyourride.data.repository.ShuttleRepository
+import com.example.getyourride.ui.screens.Shuttle.ShuttleHomeScreen
+import com.example.getyourride.viewmodel.ShuttleUiState
+import com.example.getyourride.viewmodel.ShuttleViewModel
+import com.example.getyourride.viewmodel.ShuttleViewModelFactory
 
 
 class MainActivity : ComponentActivity() {
@@ -343,18 +354,68 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // ── SHUTTLE HOME (NSFAS students) ──────────────────────────
-                    // TODO: replace placeholder with real ShuttleHomeScreen
                     composable("shuttle_home") {
-                        Column(
-                            modifier            = Modifier.padding(24.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text("Shuttle Home Screen — coming soon")
-                            Button(onClick = { navController.navigate("offer_ride") }) {
-                                Text("Offer Ride")
+                        val context = LocalContext.current
+                        val shuttleViewModel: ShuttleViewModel = viewModel(
+                            factory = ShuttleViewModelFactory(ShuttleRepository())
+                        )
+
+                        LaunchedEffect(Unit) {
+                            if (shuttleViewModel.uiState is ShuttleUiState.Loading) {
+                                shuttleViewModel.loadShuttleHomeData()
                             }
-                            Button(onClick = { navController.navigate("driver_profile_settings") }) {
-                                Text("Delete Driver Profile")
+                        }
+
+                        when (val state = shuttleViewModel.uiState) {
+                            is ShuttleUiState.Loading -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            is ShuttleUiState.Error -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Couldn't load shuttles: ${state.message}")
+                                        Button(onClick = { shuttleViewModel.loadShuttleHomeData() }) {
+                                            Text("Retry")
+                                        }
+                                    }
+                                }
+                            }
+                            is ShuttleUiState.Success -> {
+                                ShuttleHomeScreen(
+                                    userName = "Student", // TODO: pull real name once UserSession exposes it
+                                    upcomingShuttles = state.upcomingShuttles,
+                                    recentTrips = state.recentTrips,
+                                    onBookShuttle = {
+                                        Toast.makeText(context, "Book Shuttle — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onFabClick = {
+                                        // Same action as onBookShuttle, per your call
+                                        Toast.makeText(context, "Book Shuttle — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onViewAllShuttles = {
+                                        Toast.makeText(context, "View All Shuttles — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onShowTicket = { shuttle ->
+                                        Toast.makeText(context, "Ticket: ${shuttle.from} → ${shuttle.to} — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onTripClick = { trip ->
+                                        Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onNavHome = { /* already home */ },
+                                    onNavRides = { navController.navigate(GyrRoutes.RIDES) },
+                                    onNavTrack = { navController.navigate(GyrRoutes.TRACK) },
+                                    onNavProfile = {
+                                        Toast.makeText(context, "Profile — screen coming soon", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
                             }
                         }
                     }
