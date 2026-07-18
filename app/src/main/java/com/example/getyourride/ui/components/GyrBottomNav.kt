@@ -46,6 +46,7 @@ object GyrRoutes {
     const val RIDES   = "rides"
     const val TRACK   = "track"
     const val PROFILE = "profile"
+
 }
 
 // ─── Data model for each tab ──────────────────────────────────────────────────

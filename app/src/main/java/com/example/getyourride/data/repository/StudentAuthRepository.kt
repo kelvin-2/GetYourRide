@@ -49,6 +49,7 @@ class StudentAuthRepository(
         password      : String,
         isFunded      : Boolean,
     ): AuthResult {
+        android.util.Log.d("SIGNUP_DEBUG", "isFunded received in repository = $isFunded")   // ← ADD THIS LINE
         return try {
             val response = api.register(
                 StudentRegisterRequest(
