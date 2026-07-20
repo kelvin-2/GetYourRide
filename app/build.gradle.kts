@@ -44,7 +44,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
     // Fix: Added material-icons-extended for Outlined.DirectionsBus and ArrowBack icons
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
