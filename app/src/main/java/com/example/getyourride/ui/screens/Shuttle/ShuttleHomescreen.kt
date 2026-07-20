@@ -65,7 +65,6 @@ fun ShuttleHomeScreen(
     onNavProfile: () -> Unit
 ) {
     Scaffold(
-        topBar = { HomeTopBar() },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onFabClick,
