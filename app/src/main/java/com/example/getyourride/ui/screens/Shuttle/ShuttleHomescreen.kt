@@ -1,4 +1,6 @@
-package com.example.getyourride.ui.screens.Shuttle
+package com.example.getyourride.ui.screens.shuttle
+
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,10 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.R
+import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.ui.theme.GreenSuccess
 import com.example.getyourride.ui.theme.NavyPrimary
 import com.example.getyourride.ui.theme.OrangeAccent
@@ -59,7 +65,6 @@ fun ShuttleHomeScreen(
     onNavProfile: () -> Unit
 ) {
     Scaffold(
-        topBar = { HomeTopBar() },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onFabClick,
@@ -67,7 +72,7 @@ fun ShuttleHomeScreen(
                 shape = CircleShape
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
-            } 
+            }
         },
         bottomBar = {
             HomeBottomBar(
@@ -183,11 +188,12 @@ private fun BookShuttleCard(onClick: () -> Unit) {
             .clip(RoundedCornerShape(20.dp))
             .clickable { onClick() }
     ) {
-        // Placeholder background — add actual image at res/drawable/bus_background.jpg
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.LightGray)
+        // Bus background photo — res/drawable/bus_image.jpeg
+        Image(
+            painter = painterResource(id = R.drawable.bus_image),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
         )
 
         // Navy gradient overlay so text stays readable over the photo

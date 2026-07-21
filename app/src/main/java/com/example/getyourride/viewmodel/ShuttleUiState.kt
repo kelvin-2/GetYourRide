@@ -1,7 +1,7 @@
 package com.example.getyourride.viewmodel
 
-import com.example.getyourride.ui.screens.Shuttle.RecentTrip
-import com.example.getyourride.ui.screens.Shuttle.UpcomingShuttle
+import com.example.getyourride.ui.screens.shuttle.RecentTrip
+import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 
 /**
  * Shuttle-side equivalent of TripsUiState (used by RideViewModel/CarpoolHomeScreen).

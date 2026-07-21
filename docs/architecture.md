@@ -30,8 +30,10 @@ Handles everything related to the user interface.
     - `Carpool/`: Home screen, My Rides, etc.
     - `Rides/`: Ride request and details.
     - `Tracking/`: Live ride tracking.
+    - `shuttle/`: Shuttle booking flow for NSFAS students, including home and stop selection.
     - `shuttleDriver/`: Specific views for shuttle drivers.
 - **`components/`**: Reusable UI widgets used across multiple screens (e.g., `GyrRoutes`, `ConfirmationDialog`).
+    - `shuttle/components/`: Specific reusable components for the shuttle flow like `DepartureTimeGrid`.
 - **`theme/`**: Theming configuration including colors, typography, and shapes.
 
 ### 4. `network/`
@@ -51,7 +53,8 @@ Handles Dependency Injection (manual or framework-based).
 ## Key Architectural Patterns
 
 - **Unidirectional Data Flow (UDF)**: ViewModels expose state (often via `MutableState` or `StateFlow`), and UI components emit events back to the ViewModel.
-- **Repository Pattern**: Centralizes data access logic to provide a clean API for the ViewModels and allow for easier testing or future data source changes (e.g., adding local caching).
+- **Repository Pattern**: Centralizes data access logic to provide a clean API for the ViewModels. This includes repositories like `ShuttleRepository` which now communicates with the backend via `ShuttleApi`.
+- **Fixed Stop Selection**: Unlike the Carpool flow which uses a Geocoding service for dynamic address searching, the Shuttle flow uses a predetermined list of campus stops fetched from the backend `/api/shuttle-stops` endpoint.
 - **Navigation Compose**: Uses a single-activity architecture where navigation between "screens" (composables) is managed by a `NavController`.
 
 ---

@@ -78,7 +78,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import com.example.getyourride.data.repository.ShuttleRepository
-import com.example.getyourride.ui.screens.Shuttle.ShuttleHomeScreen
+import com.example.getyourride.ui.screens.shuttle.ShuttleHomeScreen
+import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
+import com.example.getyourride.ui.screens.shuttle.RecentTrip
+import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
+import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
+import com.example.getyourride.viewmodel.ScheduleRideViewModel
+import com.example.getyourride.viewmodel.ScheduleRideViewModelFactory
+import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
+import com.example.getyourride.viewmodel.ShuttleStopSearchViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleUiState
 import com.example.getyourride.viewmodel.ShuttleViewModel
 import com.example.getyourride.viewmodel.ShuttleViewModelFactory
@@ -357,7 +365,9 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_home") {
                         val context = LocalContext.current
                         val shuttleViewModel: ShuttleViewModel = viewModel(
-                            factory = ShuttleViewModelFactory(ShuttleRepository())
+                            factory = ShuttleViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
                         )
 
                         LaunchedEffect(Unit) {
@@ -394,11 +404,10 @@ class MainActivity : ComponentActivity() {
                                     upcomingShuttles = state.upcomingShuttles,
                                     recentTrips = state.recentTrips,
                                     onBookShuttle = {
-                                        Toast.makeText(context, "Book Shuttle — screen coming soon", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("book_shuttle")
                                     },
                                     onFabClick = {
-                                        // Same action as onBookShuttle, per your call
-                                        Toast.makeText(context, "Book Shuttle — screen coming soon", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("book_shuttle")
                                     },
                                     onViewAllShuttles = {
                                         Toast.makeText(context, "View All Shuttles — screen coming soon", Toast.LENGTH_SHORT).show()
@@ -476,6 +485,64 @@ class MainActivity : ComponentActivity() {
                                 onCancel = { navController.popBackStack() },
                             )
                         }
+                    }
+
+                    // ── BOOK SHUTTLE ──────────────────────────────────────────
+                    composable("book_shuttle") {
+                        val context = LocalContext.current
+                        val shuttleViewModel: ScheduleRideViewModel = viewModel(
+                            factory = ScheduleRideViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
+                        )
+
+                        BookShuttleScreen(
+                            viewModel = shuttleViewModel,
+                            onPickPickup = {
+                                navController.navigate("add_stop_shuttle/pickup")
+                            },
+                            onPickDestination = {
+                                navController.navigate("add_stop_shuttle/destination")
+                            },
+                            onBookingConfirmed = {
+                                // Navigate back to home or a success screen
+                                navController.popBackStack()
+                                Toast.makeText(context, "Booking Confirmed!", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+
+                    // ── ADD A STOP (SHUTTLE) ───────────────────────────────────
+                    composable("add_stop_shuttle/{type}") { backStackEntry ->
+                        val type = backStackEntry.arguments?.getString("type") ?: "pickup"
+                        
+                        val shuttleStopSearchViewModel: ShuttleStopSearchViewModel = viewModel(
+                            factory = ShuttleStopSearchViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
+                        )
+
+                        val bookShuttleEntry = remember(backStackEntry) {
+                            navController.getBackStackEntry("book_shuttle")
+                        }
+                        val shuttleViewModel: ScheduleRideViewModel = viewModel(
+                            viewModelStoreOwner = bookShuttleEntry,
+                            factory = ScheduleRideViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
+                        )
+
+                        ShuttleStopSelectionScreen(
+                            navController = navController,
+                            viewModel = shuttleStopSearchViewModel,
+                            onStopSelected = { stop ->
+                                if (type == "pickup") {
+                                    shuttleViewModel.updatePickup(stop)
+                                } else {
+                                    shuttleViewModel.updateDestination(stop)
+                                }
+                            }
+                        )
                     }
 
                     // ── BOOKING CONFIRMED ───────────────────────────────────────
