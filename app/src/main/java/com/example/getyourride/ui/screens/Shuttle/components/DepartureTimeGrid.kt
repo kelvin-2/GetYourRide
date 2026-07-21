@@ -1,4 +1,4 @@
-package com.example.getyourride.ui.screens.Shuttle.componets
+package com.example.getyourride.ui.screens.shuttle.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

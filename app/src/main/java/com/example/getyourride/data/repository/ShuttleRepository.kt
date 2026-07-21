@@ -1,7 +1,7 @@
 package com.example.getyourride.data.repository
 
-import com.example.getyourride.ui.screens.Shuttle.RecentTrip
-import com.example.getyourride.ui.screens.Shuttle.UpcomingShuttle
+import com.example.getyourride.ui.screens.shuttle.RecentTrip
+import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import kotlinx.coroutines.delay
 
 /**
@@ -45,6 +45,21 @@ class ShuttleRepository {
         )
 
         return ShuttleHomeData(upcoming, recent)
+    }
+
+    suspend fun fetchStops(): List<String> {
+        delay(300)
+        return listOf(
+            "NMU South Campus",
+            "NMU North Campus",
+            "NMU 2nd Avenue Campus",
+            "Missionvale Campus",
+            "Gqeberha Bus Terminal",
+            "Summerstrand North",
+            "Humewood Village",
+            "North Campus Main Gate",
+            "South Campus Main Gate"
+        )
     }
 }
 

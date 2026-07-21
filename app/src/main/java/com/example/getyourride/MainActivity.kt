@@ -78,9 +78,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import com.example.getyourride.data.repository.ShuttleRepository
-import com.example.getyourride.ui.screens.Shuttle.ShuttleHomeScreen
-import com.example.getyourride.ui.screens.Shuttle.BookShuttleScreen
-import com.example.getyourride.ui.screens.Shuttle.ScheduleRideViewModel
+import com.example.getyourride.ui.screens.shuttle.ShuttleHomeScreen
+import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
+import com.example.getyourride.ui.screens.shuttle.RecentTrip
+import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
+import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
+import com.example.getyourride.viewmodel.ScheduleRideViewModel
+import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
+import com.example.getyourride.viewmodel.ShuttleStopSearchViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleUiState
 import com.example.getyourride.viewmodel.ShuttleViewModel
 import com.example.getyourride.viewmodel.ShuttleViewModelFactory
@@ -482,11 +487,48 @@ class MainActivity : ComponentActivity() {
                     // ── BOOK SHUTTLE ──────────────────────────────────────────
                     composable("book_shuttle") {
                         val context = LocalContext.current
+                        val shuttleViewModel: ScheduleRideViewModel = viewModel()
+
                         BookShuttleScreen(
+                            viewModel = shuttleViewModel,
+                            onPickPickup = {
+                                navController.navigate("add_stop_shuttle/pickup")
+                            },
+                            onPickDestination = {
+                                navController.navigate("add_stop_shuttle/destination")
+                            },
                             onBookingConfirmed = {
                                 // Navigate back to home or a success screen
                                 navController.popBackStack()
                                 Toast.makeText(context, "Booking Confirmed!", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+
+                    // ── ADD A STOP (SHUTTLE) ───────────────────────────────────
+                    composable("add_stop_shuttle/{type}") { backStackEntry ->
+                        val type = backStackEntry.arguments?.getString("type") ?: "pickup"
+                        
+                        val shuttleStopSearchViewModel: ShuttleStopSearchViewModel = viewModel(
+                            factory = ShuttleStopSearchViewModelFactory(ShuttleRepository())
+                        )
+
+                        val bookShuttleEntry = remember(backStackEntry) {
+                            navController.getBackStackEntry("book_shuttle")
+                        }
+                        val shuttleViewModel: ScheduleRideViewModel = viewModel(
+                            viewModelStoreOwner = bookShuttleEntry
+                        )
+
+                        ShuttleStopSelectionScreen(
+                            navController = navController,
+                            viewModel = shuttleStopSearchViewModel,
+                            onStopSelected = { stop ->
+                                if (type == "pickup") {
+                                    shuttleViewModel.updatePickup(stop)
+                                } else {
+                                    shuttleViewModel.updateDestination(stop)
+                                }
                             }
                         )
                     }

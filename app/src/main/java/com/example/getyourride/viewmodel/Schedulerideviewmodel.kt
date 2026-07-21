@@ -1,4 +1,4 @@
-package com.example.getyourride.ui.screens.Shuttle
+package com.example.getyourride.viewmodel
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +19,8 @@ data class ScheduleRideUiState(
         "09:30 AM", "10:00 AM", "10:30 AM"
     ),
     val selectedTime: String? = "08:30 AM",
-    val isConfirming: Boolean = false
+    val isConfirming: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class ScheduleRideViewModel : ViewModel() {
@@ -46,9 +47,23 @@ class ScheduleRideViewModel : ViewModel() {
      * so the UI can be wired up end-to-end before the network call exists.
      */
     fun onConfirmBooking(onSuccess: () -> Unit) {
-        _uiState.update { it.copy(isConfirming = true) }
+        _uiState.update { it.copy(isConfirming = true, errorMessage = null) }
         // TODO: replace with real Retrofit call once booking endpoint is wired
+        // Simulate error for testing if needed
+        // _uiState.update { it.copy(isConfirming = false, errorMessage = "Connection timed out") }
         _uiState.update { it.copy(isConfirming = false) }
         onSuccess()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun updatePickup(location: String) {
+        _uiState.update { it.copy(pickupLabel = location) }
+    }
+
+    fun updateDestination(location: String) {
+        _uiState.update { it.copy(destinationLabel = location) }
     }
 }

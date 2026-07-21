@@ -1,6 +1,7 @@
-package com.example.getyourride.ui.screens.Shuttle.componets
+package com.example.getyourride.ui.screens.shuttle.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,8 @@ fun TripLocationCard(
     pickupLabel: String,
     destinationLabel: String,
     onSwapClick: () -> Unit,
+    onPickupClick: () -> Unit,
+    onDestinationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -52,12 +55,14 @@ fun TripLocationCard(
                 LocationRow(
                     label = "Pickup",
                     value = pickupLabel,
-                    dotColor = OrangeAccent
+                    dotColor = OrangeAccent,
+                    onClick = onPickupClick
                 )
                 LocationRow(
                     label = "Destination",
                     value = destinationLabel,
-                    dotColor = NavyPrimary
+                    dotColor = NavyPrimary,
+                    onClick = onDestinationClick
                 )
             }
 
@@ -86,9 +91,15 @@ fun TripLocationCard(
 private fun LocationRow(
     label: String,
     value: String,
-    dotColor: Color
+    dotColor: Color,
+    onClick: () -> Unit
 ) {
-    Row(verticalAlignment = Alignment.Top) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
         Box(
             modifier = Modifier
                 .padding(top = 4.dp)
@@ -120,6 +131,8 @@ private fun TripLocationCardPreview() {
     TripLocationCard(
         pickupLabel = "North Campus Main Gate",
         destinationLabel = "South Campus",
-        onSwapClick = {}
+        onSwapClick = {},
+        onPickupClick = {},
+        onDestinationClick = {}
     )
 }
