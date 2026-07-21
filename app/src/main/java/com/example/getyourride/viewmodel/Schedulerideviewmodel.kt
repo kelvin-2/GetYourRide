@@ -1,32 +1,49 @@
 package com.example.getyourride.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.repository.ShuttleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * NOTE: deliberately has NO eager init { } block that touches auth/session state —
- * this screen only needs local UI state (pickup/destination + time slot), so there's
- * nothing here that can race against auth and cause the white-screen issue you hit
- * on BookingConfirmedScreen.
+ * UI State for shuttle booking.
  */
 data class ScheduleRideUiState(
-    val pickupLabel: String = "North Campus Main Gate",
-    val destinationLabel: String = "South Campus",
-    val availableTimes: List<String> = listOf(
-        "08:00 AM", "08:30 AM", "09:00 AM",
-        "09:30 AM", "10:00 AM", "10:30 AM"
-    ),
-    val selectedTime: String? = "08:30 AM",
+    val pickupLabel: String = "Select Pickup",
+    val destinationLabel: String = "Select Destination",
+    val availableTimes: List<String> = emptyList(),
+    val selectedTime: String? = null,
     val isConfirming: Boolean = false,
+    val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
 
-class ScheduleRideViewModel : ViewModel() {
+class ScheduleRideViewModel(
+    private val repository: ShuttleRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScheduleRideUiState())
     val uiState: StateFlow<ScheduleRideUiState> = _uiState
+
+    init {
+        loadTimeSlots()
+    }
+
+    private fun loadTimeSlots() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val slots = repository.fetchTimeSlots()
+                _uiState.update { it.copy(availableTimes = slots, isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Failed to load time slots", isLoading = false) }
+            }
+        }
+    }
 
     fun onTimeSelected(time: String) {
         _uiState.update { it.copy(selectedTime = time) }
@@ -41,18 +58,18 @@ class ScheduleRideViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Confirm booking. Wire this up to TripController / DriverAuthApi once the
-     * booking submission endpoint is ready — for now it just flips a loading flag
-     * so the UI can be wired up end-to-end before the network call exists.
-     */
     fun onConfirmBooking(onSuccess: () -> Unit) {
         _uiState.update { it.copy(isConfirming = true, errorMessage = null) }
-        // TODO: replace with real Retrofit call once booking endpoint is wired
-        // Simulate error for testing if needed
-        // _uiState.update { it.copy(isConfirming = false, errorMessage = "Connection timed out") }
-        _uiState.update { it.copy(isConfirming = false) }
-        onSuccess()
+        viewModelScope.launch {
+            try {
+                // TODO: Wire to a real booking endpoint
+                kotlinx.coroutines.delay(1000)
+                _uiState.update { it.copy(isConfirming = false) }
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isConfirming = false, errorMessage = "Booking failed") }
+            }
+        }
     }
 
     fun clearError() {
@@ -65,5 +82,14 @@ class ScheduleRideViewModel : ViewModel() {
 
     fun updateDestination(location: String) {
         _uiState.update { it.copy(destinationLabel = location) }
+    }
+}
+
+class ScheduleRideViewModelFactory(
+    private val repository: ShuttleRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        @Suppress("UNCHECKED_CAST")
+        return ScheduleRideViewModel(repository) as T
     }
 }

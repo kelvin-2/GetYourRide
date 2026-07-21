@@ -1,24 +1,20 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import kotlinx.coroutines.delay
 
 /**
- * MOCK repository. There's no real shuttle endpoint on the Spring Boot backend
- * yet (only /trips is wired up via NetworkModule.tripApi + TripRepository).
- * This fakes a network round trip with a delay so the loading state in
- * ShuttleViewModel actually shows on screen, then returns hardcoded data.
- *
- * TODO: when a real ShuttleController + endpoint exists, replace the body of
- * fetchShuttleHomeData() with a real Retrofit call (same shape as
- * TripRepository). ShuttleViewModel's public API doesn't need to change.
+ * Repository for shuttle data.
  */
-class ShuttleRepository {
+class ShuttleRepository(private val api: ShuttleApi) {
 
     suspend fun fetchShuttleHomeData(): ShuttleHomeData {
         delay(900) // simulated network latency
 
+        // For now, home data (upcoming/recent) is still hardcoded or coming from another endpoint.
+        // If there's no endpoint for this yet, we keep it mocked.
         val upcoming = listOf(
             UpcomingShuttle(
                 from = "Gqeberha Bus Terminal",
@@ -48,18 +44,34 @@ class ShuttleRepository {
     }
 
     suspend fun fetchStops(): List<String> {
-        delay(300)
-        return listOf(
-            "NMU South Campus",
-            "NMU North Campus",
-            "NMU 2nd Avenue Campus",
-            "Missionvale Campus",
-            "Gqeberha Bus Terminal",
-            "Summerstrand North",
-            "Humewood Village",
-            "North Campus Main Gate",
-            "South Campus Main Gate"
-        )
+        return try {
+            api.getAllStops().map { it.stopName }
+        } catch (e: Exception) {
+            // Fallback to predetermined stops if network fails
+            listOf(
+                "NMU South Campus",
+                "NMU North Campus",
+                "NMU 2nd Avenue Campus",
+                "Missionvale Campus",
+                "Gqeberha Bus Terminal",
+                "Summerstrand North",
+                "Humewood Village",
+                "North Campus Main Gate",
+                "South Campus Main Gate"
+            )
+        }
+    }
+
+    suspend fun fetchTimeSlots(): List<String> {
+        return try {
+            api.getAllTimeSlots().map { "${it.departs} - ${it.arrives} (${it.period})" }
+        } catch (e: Exception) {
+            // Fallback
+            listOf(
+                "08:00 AM", "08:30 AM", "09:00 AM",
+                "09:30 AM", "10:00 AM", "10:30 AM"
+            )
+        }
     }
 }
 

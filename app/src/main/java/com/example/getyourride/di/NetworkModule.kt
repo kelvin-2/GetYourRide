@@ -2,6 +2,7 @@ package com.example.getyourride.di
 
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.api.GeocodingApi
+import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
 import com.example.getyourride.data.remote.api.TripApi
 import okhttp3.OkHttpClient
@@ -63,5 +64,9 @@ object NetworkModule {
     // Geocoding API — powers pickup/destination address autocomplete
     val geocodingApi: GeocodingApi by lazy {
         retrofit.create(GeocodingApi::class.java)
+    }
+
+    val shuttleApi: ShuttleApi by lazy {
+        retrofit.create(ShuttleApi::class.java)
     }
 }

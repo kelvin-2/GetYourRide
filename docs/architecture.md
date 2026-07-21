@@ -53,8 +53,8 @@ Handles Dependency Injection (manual or framework-based).
 ## Key Architectural Patterns
 
 - **Unidirectional Data Flow (UDF)**: ViewModels expose state (often via `MutableState` or `StateFlow`), and UI components emit events back to the ViewModel.
-- **Repository Pattern**: Centralizes data access logic to provide a clean API for the ViewModels. This includes mock repositories like `ShuttleRepository` for prototyping features before backend integration.
-- **Fixed Stop Selection**: Unlike the Carpool flow which uses a Geocoding service for dynamic address searching, the Shuttle flow uses a predetermined list of campus stops fetched directly from the `ShuttleRepository`.
+- **Repository Pattern**: Centralizes data access logic to provide a clean API for the ViewModels. This includes repositories like `ShuttleRepository` which now communicates with the backend via `ShuttleApi`.
+- **Fixed Stop Selection**: Unlike the Carpool flow which uses a Geocoding service for dynamic address searching, the Shuttle flow uses a predetermined list of campus stops fetched from the backend `/api/shuttle-stops` endpoint.
 - **Navigation Compose**: Uses a single-activity architecture where navigation between "screens" (composables) is managed by a `NavController`.
 
 ---

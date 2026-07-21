@@ -84,6 +84,7 @@ import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
 import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
 import com.example.getyourride.viewmodel.ScheduleRideViewModel
+import com.example.getyourride.viewmodel.ScheduleRideViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
 import com.example.getyourride.viewmodel.ShuttleStopSearchViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleUiState
@@ -364,7 +365,9 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_home") {
                         val context = LocalContext.current
                         val shuttleViewModel: ShuttleViewModel = viewModel(
-                            factory = ShuttleViewModelFactory(ShuttleRepository())
+                            factory = ShuttleViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
                         )
 
                         LaunchedEffect(Unit) {
@@ -487,7 +490,11 @@ class MainActivity : ComponentActivity() {
                     // ── BOOK SHUTTLE ──────────────────────────────────────────
                     composable("book_shuttle") {
                         val context = LocalContext.current
-                        val shuttleViewModel: ScheduleRideViewModel = viewModel()
+                        val shuttleViewModel: ScheduleRideViewModel = viewModel(
+                            factory = ScheduleRideViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
+                        )
 
                         BookShuttleScreen(
                             viewModel = shuttleViewModel,
@@ -510,14 +517,19 @@ class MainActivity : ComponentActivity() {
                         val type = backStackEntry.arguments?.getString("type") ?: "pickup"
                         
                         val shuttleStopSearchViewModel: ShuttleStopSearchViewModel = viewModel(
-                            factory = ShuttleStopSearchViewModelFactory(ShuttleRepository())
+                            factory = ShuttleStopSearchViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
                         )
 
                         val bookShuttleEntry = remember(backStackEntry) {
                             navController.getBackStackEntry("book_shuttle")
                         }
                         val shuttleViewModel: ScheduleRideViewModel = viewModel(
-                            viewModelStoreOwner = bookShuttleEntry
+                            viewModelStoreOwner = bookShuttleEntry,
+                            factory = ScheduleRideViewModelFactory(
+                                ShuttleRepository(NetworkModule.shuttleApi)
+                            )
                         )
 
                         ShuttleStopSelectionScreen(

@@ -20,5 +20,16 @@ This document tracks the recent changes made to the GetYourRide application, spe
 - **Snackbar Feedback**: Integrated `SnackbarHost` in `BookShuttleScreen` to provide real-time feedback to the user when errors occur during the booking process.
 - **Loading Indicators**: Added `CircularProgressIndicator` to screens to improve UX during simulated network delays.
 
-## 4. Documentation
+## 5. Backend Integration (Shuttle Booking)
+- **API Definition**: Created `ShuttleApi` Retrofit interface with endpoints for `getAllStops()` and `getAllTimeSlots()`.
+- **Data Models**: Added `ShuttleStopResponse` and `ShuttleTimeSlotResponse` DTOs in `ShuttleDtos.kt`.
+- **Network Module**: Wired `ShuttleApi` into `NetworkModule` as a lazy singleton.
+- **Repository Update**: Refactored `ShuttleRepository` to accept `ShuttleApi` and perform real network calls for stops and time slots, with fallback logic for robustness.
+- **ViewModel Integration**:
+    - Updated `ScheduleRideViewModel` to fetch real time slots on initialization.
+    - Updated `ShuttleStopSearchViewModel` to fetch real stops from the backend.
+    - Added `ScheduleRideViewModelFactory` to manage repository injection.
+- **MainActivity**: Updated all `ShuttleRepository` instantiations to pass the `shuttleApi` from `NetworkModule`.
+
+## 6. Documentation
 - **Architecture Update**: Updated `docs/architecture.md` to reflect the new `shuttle` screen structure and the distinction between the Carpool (Dynamic Geocoding) and Shuttle (Fixed Stops) selection patterns.
