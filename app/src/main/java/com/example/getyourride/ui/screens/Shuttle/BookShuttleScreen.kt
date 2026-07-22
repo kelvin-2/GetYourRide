@@ -1,7 +1,14 @@
 package com.example.getyourride.ui.screens.shuttle
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,9 +55,8 @@ fun BookShuttleScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF5F5FA)
+        containerColor = NavyPrimary.copy(alpha = 0.05f)
     ) { padding ->
-        // Wrap in a Box to center the entire content block vertically and horizontally
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -61,11 +67,15 @@ fun BookShuttleScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Use wrapContentHeight so it doesn't take full height, allowing Box to center it
-                    .wrapContentHeight(),
+                    .wrapContentHeight()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center
             ) {
-                // FIXED: Wiring TripLocationCard with uiState properties and ViewModel methods
+                // NEW: Hero section — scrolls with content, not a pinned top bar
+                BookShuttleHero()
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 TripLocationCard(
                     pickupLabel = uiState.pickupLabel,
                     destinationLabel = uiState.destinationLabel,
@@ -80,13 +90,11 @@ fun BookShuttleScreen(
                     text = "Departure Time",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    // FIXED: Using NavyPrimary directly from theme
                     color = NavyPrimary
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // FIXED: Wiring DepartureTimeGrid with uiState and selection handler
                 DepartureTimeGrid(
                     times = uiState.availableTimes,
                     selectedTime = uiState.selectedTime,
@@ -101,7 +109,6 @@ fun BookShuttleScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    // FIXED: Using OrangeAccent directly from theme
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
                     enabled = uiState.selectedTime != null && !uiState.isConfirming
                 ) {
@@ -120,6 +127,57 @@ fun BookShuttleScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * NEW: Hero card introducing the screen — navy surface, icon badge, title + subtitle.
+ * Sits inline above TripLocationCard so it scrolls with the rest of the content
+ * rather than being pinned like a top app bar.
+ */
+@Composable
+private fun BookShuttleHero(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = NavyPrimary
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DirectionsBus,
+                    contentDescription = null,
+                    tint = OrangeAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column {
+                Text(
+                    text = "Book a shuttle",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Pick a route and time that works for you",
+                    fontSize = 12.5.sp,
+                    color = Color.White.copy(alpha = 0.65f)
+                )
             }
         }
     }

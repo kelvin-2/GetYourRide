@@ -11,36 +11,70 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.ui.theme.NavyPrimary
 import com.example.getyourride.ui.theme.OrangeAccent
 
 /**
- * 3-column grid of selectable departure time slots.
- * [selectedTime] drives which slot is highlighted; [onTimeSelected] reports taps up
- * to the caller (ViewModel), keeping this component stateless.
+ * Sectioned grid of selectable departure time slots.
  */
 @Composable
 fun DepartureTimeGrid(
-    times: List<String>,
+    times: List<ShuttleTimeSlot>,
     selectedTime: String?,
     onTimeSelected: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    columns: Int = 3
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    val morningTimes = times.filter { it.period.equals("Morning", ignoreCase = true) }
+    val afternoonTimes = times.filter { it.period.equals("Afternoon", ignoreCase = true) }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        if (morningTimes.isNotEmpty()) {
+            TimeSection(
+                title = "Morning",
+                times = morningTimes,
+                selectedTime = selectedTime,
+                onTimeSelected = onTimeSelected
+            )
+        }
+
+        if (afternoonTimes.isNotEmpty()) {
+            TimeSection(
+                title = "Afternoon",
+                times = afternoonTimes,
+                selectedTime = selectedTime,
+                onTimeSelected = onTimeSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimeSection(
+    title: String,
+    times: List<ShuttleTimeSlot>,
+    selectedTime: String?,
+    onTimeSelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray
+        )
+
+        val columns = 3
         times.chunked(columns).forEach { rowTimes ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                rowTimes.forEach { time ->
+                rowTimes.forEach { slot ->
                     TimeSlotChip(
-                        time = time,
-                        isSelected = time == selectedTime,
-                        onClick = { onTimeSelected(time) },
+                        time = slot.departs,
+                        isSelected = slot.departs == selectedTime,
+                        onClick = { onTimeSelected(slot.departs) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -72,8 +106,11 @@ private fun TimeSlotChip(
         colors = ButtonDefaults.outlinedButtonColors(containerColor = backgroundColor),
         contentPadding = PaddingValues(0.dp)
     ) {
+        // Formats time like "06:45:00" -> "06:45"
+        val displayTime = if (time.count { it == ':' } == 2) time.substringBeforeLast(':') else time
+        
         Text(
-            text = time,
+            text = displayTime,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = textColor
@@ -85,8 +122,13 @@ private fun TimeSlotChip(
 @Composable
 private fun DepartureTimeGridPreview() {
     DepartureTimeGrid(
-        times = listOf("08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM"),
-        selectedTime = "08:30 AM",
+        times = listOf(
+            ShuttleTimeSlot("06:45:00", "Morning"),
+            ShuttleTimeSlot("07:45:00", "Morning"),
+            ShuttleTimeSlot("12:30:00", "Afternoon"),
+            ShuttleTimeSlot("14:30:00", "Afternoon")
+        ),
+        selectedTime = "07:45:00",
         onTimeSelected = {}
     )
 }

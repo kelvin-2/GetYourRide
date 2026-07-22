@@ -412,6 +412,7 @@ class MainActivity : ComponentActivity() {
                                     onViewAllShuttles = {
                                         Toast.makeText(context, "View All Shuttles — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
+
                                     onShowTicket = { shuttle ->
                                         Toast.makeText(context, "Ticket: ${shuttle.from} → ${shuttle.to} — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
@@ -419,7 +420,7 @@ class MainActivity : ComponentActivity() {
                                         Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
                                     onNavHome = { /* already home */ },
-                                    onNavRides = { navController.navigate(GyrRoutes.RIDES) },
+                                    onNavRides = { navController.navigate(GyrRoutes.SHUTTLE_RIDES) },
                                     onNavTrack = { navController.navigate(GyrRoutes.TRACK) },
                                     onNavProfile = {
                                         Toast.makeText(context, "Profile — screen coming soon", Toast.LENGTH_SHORT).show()
@@ -427,6 +428,17 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                    }
+
+                    // ── SHUTTLE RIDES ──────────────────────────────────────────
+                    composable(GyrRoutes.SHUTTLE_RIDES) {
+                        val allRidesViewModel: AllRidesViewModel = viewModel(
+                            factory = AllRidesViewModelFactory(TripRepository(NetworkModule.tripApi))
+                        )
+                        MyRidesScreen(
+                            viewModel = allRidesViewModel,
+                            navController = navController
+                        )
                     }
 
                     ///Request ride Screen

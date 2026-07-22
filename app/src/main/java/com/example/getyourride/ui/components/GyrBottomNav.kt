@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.UserSession
 import com.example.getyourride.ui.theme.*
 
 // ─── Route constants — use these everywhere, never raw strings ────────────────
@@ -47,6 +48,9 @@ object GyrRoutes {
     const val TRACK   = "track"
     const val PROFILE = "profile"
 
+    // Shuttle specific routes
+    const val SHUTTLE_HOME = "shuttle_home"
+    const val SHUTTLE_RIDES = "shuttle_rides"
 }
 
 // ─── Data model for each tab ──────────────────────────────────────────────────
@@ -65,6 +69,13 @@ private val tabs = listOf(
     NavTab(GyrRoutes.PROFILE, "Profile", Icons.Filled.Person,       Icons.Outlined.Person),
 )
 
+private val shuttleTabs = listOf(
+    NavTab(GyrRoutes.SHUTTLE_HOME,  "Home",    Icons.Filled.Home,         Icons.Outlined.Home),
+    NavTab(GyrRoutes.SHUTTLE_RIDES, "Rides",   Icons.Filled.DirectionsCar,Icons.Outlined.DirectionsCar),
+    NavTab(GyrRoutes.TRACK,         "Track",   Icons.Filled.LocationOn,   Icons.Outlined.LocationOn),
+    NavTab(GyrRoutes.PROFILE,       "Profile", Icons.Filled.Person,       Icons.Outlined.Person),
+)
+
 // ─── The nav bar composable ───────────────────────────────────────────────────
 
 /**
@@ -78,11 +89,13 @@ fun GyrBottomNav(
     currentRoute : String,
     onNavigate   : (route: String) -> Unit,
 ) {
+    val activeTabs = if (UserSession.isFunded) shuttleTabs else tabs
+
     NavigationBar(
         containerColor = CardWhite,
         tonalElevation = 8.dp,
     ) {
-        tabs.forEach { tab ->
+        activeTabs.forEach { tab ->
             val isActive = currentRoute == tab.route
 
             NavigationBarItem(

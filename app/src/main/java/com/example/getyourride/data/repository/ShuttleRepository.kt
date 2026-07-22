@@ -1,5 +1,6 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
@@ -62,14 +63,22 @@ class ShuttleRepository(private val api: ShuttleApi) {
         }
     }
 
-    suspend fun fetchTimeSlots(): List<String> {
+    suspend fun fetchTimeSlots(): List<ShuttleTimeSlot> {
         return try {
-            api.getAllTimeSlots().map { "${it.departs} - ${it.arrives} (${it.period})" }
+            api.getAllTimeSlots().map { 
+                ShuttleTimeSlot(departs = it.departs, period = it.period)
+            }
         } catch (e: Exception) {
             // Fallback
             listOf(
-                "08:00 AM", "08:30 AM", "09:00 AM",
-                "09:30 AM", "10:00 AM", "10:30 AM"
+                ShuttleTimeSlot("08:00 AM", "Morning"),
+                ShuttleTimeSlot("08:30 AM", "Morning"),
+                ShuttleTimeSlot("09:00 AM", "Morning"),
+                ShuttleTimeSlot("09:30 AM", "Morning"),
+                ShuttleTimeSlot("10:00 AM", "Morning"),
+                ShuttleTimeSlot("10:30 AM", "Morning"),
+                ShuttleTimeSlot("12:30 PM", "Afternoon"),
+                ShuttleTimeSlot("14:30 PM", "Afternoon")
             )
         }
     }
