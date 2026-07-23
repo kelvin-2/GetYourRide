@@ -23,7 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.R
+import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.ui.theme.GreenSuccess
 import com.example.getyourride.ui.theme.NavyPrimary
@@ -54,17 +57,16 @@ fun ShuttleHomeScreen(
     userName: String,
     upcomingShuttles: List<UpcomingShuttle>,
     recentTrips: List<RecentTrip>,
+    navController: NavController,
     onBookShuttle: () -> Unit,
     onViewAllShuttles: () -> Unit,
     onShowTicket: (UpcomingShuttle) -> Unit,
     onTripClick: (RecentTrip) -> Unit,
     onFabClick: () -> Unit,
-    onNavHome: () -> Unit,
-    onNavRides: () -> Unit,
-    onNavTrack: () -> Unit,
-    onNavProfile: () -> Unit
 ) {
-    Scaffold(
+    StudentLayout(
+        currentRoute = "shuttle_home",
+        navController = navController,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onFabClick,
@@ -73,20 +75,10 @@ fun ShuttleHomeScreen(
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
             }
-        },
-        bottomBar = {
-            HomeBottomBar(
-                onNavHome = onNavHome,
-                onNavRides = onNavRides,
-                onNavTrack = onNavTrack,
-                onNavProfile = onNavProfile
-            )
-        },
-        containerColor = Color(0xFFF5F6FA)
-    ) { padding ->
+        }
+    ) {
         LazyColumn(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
@@ -139,44 +131,6 @@ fun ShuttleHomeScreen(
     }
 }
 
-// ---------- Top bar ----------
-
-@Composable
-private fun HomeTopBar() {
-    Surface(color = NavyPrimary) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.DirectionsBus,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "GetYourRide",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Box {
-                Icon(
-                    imageVector = Icons.Filled.Notifications,
-                    contentDescription = "Notifications",
-                    tint = Color.White
-                )
-            }
-        }
-    }
-}
-
 // ---------- Book a Shuttle card with bus photo background ----------
 
 @Composable
@@ -214,7 +168,7 @@ private fun BookShuttleCard(onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
@@ -230,6 +184,8 @@ private fun BookShuttleCard(onClick: () -> Unit) {
                     modifier = Modifier.size(20.dp)
                 )
             }
+
+            Spacer(Modifier.height(12.dp))
 
             Column {
                 Text(
@@ -430,48 +386,6 @@ private fun RecentTripItem(trip: RecentTrip, onClick: () -> Unit) {
     }
 }
 
-// ---------- Bottom nav ----------
-
-@Composable
-private fun HomeBottomBar(
-    onNavHome: () -> Unit,
-    onNavRides: () -> Unit,
-    onNavTrack: () -> Unit,
-    onNavProfile: () -> Unit
-) {
-    NavigationBar(containerColor = Color.White) {
-        NavigationBarItem(
-            selected = true,
-            onClick = onNavHome,
-            icon = { Icon(Icons.Filled.Home, contentDescription = "Home") },
-            label = { Text("Home") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = OrangeAccent,
-                selectedTextColor = OrangeAccent,
-                indicatorColor = Color.Transparent
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onNavRides,
-            icon = { Icon(Icons.Filled.DirectionsCar, contentDescription = "Rides") },
-            label = { Text("Rides") }
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onNavTrack,
-            icon = { Icon(Icons.Filled.LocationOn, contentDescription = "Track") },
-            label = { Text("Track") }
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onNavProfile,
-            icon = { Icon(Icons.Filled.Person, contentDescription = "Profile") },
-            label = { Text("Profile") }
-        )
-    }
-}
-
 // ---------- Preview ----------
 
 @Preview(showBackground = true)
@@ -493,14 +407,11 @@ private fun ShuttleHomeScreenPreview() {
             RecentTrip("Missionvale", "Gqeberha", "Yesterday", "16:45"),
             RecentTrip("North Campus", "Gqeberha", "12 Oct", "13:00")
         ),
+        navController = rememberNavController(),
         onBookShuttle = {},
         onViewAllShuttles = {},
         onShowTicket = {},
         onTripClick = {},
-        onFabClick = {},
-        onNavHome = {},
-        onNavRides = {},
-        onNavTrack = {},
-        onNavProfile = {}
+        onFabClick = {}
     )
 }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
@@ -31,6 +30,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.screens.shuttle.components.DepartureTimeGrid
 import com.example.getyourride.ui.screens.shuttle.components.TripLocationCard
 import com.example.getyourride.viewmodel.ScheduleRideViewModel
@@ -45,6 +47,7 @@ import java.time.format.DateTimeFormatter
  */
 @Composable
 fun BookShuttleScreen(
+    navController: NavController,
     onBookingConfirmed: () -> Unit,
     onPickPickup: () -> Unit,
     onPickDestination: () -> Unit,
@@ -60,14 +63,15 @@ fun BookShuttleScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = NavyPrimary.copy(alpha = 0.05f)
-    ) { padding ->
+    StudentLayout(
+        currentRoute = "book_shuttle",
+        navController = navController,
+        showBottomBar = false,
+        onBackClick = { navController.popBackStack() }
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -262,6 +266,7 @@ private fun ShuttleInfoBanner(modifier: Modifier = Modifier) {
 @Composable
 private fun BookShuttleScreenPreview() {
     BookShuttleScreen(
+        navController = rememberNavController(),
         onBookingConfirmed = {},
         onPickPickup = {},
         onPickDestination = {}
