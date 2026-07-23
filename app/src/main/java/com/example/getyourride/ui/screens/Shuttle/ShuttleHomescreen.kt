@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.R
+import com.example.getyourride.ui.components.GyrMapBackground
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.ui.theme.GreenSuccess
 import com.example.getyourride.ui.theme.NavyPrimary
@@ -64,76 +65,81 @@ fun ShuttleHomeScreen(
     onNavTrack: () -> Unit,
     onNavProfile: () -> Unit
 ) {
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onFabClick,
-                containerColor = OrangeAccent,
-                shape = CircleShape
+    // Testing GyrMapBackground on this screen: it draws the navy pattern,
+    // and everything below (Scaffold) sits on top of it with a transparent
+    // container so the pattern shows through the padding/gaps.
+    GyrMapBackground(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onFabClick,
+                    containerColor = OrangeAccent,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
+                }
+            },
+            bottomBar = {
+                HomeBottomBar(
+                    onNavHome = onNavHome,
+                    onNavRides = onNavRides,
+                    onNavTrack = onNavTrack,
+                    onNavProfile = onNavProfile
+                )
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
-            }
-        },
-        bottomBar = {
-            HomeBottomBar(
-                onNavHome = onNavHome,
-                onNavRides = onNavRides,
-                onNavTrack = onNavTrack,
-                onNavProfile = onNavProfile
-            )
-        },
-        containerColor = Color(0xFFF5F6FA)
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            item {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Good morning,",
-                    color = OrangeAccent,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = userName,
-                    color = NavyPrimary,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(20.dp))
-                BookShuttleCard(onClick = onBookShuttle)
-                Spacer(Modifier.height(28.dp))
-            }
+                item {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "Good morning,",
+                        color = OrangeAccent,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = userName,
+                        color = Color.White,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    BookShuttleCard(onClick = onBookShuttle)
+                    Spacer(Modifier.height(28.dp))
+                }
 
-            item {
-                SectionHeader(title = "Upcoming Shuttles", actionLabel = "View All", onAction = onViewAllShuttles)
-                Spacer(Modifier.height(12.dp))
-            }
+                item {
+                    SectionHeader(title = "Upcoming Shuttles", actionLabel = "View All", onAction = onViewAllShuttles)
+                    Spacer(Modifier.height(12.dp))
+                }
 
-            items(upcomingShuttles) { shuttle ->
-                UpcomingShuttleCard(shuttle = shuttle, onShowTicket = { onShowTicket(shuttle) })
-                Spacer(Modifier.height(14.dp))
-            }
+                items(upcomingShuttles) { shuttle ->
+                    UpcomingShuttleCard(shuttle = shuttle, onShowTicket = { onShowTicket(shuttle) })
+                    Spacer(Modifier.height(14.dp))
+                }
 
-            item {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "Recent Trips",
-                    color = NavyPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(12.dp))
-            }
+                item {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Recent Trips",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
 
-            items(recentTrips) { trip ->
-                RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
-                Spacer(Modifier.height(12.dp))
+                items(recentTrips) { trip ->
+                    RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
+                    Spacer(Modifier.height(12.dp))
+                }
             }
         }
     }
@@ -273,7 +279,7 @@ private fun SectionHeader(title: String, actionLabel: String, onAction: () -> Un
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = title, color = NavyPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(text = title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text(
             text = actionLabel,
             color = OrangeAccent,
