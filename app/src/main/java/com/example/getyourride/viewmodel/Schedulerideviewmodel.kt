@@ -3,6 +3,7 @@ package com.example.getyourride.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.repository.ShuttleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 data class ScheduleRideUiState(
     val pickupLabel: String = "Select Pickup",
     val destinationLabel: String = "Select Destination",
-    val availableTimes: List<String> = emptyList(),
+    val availableTimes: List<ShuttleTimeSlot> = emptyList(),
     val selectedTime: String? = null,
     val isConfirming: Boolean = false,
     val isLoading: Boolean = false,

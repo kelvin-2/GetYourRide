@@ -83,6 +83,8 @@ import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
 import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
+import com.example.getyourride.ui.screens.shuttle.BookingConfirmation
+import com.example.getyourride.ui.screens.shuttle.BookingConfirmationScreen
 import com.example.getyourride.viewmodel.ScheduleRideViewModel
 import com.example.getyourride.viewmodel.ScheduleRideViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
@@ -145,6 +147,7 @@ class MainActivity : ComponentActivity() {
                 // before navigating to "booking_confirmed" and cleared once the
                 // student leaves that screen via "View My Rides".
                 var confirmedBooking by remember { mutableStateOf<BookingConfirmationDetails?>(null) }
+                var confirmedShuttle by remember { mutableStateOf<BookingConfirmation?>(null) }
 
                 NavHost(
                     navController    = navController,
@@ -403,6 +406,7 @@ class MainActivity : ComponentActivity() {
                                     userName = "Student", // TODO: pull real name once UserSession exposes it
                                     upcomingShuttles = state.upcomingShuttles,
                                     recentTrips = state.recentTrips,
+                                    navController = navController,
                                     onBookShuttle = {
                                         navController.navigate("book_shuttle")
                                     },
@@ -412,21 +416,28 @@ class MainActivity : ComponentActivity() {
                                     onViewAllShuttles = {
                                         Toast.makeText(context, "View All Shuttles — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
+
                                     onShowTicket = { shuttle ->
                                         Toast.makeText(context, "Ticket: ${shuttle.from} → ${shuttle.to} — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
                                     onTripClick = { trip ->
                                         Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()
                                     },
-                                    onNavHome = { /* already home */ },
-                                    onNavRides = { navController.navigate(GyrRoutes.RIDES) },
-                                    onNavTrack = { navController.navigate(GyrRoutes.TRACK) },
-                                    onNavProfile = {
-                                        Toast.makeText(context, "Profile — screen coming soon", Toast.LENGTH_SHORT).show()
-                                    }
                                 )
                             }
                         }
+                    }
+
+                    // ── SHUTTLE RIDES ──────────────────────────────────────────
+                    composable(GyrRoutes.SHUTTLE_RIDES) {
+                        val allRidesViewModel: AllRidesViewModel = viewModel(
+                            factory = AllRidesViewModelFactory(TripRepository(NetworkModule.tripApi))
+                        )
+                        MyRidesScreen(
+                            viewModel = allRidesViewModel,
+                            navController = navController,
+                            currentRoute = GyrRoutes.SHUTTLE_RIDES
+                        )
                     }
 
                     ///Request ride Screen
@@ -497,6 +508,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         BookShuttleScreen(
+                            navController = navController,
                             viewModel = shuttleViewModel,
                             onPickPickup = {
                                 navController.navigate("add_stop_shuttle/pickup")
@@ -505,11 +517,45 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("add_stop_shuttle/destination")
                             },
                             onBookingConfirmed = {
-                                // Navigate back to home or a success screen
-                                navController.popBackStack()
-                                Toast.makeText(context, "Booking Confirmed!", Toast.LENGTH_SHORT).show()
+                                val uiState = shuttleViewModel.uiState.value
+                                confirmedShuttle = BookingConfirmation(
+                                    shuttleId = "SH-102",
+                                    ticketId = "GYR-" + (1000..9999).random(),
+                                    pickupLocation = uiState.pickupLabel,
+                                    dropoffLocation = uiState.destinationLabel,
+                                    date = "Today",
+                                    departureTime = uiState.selectedTime ?: "08:30",
+                                    driverName = "S. Mokoena",
+                                    plateNumber = "BS 42 GP",
+                                    vehicleModel = "Mercedes Sprinter"
+                                )
+                                navController.navigate("shuttle_booking_confirmed") {
+                                    popUpTo("shuttle_home")
+                                }
                             }
                         )
+                    }
+
+                    composable("shuttle_booking_confirmed") {
+                        val booking = confirmedShuttle
+                        val context = LocalContext.current
+                        if (booking == null) {
+                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        } else {
+                            BookingConfirmationScreen(
+                                navController = navController,
+                                booking = booking,
+                                onViewMyRides = {
+                                    confirmedShuttle = null
+                                    navController.navigate(GyrRoutes.SHUTTLE_RIDES) {
+                                        popUpTo("shuttle_home")
+                                    }
+                                },
+                                onDownloadTicket = {
+                                    Toast.makeText(context, "Downloading Ticket...", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
                     }
 
                     // ── ADD A STOP (SHUTTLE) ───────────────────────────────────

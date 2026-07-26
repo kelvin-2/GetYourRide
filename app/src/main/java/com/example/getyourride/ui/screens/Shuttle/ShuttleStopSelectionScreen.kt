@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.getyourride.data.remote.dto.ShuttleStopResponse
 import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
 
 private val NavyDark = Color(0xFF16214B)
@@ -67,7 +68,7 @@ fun ShuttleStopSelectionScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.White),
-                placeholder = { Text("Search NMU stops...") },
+                placeholder = { Text("Search NMU stops or locations...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = OrangeAccent) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeAccent,
@@ -87,8 +88,11 @@ fun ShuttleStopSelectionScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(stops) { stop ->
-                        StopRow(label = stop) {
-                            onStopSelected(stop)
+                        StopRow(
+                            location = stop.location,
+                            stopName = stop.stopName
+                        ) {
+                            onStopSelected(stop.stopName)
                             navController.popBackStack()
                         }
                     }
@@ -107,7 +111,11 @@ fun ShuttleStopSelectionScreen(
 }
 
 @Composable
-private fun StopRow(label: String, onClick: () -> Unit) {
+private fun StopRow(
+    location: String,
+    stopName: String,
+    onClick: () -> Unit
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -120,15 +128,21 @@ private fun StopRow(label: String, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(16.dp)
         ) {
-            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                label,
-                color = NavyDark,
-                fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = location,
+                    color = NavyDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = stopName,
+                    color = TextGray,
+                    fontSize = 14.sp
+                )
+            }
             Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextGray)
         }
     }

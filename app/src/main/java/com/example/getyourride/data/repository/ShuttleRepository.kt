@@ -1,5 +1,7 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.dto.ShuttleStopResponse
+import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
@@ -43,33 +45,37 @@ class ShuttleRepository(private val api: ShuttleApi) {
         return ShuttleHomeData(upcoming, recent)
     }
 
-    suspend fun fetchStops(): List<String> {
+    suspend fun fetchStops(): List<ShuttleStopResponse> {
         return try {
-            api.getAllStops().map { it.stopName }
+            api.getAllStops()
         } catch (e: Exception) {
             // Fallback to predetermined stops if network fails
             listOf(
-                "NMU South Campus",
-                "NMU North Campus",
-                "NMU 2nd Avenue Campus",
-                "Missionvale Campus",
-                "Gqeberha Bus Terminal",
-                "Summerstrand North",
-                "Humewood Village",
-                "North Campus Main Gate",
-                "South Campus Main Gate"
+                ShuttleStopResponse(1, "South Campus Main Gate", "South Campus", "University Way", -34.0016, 25.6724),
+                ShuttleStopResponse(2, "North Campus Main Gate", "North Campus", "Gardham Avenue", -33.9918, 25.6669),
+                ShuttleStopResponse(3, "2nd Avenue Gate", "2nd Avenue Campus", "2nd Avenue", -33.9856, 25.6575),
+                ShuttleStopResponse(4, "Missionvale Main Entrance", "Missionvale Campus", "Johnson Road", -33.8821, 25.5562),
+                ShuttleStopResponse(13, "Forest Hill", "Forest Hill", "Garage, Morestond Flats and Stadium", null, null)
             )
         }
     }
 
-    suspend fun fetchTimeSlots(): List<String> {
+    suspend fun fetchTimeSlots(): List<ShuttleTimeSlot> {
         return try {
-            api.getAllTimeSlots().map { "${it.departs} - ${it.arrives} (${it.period})" }
+            api.getAllTimeSlots().map { 
+                ShuttleTimeSlot(departs = it.departs, period = it.period)
+            }
         } catch (e: Exception) {
             // Fallback
             listOf(
-                "08:00 AM", "08:30 AM", "09:00 AM",
-                "09:30 AM", "10:00 AM", "10:30 AM"
+                ShuttleTimeSlot("08:00 AM", "Morning"),
+                ShuttleTimeSlot("08:30 AM", "Morning"),
+                ShuttleTimeSlot("09:00 AM", "Morning"),
+                ShuttleTimeSlot("09:30 AM", "Morning"),
+                ShuttleTimeSlot("10:00 AM", "Morning"),
+                ShuttleTimeSlot("10:30 AM", "Morning"),
+                ShuttleTimeSlot("12:30 PM", "Afternoon"),
+                ShuttleTimeSlot("14:30 PM", "Afternoon")
             )
         }
     }

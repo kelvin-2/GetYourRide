@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -55,6 +56,7 @@ import com.example.getyourride.ui.components.GyrTextField
 import com.example.getyourride.ui.components.OrDivider
 import com.example.getyourride.ui.components.gyrOutlinedTextFieldColors
 import com.example.getyourride.ui.theme.CardWhite
+import com.example.getyourride.ui.theme.DangerRed
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.ui.theme.IconTint
 import com.example.getyourride.ui.theme.NavyPrimary
@@ -229,6 +231,16 @@ fun LoginScreen(
                     )
                 }
 
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        fontSize = 13.sp,
+                        color = DangerRed,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
@@ -238,20 +250,30 @@ fun LoginScreen(
                             password
                         )
                     },
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeAccent
+                        containerColor = OrangeAccent,
+                        disabledContainerColor = OrangeAccent.copy(alpha = 0.5f)
                     ),
                 ) {
-                    Text(
-                        text = "Login",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Login",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        )
+                    }
                 }
 
                 OrDivider()

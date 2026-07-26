@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     // Fix: Added material-icons-extended for Outlined.DirectionsBus and ArrowBack icons
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.compose.ui)
     implementation(libs.play.services.location)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
@@ -75,4 +76,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.google.zxing:core:3.5.3")
 }

@@ -37,6 +37,11 @@
 //           Text("Rides content")
 //       }
 //   }
+//
+// FULL-BLEED SCREENS (e.g. booking confirmation) — set showTopBar = false AND
+// showBottomBar = false. Scaffold's containerColor (SurfaceGrey) then never gets
+// a chance to show through, since with no top/bottom bars the content Box gets
+// zero innerPadding and fills the entire screen with its own background.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.ui.components
@@ -60,6 +65,9 @@ import com.example.getyourride.ui.theme.SurfaceGrey
  * @param currentRoute   Which tab to highlight. Use [GyrRoutes] constants.
  * @param navController  Used by [GyrBottomNav] to navigate between tabs.
  * @param showBell       Show notification bell in top bar. Default true.
+ * @param showTopBar     Show the branded GyrTopBar. Set false for full-bleed
+ *                        screens (e.g. booking confirmation) that draw their
+ *                        own header/back button inside their own content.
  * @param content        The screen's own content — rendered between the bars.
  */
 @Composable
@@ -67,37 +75,43 @@ fun StudentLayout(
     currentRoute  : String,
     navController : NavController,
     showBell      : Boolean = true,
-    onBackClick   : (() -> Unit)? = null, // Added optional back click
+    showBottomBar : Boolean = true,
+    showTopBar    : Boolean = true, // NEW — full-bleed screens opt out
+    onBackClick   : (() -> Unit)? = null,
+    floatingActionButton: @Composable () -> Unit = {}, // NEW
     content       : @Composable () -> Unit,
 ) {
     Scaffold(
         containerColor = SurfaceGrey,
-        // ── Top bar — consistent across all student screens ───────────────────
         topBar = {
-            GyrTopBar(
-                onBackClick   = onBackClick,      // Now passes through
-                trailingLabel = null,      // no step label on main screens
-            )
+            if (showTopBar) {
+                GyrTopBar(
+                    onBackClick   = onBackClick,
+                    trailingLabel = null,
+                )
+            }
         },
-
-        // ── Bottom nav — tabs stay fixed, only the highlight changes ──────────
         bottomBar = {
-            GyrBottomNav(
-                currentRoute = currentRoute,
-                onNavigate   = { route ->
-                    // Navigate without stacking duplicates on the back stack
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
+            if (showBottomBar) {
+                GyrBottomNav(
+                    currentRoute = currentRoute,
+                    onNavigate   = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState    = true
                         }
-                        launchSingleTop = true
-                        restoreState    = true
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
+        floatingActionButton = floatingActionButton, // NEW
     ) { innerPadding ->
-        // innerPadding keeps content clear of both bars
+        // innerPadding keeps content clear of both bars.
+        // When both bars are hidden, innerPadding is effectively zero, so
+        // content fills the full screen and its own background shows edge-to-edge.
         Box(
             modifier = Modifier
                 .fillMaxSize()

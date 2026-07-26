@@ -15,3 +15,11 @@ data class ShuttleTimeSlotResponse(
     val departs: String,
     val arrives: String
 )
+
+/**
+ * UI representation of a time slot, capturing both the period and the time string.
+ */
+data class ShuttleTimeSlot(
+    val departs: String,
+    val period: String
+)

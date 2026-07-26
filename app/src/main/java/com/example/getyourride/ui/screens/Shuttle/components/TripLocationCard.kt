@@ -1,5 +1,6 @@
 package com.example.getyourride.ui.screens.shuttle.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,7 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -22,7 +26,8 @@ import com.example.getyourride.ui.theme.NavyPrimary
 import com.example.getyourride.ui.theme.OrangeAccent
 
 /**
- * Card showing pickup + destination with a swap action on the right.
+ * Card showing pickup + destination with pin markers, a dotted connector line,
+ * and a swap action on the right.
  * Pure display component — swap logic (swapping the two location strings)
  * is handled by the caller via [onSwapClick].
  */
@@ -47,7 +52,40 @@ fun TripLocationCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left column: pickup + destination rows stacked, connected by a vertical line
+            // Pin markers + dotted connector line
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    tint = OrangeAccent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Canvas(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(28.dp)
+                ) {
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
+                    drawLine(
+                        color = Color(0xFFD0D0D8),
+                        start = Offset(size.width / 2f, 0f),
+                        end = Offset(size.width / 2f, size.height),
+                        strokeWidth = 2f,
+                        pathEffect = dash,
+                        cap = StrokeCap.Round
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    tint = NavyPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Pickup + destination rows
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -55,13 +93,11 @@ fun TripLocationCard(
                 LocationRow(
                     label = "Pickup",
                     value = pickupLabel,
-                    dotColor = OrangeAccent,
                     onClick = onPickupClick
                 )
                 LocationRow(
                     label = "Destination",
                     value = destinationLabel,
-                    dotColor = NavyPrimary,
                     onClick = onDestinationClick
                 )
             }
@@ -86,42 +122,30 @@ fun TripLocationCard(
     }
 }
 
-/** Single labeled row (e.g. "Pickup" / "North Campus Main Gate") with a leading dot marker. */
+/** Single labeled row (e.g. "Pickup" / "North Campus Main Gate"). */
 @Composable
 private fun LocationRow(
     label: String,
     value: String,
-    dotColor: Color,
     onClick: () -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.Top,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
     ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(dotColor)
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = OrangeAccent
         )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = OrangeAccent
-            )
-            Text(
-                text = value,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = NavyPrimary
-            )
-        }
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = NavyPrimary
+        )
     }
 }
 
