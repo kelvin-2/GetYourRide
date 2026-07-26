@@ -3,6 +3,7 @@ package com.example.getyourride.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.dto.ShuttleStopResponse
 import com.example.getyourride.data.repository.ShuttleRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,13 +12,13 @@ class ShuttleStopSearchViewModel(
     private val shuttleRepository: ShuttleRepository
 ) : ViewModel() {
 
-    private val _allStops = MutableStateFlow<List<String>>(emptyList())
+    private val _allStops = MutableStateFlow<List<ShuttleStopResponse>>(emptyList())
     
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
 
-    private val _filteredStops = MutableStateFlow<List<String>>(emptyList())
-    val filteredStops: StateFlow<List<String>> = _filteredStops
+    private val _filteredStops = MutableStateFlow<List<ShuttleStopResponse>>(emptyList())
+    val filteredStops: StateFlow<List<ShuttleStopResponse>> = _filteredStops
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -49,7 +50,9 @@ class ShuttleStopSearchViewModel(
                     _filteredStops.value = _allStops.value
                 } else {
                     _filteredStops.value = _allStops.value.filter {
-                        it.contains(q, ignoreCase = true)
+                        it.location.contains(q, ignoreCase = true) ||
+                        it.stopName.contains(q, ignoreCase = true) ||
+                        it.area.contains(q, ignoreCase = true)
                     }
                 }
             }

@@ -18,9 +18,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.theme.CardWhite
 import com.example.getyourride.ui.theme.DangerRed
@@ -57,16 +59,10 @@ fun buildQrPayload(booking: BookingConfirmation): String {
 /**
  * Generates a QR code Bitmap using ZXing.
  *
- * FIX: The previous version used Bitmap.Config.RGB_565 + a per-pixel setPixel() loop
- * (262,144 individual calls at 512x512). On real devices this is a known source of
- * banding/corruption — exactly the "4 giant blocks" artifact you were seeing instead
- * of a real QR pattern. Two changes fix this:
- *   1. ARGB_8888 instead of RGB_565 (565 has no alpha channel and is more prone to
- *      driver-level dithering/corruption on some GPUs when written pixel-by-pixel).
- *   2. Build the full IntArray in memory and write it in one setPixels() call instead
- *      of 262k separate setPixel() calls — faster AND avoids the corruption.
- * Also added explicit encode hints (margin + error correction) so ZXing doesn't pick
- * an unpredictable quiet-zone/module size for a short payload string.
+ * Uses ARGB_8888 + a single setPixels() call (instead of RGB_565 + per-pixel
+ * setPixel(), which was the source of the earlier "4 giant blocks" corruption
+ * on real devices). Explicit encode hints keep the quiet zone and error
+ * correction predictable for short payload strings.
  */
 fun generateQrCodeBitmap(content: String, sizePx: Int = 512): Bitmap? {
     return try {
@@ -113,12 +109,10 @@ fun BookingConfirmationScreen(
     }
 
     StudentLayout(
-        currentRoute = "shuttle_home", // Or a specific route if you have one
+        currentRoute = "shuttle_home",
         navController = navController,
         showBottomBar = false,
-        showTopBar = false, // FIX: this screen is full-bleed navy in the target design —
-        // no "GetYourRide" branded header, so we skip GyrTopBar entirely
-        // and draw our own back button below instead.
+        showTopBar = false, // full-bleed navy design — no GyrTopBar, we draw our own back arrow
         onBackClick = { navController.popBackStack() }
     ) {
         Column(
@@ -128,7 +122,7 @@ fun BookingConfirmationScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Self-drawn back button, since GyrTopBar is now hidden for this screen.
+            // Self-drawn back button, since GyrTopBar is hidden for this screen.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -190,11 +184,6 @@ fun BookingConfirmationScreen(
                             Image(
                                 bitmap = qrBitmap.asImageBitmap(),
                                 contentDescription = "Ticket QR Code",
-                                // FIX: pin to a fixed size + FilterQuality.None-equivalent behavior.
-                                // fillMaxSize() on a Bitmap without specifying nearest-neighbor scaling
-                                // can blur/blockify a QR when Compose bilinear-filters it up from a
-                                // small bitmap. Since we now generate at full 512px this matters less,
-                                // but keeping it explicit avoids future regressions if sizePx is lowered.
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
@@ -242,9 +231,6 @@ fun BookingConfirmationScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // FIX: pickup pin is orange accent in the target design,
-                            // drop-off stays navy — this is what visually differentiates
-                            // the two rows at a glance instead of them looking identical.
                             Icon(Icons.Filled.LocationOn, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Pickup", fontSize = 12.sp, color = Color.Gray)
@@ -287,7 +273,13 @@ fun BookingConfirmationScreen(
                 colors = CardDefaults.cardColors(containerColor = CardWhite)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Driver & Vehicle", fontWeight = FontWeight.Bold, color = OrangeAccent, fontSize = 13.sp)
+                    // FIX: mockup shows this label in uppercase small-caps style
+                    Text(
+                        "DRIVER & VEHICLE",
+                        fontWeight = FontWeight.Bold,
+                        color = OrangeAccent,
+                        fontSize = 12.sp
+                    )
                     Spacer(Modifier.height(12.dp))
                     InfoRow("Driver", booking.driverName)
                     InfoRow("Shuttle ID", booking.shuttleId)
@@ -346,20 +338,21 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun StatusBadge(status: String) {
-    // FIX: your screenshot showed an orange badge even for what should be a
-    // "Confirmed" booking. The original `when (status)` did an exact, case-sensitive
-    // match — so anything like "confirmed", " Confirmed", or "CONFIRMED" coming back
-    // from the backend silently fell into the `else` branch (orange). Normalizing
-    // with trim() + lowercase() makes the badge resilient to that.
+    // Case/whitespace-insensitive match so backend variants like "confirmed"
+    // or "CONFIRMED" don't silently fall into the else branch.
     val normalized = status.trim().lowercase()
 
+    // FIX: mockup shows "Confirmed" as an orange badge (not green) — matching
+    // the app's accent color language rather than a literal traffic-light scheme.
     val bg = when (normalized) {
-        "confirmed" -> GreenSuccess.copy(alpha = 0.15f)
+        "confirmed" -> OrangeAccent.copy(alpha = 0.15f)
+        "completed" -> GreenSuccess.copy(alpha = 0.15f)
         "cancelled" -> DangerRed.copy(alpha = 0.15f)
         else -> OrangeAccent.copy(alpha = 0.15f)
     }
     val textColor = when (normalized) {
-        "confirmed" -> GreenSuccess
+        "confirmed" -> OrangeAccent
+        "completed" -> GreenSuccess
         "cancelled" -> DangerRed
         else -> OrangeAccent
     }
@@ -369,8 +362,30 @@ private fun StatusBadge(status: String) {
             .background(bg)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        // Display text keeps original casing (e.g. "Confirmed") even though
-        // matching logic is normalized above.
         Text(status, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+// ---------- Preview ----------
+@Preview(showBackground = true, backgroundColor = 0xFF0B1F3A)
+@Composable
+private fun BookingConfirmationScreenPreview() {
+    val sampleBooking = BookingConfirmation(
+        shuttleId = "SH-1024",
+        ticketId = "NMU-9928-AX",
+        pickupLocation = "North Campus Main Gate",
+        dropoffLocation = "South Campus",
+        date = "Today",
+        departureTime = "08:30 AM",
+        driverName = "Markus Taylor",
+        plateNumber = "NMU-042-EC",
+        vehicleModel = "Toyota Quantum",
+        status = "Confirmed"
+    )
+    BookingConfirmationScreen(
+        navController = rememberNavController(),
+        booking = sampleBooking,
+        onViewMyRides = {},
+        onDownloadTicket = {}
+    )
 }

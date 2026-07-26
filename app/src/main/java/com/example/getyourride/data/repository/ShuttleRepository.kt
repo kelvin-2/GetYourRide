@@ -1,5 +1,6 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.dto.ShuttleStopResponse
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
@@ -44,21 +45,17 @@ class ShuttleRepository(private val api: ShuttleApi) {
         return ShuttleHomeData(upcoming, recent)
     }
 
-    suspend fun fetchStops(): List<String> {
+    suspend fun fetchStops(): List<ShuttleStopResponse> {
         return try {
-            api.getAllStops().map { it.stopName }
+            api.getAllStops()
         } catch (e: Exception) {
             // Fallback to predetermined stops if network fails
             listOf(
-                "NMU South Campus",
-                "NMU North Campus",
-                "NMU 2nd Avenue Campus",
-                "Missionvale Campus",
-                "Gqeberha Bus Terminal",
-                "Summerstrand North",
-                "Humewood Village",
-                "North Campus Main Gate",
-                "South Campus Main Gate"
+                ShuttleStopResponse(1, "South Campus Main Gate", "South Campus", "University Way", -34.0016, 25.6724),
+                ShuttleStopResponse(2, "North Campus Main Gate", "North Campus", "Gardham Avenue", -33.9918, 25.6669),
+                ShuttleStopResponse(3, "2nd Avenue Gate", "2nd Avenue Campus", "2nd Avenue", -33.9856, 25.6575),
+                ShuttleStopResponse(4, "Missionvale Main Entrance", "Missionvale Campus", "Johnson Road", -33.8821, 25.5562),
+                ShuttleStopResponse(13, "Forest Hill", "Forest Hill", "Garage, Morestond Flats and Stadium", null, null)
             )
         }
     }
