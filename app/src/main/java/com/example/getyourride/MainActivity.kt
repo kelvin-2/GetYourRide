@@ -418,7 +418,18 @@ class MainActivity : ComponentActivity() {
                                     },
 
                                     onShowTicket = { shuttle ->
-                                        Toast.makeText(context, "Ticket: ${shuttle.from} → ${shuttle.to} — screen coming soon", Toast.LENGTH_SHORT).show()
+                                        confirmedShuttle = BookingConfirmation(
+                                            shuttleId = "SH-102", // Hardcoded for now as it's not in UpcomingShuttle
+                                            ticketId = "GYR-" + (1000..9999).random(),
+                                            pickupLocation = shuttle.from,
+                                            dropoffLocation = shuttle.to,
+                                            date = shuttle.date,
+                                            departureTime = shuttle.time,
+                                            driverName = "S. Mokoena", // Hardcoded fallback
+                                            plateNumber = "BS 42 GP", // Hardcoded fallback
+                                            vehicleModel = "Mercedes Sprinter" // Hardcoded fallback
+                                        )
+                                        navController.navigate("shuttle_booking_confirmed")
                                     },
                                     onTripClick = { trip ->
                                         Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()
