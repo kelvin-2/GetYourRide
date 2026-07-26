@@ -73,9 +73,26 @@ class StudentAuthRepository(
         return if (response.isSuccessful && response.body() != null) {
             AuthResult.Success(response.body()!!)
         } else {
-            // Spring's @Valid validation errors come back as 400 with a message body —
-            // for now we show a generic message; can be improved to parse the error JSON.
-            AuthResult.Error("Login/Signup failed (${response.code()}). Check your details and try again.")
+            val errorBody = response.errorBody()?.string()
+            val message = extractMessage(errorBody) ?: when (response.code()) {
+                401  -> "Invalid email or password."
+                404  -> "Account does not exist."
+                409  -> "User already exists."
+                400  -> "Invalid request. Please check your details."
+                else -> "Login/Signup failed (${response.code()}). Try again."
+            }
+            AuthResult.Error(message)
+        }
+    }
+
+    private fun extractMessage(json: String?): String? {
+        if (json.isNullOrBlank()) return null
+        return try {
+            // Simple regex for "message":"..." if we don't want to add a full JSON parser dependency here
+            val regex = "\"message\"\\s*:\\s*\"([^\"]+)\"".toRegex()
+            regex.find(json)?.groupValues?.get(1)
+        } catch (e: Exception) {
+            null
         }
     }
 }

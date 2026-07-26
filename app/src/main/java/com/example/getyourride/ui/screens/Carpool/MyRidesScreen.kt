@@ -26,6 +26,7 @@ import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.RideCard
 import com.example.getyourride.ui.components.RideStatus
 import com.example.getyourride.ui.components.StudentLayout
+import com.example.getyourride.ui.components.ShuttleLayout
 import com.example.getyourride.ui.theme.*
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllTripsUiState
@@ -42,15 +43,12 @@ fun MyRidesScreen(
     viewModel     : AllRidesViewModel,
     onTrackRide   : (String) -> Unit = {},
     navController : androidx.navigation.NavController = rememberNavController(),
+    currentRoute  : String = GyrRoutes.RIDES,
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
 
-    StudentLayout(
-        currentRoute  = GyrRoutes.RIDES,
-        navController = navController,
-        showBell      = true,
-    ) {
+    val content = @Composable {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -140,6 +138,21 @@ fun MyRidesScreen(
                 }
             }
         }
+    }
+
+    if (currentRoute == GyrRoutes.SHUTTLE_RIDES) {
+        ShuttleLayout(
+            currentRoute = currentRoute,
+            navController = navController,
+            content = content
+        )
+    } else {
+        StudentLayout(
+            currentRoute = currentRoute,
+            navController = navController,
+            showBell = true,
+            content = content
+        )
     }
 }
 

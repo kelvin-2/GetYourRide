@@ -435,7 +435,8 @@ class MainActivity : ComponentActivity() {
                         )
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
-                            navController = navController
+                            navController = navController,
+                            currentRoute = GyrRoutes.SHUTTLE_RIDES
                         )
                     }
 

@@ -76,6 +76,13 @@ private val shuttleTabs = listOf(
     NavTab(GyrRoutes.PROFILE,       "Profile", Icons.Filled.Person,       Icons.Outlined.Person),
 )
 
+// Tabs for shuttle-only mode (no tracking)
+private val shuttleOnlyTabs = listOf(
+    NavTab(GyrRoutes.SHUTTLE_HOME,  "Home",    Icons.Filled.Home,         Icons.Outlined.Home),
+    NavTab(GyrRoutes.SHUTTLE_RIDES, "Rides",   Icons.Filled.DirectionsCar,Icons.Outlined.DirectionsCar),
+    NavTab(GyrRoutes.PROFILE,       "Profile", Icons.Filled.Person,       Icons.Outlined.Person),
+)
+
 // ─── The nav bar composable ───────────────────────────────────────────────────
 
 /**
@@ -83,13 +90,19 @@ private val shuttleTabs = listOf(
  *
  * @param currentRoute  The active route string — use [GyrRoutes] constants.
  * @param onNavigate    Called with the route string when a tab is tapped.
+ * @param isShuttle     If true, uses the shuttle-only tab set (no tracking).
  */
 @Composable
 fun GyrBottomNav(
     currentRoute : String,
     onNavigate   : (route: String) -> Unit,
+    isShuttle    : Boolean = false,
 ) {
-    val activeTabs = if (UserSession.isFunded) shuttleTabs else tabs
+    val activeTabs = when {
+        isShuttle -> shuttleOnlyTabs
+        UserSession.isFunded -> shuttleTabs
+        else -> tabs
+    }
 
     NavigationBar(
         containerColor = CardWhite,

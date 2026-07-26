@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.R
-import com.example.getyourride.ui.components.StudentLayout
+import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.components.ShuttleLayout
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.ui.theme.GreenSuccess
 import com.example.getyourride.ui.theme.NavyPrimary
@@ -64,18 +65,9 @@ fun ShuttleHomeScreen(
     onTripClick: (RecentTrip) -> Unit,
     onFabClick: () -> Unit,
 ) {
-    StudentLayout(
-        currentRoute = "shuttle_home",
+    ShuttleLayout(
+        currentRoute = GyrRoutes.SHUTTLE_HOME,
         navController = navController,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onFabClick,
-                containerColor = OrangeAccent,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
-            }
-        }
     ) {
         LazyColumn(
             modifier = Modifier
