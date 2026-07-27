@@ -257,7 +257,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // ── OFFER RIDE ─────────────────────────────────────────────
+                    // ── OFFER RIDE (Student Driver)─────────────────────────────────────────────
                     composable("offer_ride") {
                         val submitStatus = offerRideViewModel.submitStatus
                         OfferRideScreen(
@@ -311,7 +311,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // ── DRIVER PROFILE SETTINGS ────────────────────────────────
+                    // ── DRIVER PROFILE SETTINGS(Student Driver) ────────────────────────────────
                     composable("driver_profile_settings") {
                         val submitStatus = deleteDriverProfileViewModel.submitStatus
                         DriverProfileSettingsScreen(
