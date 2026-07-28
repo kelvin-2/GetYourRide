@@ -2,12 +2,13 @@
 // CarpoolBookingCard.kt
 // Package: com.example.getyourride.ui.screens.Carpool.components
 //
-// Redesigned ride card — avatar, driver name + rating, seats-left badge,
-// departure time, route, price per seat, "Request Ride" pill button.
+// Navy/glass version — matches GyrMapBackground. Avatar, driver name + rating,
+// seats-left badge, departure time, route, price per seat, "Request Ride" pill.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.ui.screens.Carpool.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,12 @@ val sampleRide2 = CarpoolRide(
     pricePerSeat = "R5.00",
 )
 
+// ── Navy/glass palette — mirrors the tokens used elsewhere on GyrMapBackground ──
+private val GlassSurface    = Color.White.copy(alpha = 0.07f)
+private val GlassBorder     = Color.White.copy(alpha = 0.10f)
+private val TextOnNavy      = Color.White
+private val TextOnNavyMuted = Color.White.copy(alpha = 0.65f)
+
 @Composable
 fun CarpoolBookingCard(
     ride: CarpoolRide,
@@ -72,9 +80,10 @@ fun CarpoolBookingCard(
 ) {
     Card(
         modifier  = modifier.fillMaxWidth(),
-        shape     = RoundedCornerShape(12.dp),
-        colors    = CardDefaults.cardColors(containerColor = CardWhite),
-        elevation = CardDefaults.cardElevation(2.dp),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = GlassSurface),
+        border    = BorderStroke(1.dp, GlassBorder),
+        elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
@@ -90,14 +99,14 @@ fun CarpoolBookingCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(NavyPrimary.copy(alpha = 0.10f)),
+                            .background(OrangeAccent.copy(alpha = 0.22f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text       = ride.driverInitials,
                             fontSize   = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color      = NavyPrimary,
+                            color      = OrangeAccent,
                         )
                     }
 
@@ -108,7 +117,7 @@ fun CarpoolBookingCard(
                             text       = ride.driverName,
                             fontSize   = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color      = NavyPrimary,
+                            color      = TextOnNavy,
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -121,7 +130,7 @@ fun CarpoolBookingCard(
                             Text(
                                 text     = "${ride.rating} (${ride.ratingCount})",
                                 fontSize = 12.sp,
-                                color    = TextMuted,
+                                color    = TextOnNavyMuted,
                             )
                         }
                     }
@@ -130,7 +139,7 @@ fun CarpoolBookingCard(
                 // Seats left badge
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = GreenSuccess.copy(alpha = 0.12f),
+                    color = GreenSuccess.copy(alpha = 0.18f),
                 ) {
                     Text(
                         text       = "${ride.seatsLeft} seat${if (ride.seatsLeft == 1) "" else "s"} left",
@@ -149,20 +158,20 @@ fun CarpoolBookingCard(
                 Icon(
                     imageVector        = Icons.Outlined.Schedule,
                     contentDescription = null,
-                    tint               = TextMuted,
+                    tint               = TextOnNavyMuted,
                     modifier           = Modifier.size(15.dp),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text     = "Departure: ",
                     fontSize = 13.sp,
-                    color    = TextMuted,
+                    color    = TextOnNavyMuted,
                 )
                 Text(
                     text       = ride.departureTime,
                     fontSize   = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color      = NavyPrimary,
+                    color      = TextOnNavy,
                 )
             }
 
@@ -173,14 +182,14 @@ fun CarpoolBookingCard(
                 Icon(
                     imageVector        = Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint               = TextMuted,
+                    tint               = TextOnNavyMuted,
                     modifier           = Modifier.size(15.dp),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text     = "${ride.fromLocation} → ${ride.toLocation}",
                     fontSize = 13.sp,
-                    color    = TextMuted,
+                    color    = TextOnNavyMuted,
                 )
             }
 
@@ -197,12 +206,12 @@ fun CarpoolBookingCard(
                         text       = ride.pricePerSeat,
                         fontSize   = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color      = NavyPrimary,
+                        color      = TextOnNavy,
                     )
                     Text(
                         text     = "per seat",
                         fontSize = 11.sp,
-                        color    = TextMuted,
+                        color    = TextOnNavyMuted,
                     )
                 }
 
@@ -217,7 +226,7 @@ fun CarpoolBookingCard(
                         text       = "Request Ride",
                         fontSize   = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color      = androidx.compose.ui.graphics.Color.White,
+                        color      = Color.White,
                     )
                 }
             }
@@ -227,7 +236,7 @@ fun CarpoolBookingCard(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFF102A46)
 @Composable
 fun CarpoolBookingCardPreview() {
     MaterialTheme {

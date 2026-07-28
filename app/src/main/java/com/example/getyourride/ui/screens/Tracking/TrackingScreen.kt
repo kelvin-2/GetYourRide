@@ -100,7 +100,7 @@ fun TrackingScreen(
     StudentLayout(
         currentRoute = GyrRoutes.TRACK,
         navController = navController,
-        showBell = true
+
     ) {
         TrackingScreenContent(
             uiState = uiState,
