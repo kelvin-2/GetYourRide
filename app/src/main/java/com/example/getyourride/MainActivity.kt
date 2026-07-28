@@ -238,22 +238,28 @@ class MainActivity : ComponentActivity() {
                             errorMessage = driverApplicationViewModel.step2ErrorMessage
                         )
                     }
+                    // Inside NavHost -> composable("driver_step_3")
                     composable("driver_step_3") {
-                        DriverStep3Screen(
-                            onBackClick   = { navController.popBackStack() },
-                            onSubmitClick = { step3Data ->
-                                driverApplicationViewModel.submitApplication(step3Data)
+                        val context = LocalContext.current
+
+                        // Auto-navigate only when submission is successful
+                        LaunchedEffect(driverApplicationViewModel.submitStatus) {
+                            if (driverApplicationViewModel.submitStatus is DriverApplicationSubmitStatus.Success) {
                                 navController.navigate("student_driver_home") {
                                     popUpTo("driver_step_1") { inclusive = true }
                                     launchSingleTop = true
                                 }
+                            }
+                        }
+
+                        DriverStep3Screen(
+                            onBackClick   = { navController.popBackStack() },
+                            onSubmitClick = { step3Data ->
+                                // Pass the contentResolver so the ViewModel can read the image bytes
+                                driverApplicationViewModel.submitApplication(step3Data, context.contentResolver)
                             },
                             errorMessage  = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = when (val s = driverApplicationViewModel.submitStatus) {
-                                is DriverApplicationSubmitStatus.Success -> s.message
-                                is DriverApplicationSubmitStatus.Error   -> s.message
-                                else -> null
-                            }
+                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message
                         )
                     }
 
