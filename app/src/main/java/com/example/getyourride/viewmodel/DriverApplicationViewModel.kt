@@ -1,11 +1,12 @@
 package com.example.getyourride.viewmodel
 
-import android.os.Handler
-import android.os.Looper
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.DriverApplicationRequest
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.DriverApplicationValidationResult
@@ -18,12 +19,13 @@ import com.example.getyourride.network.ApiService
 import com.example.getyourride.ui.screens.DriverStep1Data
 import com.example.getyourride.ui.screens.DriverStep2Data
 import com.example.getyourride.ui.screens.DriverStep3Data
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DriverApplicationViewModel(
     private val apiService: ApiService,
 ) : ViewModel() {
-
-    private val mainHandler = Handler(Looper.getMainLooper())
 
     var step1ErrorMessage by mutableStateOf<String?>(null)
         private set
@@ -82,7 +84,12 @@ class DriverApplicationViewModel(
         return validationResult.isValid
     }
 
-    fun submitApplication(data: DriverStep3Data) {
+    /**
+     * Submits the application in two phases:
+     * 1. Send personal and vehicle data to get an Application ID.
+     * 2. Upload document images using that ID.
+     */
+    fun submitApplication(data: DriverStep3Data, contentResolver: ContentResolver) {
         documents = listOf(
             DriverDocumentInfo(
                 documentType = DriverDocumentType.DriversLicence,
@@ -104,145 +111,109 @@ class DriverApplicationViewModel(
             return
         }
 
-        val request = DriverApplicationRequest(
-            personalInfo = requireNotNull(personalInfo),
-            vehicleInfo = requireNotNull(vehicleInfo),
-            documents = documents
-        )
-
         submitStatus = DriverApplicationSubmitStatus.Loading
 
-        // Mocking API call for now to resolve issues with api services
-        mainHandler.postDelayed({
-            submitStatus = DriverApplicationSubmitStatus.Success(
-                "Driver profile submitted. Status: Pending Verification (Mocked)"
+        viewModelScope.launch {
+            val request = DriverApplicationRequest(
+                personalInfo = requireNotNull(personalInfo),
+                vehicleInfo = requireNotNull(vehicleInfo),
+                documents = emptyList() // We upload them in Phase 2
             )
-        }, 1500)
 
-        /* Commented out real API call as requested
-        Thread {
-            val result = apiService.submitDriverApplication(request)
+            val result = withContext(Dispatchers.IO) {
+                apiService.submitDriverApplication(request)
+            }
 
-            mainHandler.post {
-                submitStatus = when (result) {
-                    is ApiResult.Success -> DriverApplicationSubmitStatus.Success(
-                        "Driver profile submitted. Status: Pending Verification."
-                    )
-
-                    is ApiResult.Error -> DriverApplicationSubmitStatus.Error(result.message)
+            when (result) {
+                is ApiResult.Success -> {
+                    val appId = result.data.applicationId
+                    uploadAllDocuments(appId, data, contentResolver)
+                }
+                is ApiResult.Error -> {
+                    submitStatus = DriverApplicationSubmitStatus.Error(result.message)
                 }
             }
-        }.start()
-        */
+        }
     }
 
-    private fun validatePersonalInfo(
-        info: DriverPersonalInfo
-    ): DriverApplicationValidationResult {
+    private suspend fun uploadAllDocuments(
+        appId: String,
+        data: DriverStep3Data,
+        contentResolver: ContentResolver
+    ) {
+        val docsToUpload = listOf(
+            Triple(DriverDocumentType.DriversLicence, data.driversLicenceFileName, data.driversLicenceUri),
+            Triple(DriverDocumentType.VehicleRegistration, data.vehicleRegistrationFileName, data.vehicleRegistrationUri)
+        )
+
+        for ((type, fileName, uriString) in docsToUpload) {
+            val uri = Uri.parse(uriString)
+            val bytes = withContext(Dispatchers.IO) {
+                try {
+                    contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            if (bytes == null) {
+                submitStatus = DriverApplicationSubmitStatus.Error("Failed to read document: $fileName")
+                return
+            }
+
+            val uploadResult = withContext(Dispatchers.IO) {
+                apiService.uploadDriverDocument(
+                    applicationId = appId,
+                    documentType = type,
+                    fileName = fileName,
+                    contentType = "image/*",
+                    fileBytes = bytes
+                )
+            }
+
+            if (uploadResult is ApiResult.Error) {
+                submitStatus = DriverApplicationSubmitStatus.Error("Failed to upload $fileName: ${uploadResult.message}")
+                return
+            }
+        }
+
+        submitStatus = DriverApplicationSubmitStatus.Success(
+            "Driver profile submitted successfully. Status: Pending Verification."
+        )
+    }
+
+    private fun validatePersonalInfo(info: DriverPersonalInfo): DriverApplicationValidationResult {
         return when {
-            info.surname.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter your surname.")
-            }
-
-            info.firstName.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter your first name.")
-            }
-
-            info.studentNumber.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter your student number.")
-            }
-
-            info.contactNumber.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter your contact number.")
-            }
-
-            info.universityEmail.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter your university email.")
-            }
-
-            !info.universityEmail.endsWith("@mandela.ac.za", ignoreCase = true) -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Use your NMU email ending with @mandela.ac.za."
-                )
-            }
-
-            info.password.length < 8 -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Password must be at least 8 characters."
-                )
-            }
-
+            info.surname.isBlank() -> DriverApplicationValidationResult(false, "Enter your surname.")
+            info.firstName.isBlank() -> DriverApplicationValidationResult(false, "Enter your first name.")
+            info.studentNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your student number.")
+            info.contactNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your contact number.")
+            info.universityEmail.isBlank() -> DriverApplicationValidationResult(false, "Enter your university email.")
+            !info.universityEmail.endsWith("@mandela.ac.za", true) ->
+                DriverApplicationValidationResult(false, "Use your NMU email ending with @mandela.ac.za.")
+            info.password.length < 8 -> DriverApplicationValidationResult(false, "Password must be at least 8 characters.")
             else -> DriverApplicationValidationResult(true)
         }
     }
 
-    private fun validateVehicleInfo(
-        info: DriverVehicleInfo
-    ): DriverApplicationValidationResult {
+    private fun validateVehicleInfo(info: DriverVehicleInfo): DriverApplicationValidationResult {
         return when {
-            info.vehicleRegistrationNumber.isBlank() -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Enter the vehicle registration number."
-                )
-            }
-
-            info.vehicleMake.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle make.")
-            }
-
-            info.vehicleModel.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle model.")
-            }
-
-            info.vehicleColour.isBlank() -> {
-                DriverApplicationValidationResult(isValid = false, message = "Enter the vehicle colour.")
-            }
-
-            (info.seatingCapacity !in 1..8) -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Seating capacity must be between 1 and 8."
-                )
-            }
-
-            else -> DriverApplicationValidationResult(isValid = true)
+            info.vehicleRegistrationNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter registration number.")
+            info.vehicleMake.isBlank() -> DriverApplicationValidationResult(false, "Enter vehicle make.")
+            info.vehicleModel.isBlank() -> DriverApplicationValidationResult(false, "Enter vehicle model.")
+            info.vehicleColour.isBlank() -> DriverApplicationValidationResult(false, "Enter vehicle colour.")
+            (info.seatingCapacity !in 1..8) -> DriverApplicationValidationResult(false, "Capacity must be 1-8.")
+            else -> DriverApplicationValidationResult(true)
         }
     }
 
     private fun validateCompleteApplication(): DriverApplicationValidationResult {
         return when {
-            personalInfo == null -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Complete Step 1 before submitting."
-                )
-            }
-
-            vehicleInfo == null -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Complete Step 2 before submitting."
-                )
-            }
-
-            documents.any { it.originalFileName.isBlank() } -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Upload both required document images before submitting."
-                )
-            }
-
-            documents.any { it.localUri.isBlank() } -> {
-                DriverApplicationValidationResult(
-                    isValid = false,
-                    message = "Choose valid images for both required documents."
-                )
-            }
-
-            else -> DriverApplicationValidationResult(isValid = true)
+            personalInfo == null -> DriverApplicationValidationResult(false, "Complete Step 1 first.")
+            vehicleInfo == null -> DriverApplicationValidationResult(false, "Complete Step 2 first.")
+            documents.any { it.originalFileName.isBlank() || it.localUri.isBlank() } ->
+                DriverApplicationValidationResult(false, "Upload both required documents.")
+            else -> DriverApplicationValidationResult(true)
         }
     }
 }
