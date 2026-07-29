@@ -262,7 +262,7 @@ fun DriverStep3Screen(
                 )
 
                 Text(
-                    text = "We need to verify your driver credentials to ensure safety on the platform.",
+                    text = "Upload your documents now or skip and upload them later from your profile.",
                     color = DriverTextMuted,
                     fontSize = 16.sp,
                     lineHeight = 24.sp

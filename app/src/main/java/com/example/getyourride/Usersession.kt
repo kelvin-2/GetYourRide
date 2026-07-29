@@ -41,7 +41,30 @@ object UserSession {
     val isStudent:  Boolean  get() = current?.type == "STUDENT"
     val isDriver:   Boolean  get() = current?.type == "DRIVER"
 
-    // Called from MainActivity after successful login/signup
+    // ── Role-based access (Driver Application flow) ─────────────────────────
+    // After a driver application is submitted, the backend returns
+    // role = "DRIVER_PENDING". The student is logged in but cannot perform
+    // active driver actions until their application is approved.
+
+    val role: String? get() = current?.role
+
+    /** true when the student submitted a driver application but is not yet approved */
+    val isDriverPending: Boolean get() = role.equals("DRIVER_PENDING", ignoreCase = true)
+
+    /** true when the driver is fully approved and verified */
+    val isDriverApproved: Boolean get() = role.equals("DRIVER_APPROVED", ignoreCase = true)
+            || role.equals("APPROVED", ignoreCase = true)
+
+    /**
+     * Can the current user perform active driver operations?
+     * (Offer rides, accept requests, become visible as a driver)
+     *
+     * Returns true ONLY for approved drivers.
+     * DRIVER_PENDING users can view profile, see status, browse — but NOT offer rides.
+     */
+    val canPerformDriverActions: Boolean get() = isDriver && isDriverApproved
+
+    // Called from MainActivity after successful login/signup/driver-application
     fun save(response: AuthResponse) {
         current = response
     }
