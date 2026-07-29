@@ -52,8 +52,8 @@ data class AuthResponse(
     val firstName  : String,
     val lastName   : String,
     val email      : String,
-    val studentnumber :String,
-    val cellphonNumber :String,
+    val studentNumber :String,
+    val phone :String,
 
     // student-specific — null for drivers
     val isFunded   : Boolean? = null,

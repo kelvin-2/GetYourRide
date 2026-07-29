@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * GyrMapBackground
@@ -23,8 +24,24 @@ import kotlin.math.sin
  * Reusable decorative background matching the "navy map" look used across
  * GetYourRide screens — concentric radar rings, faint route lines, pin
  * markers, tiny car glyphs and compass stars scattered over NavyPrimary.
+ *
+ * Usage:
+ *
+ * GyrMapBackground {
+ *     // your screen content here, e.g. Column { ... }
+ * }
+ *
+ * It's just a Box with a Canvas drawn behind `content`, so it drops into
+ * any screen without changing your existing layout code.
+ *
+ * IMPORTANT: This composable does NOT force fillMaxSize() on itself anymore.
+ * It sizes to whatever `modifier` you pass in. If you want it full-screen,
+ * pass Modifier.fillMaxSize() from the call site. If you want it to wrap a
+ * fixed-height section (like a profile header), pass Modifier.fillMaxWidth()
+ * with an explicit height, or let it size to its content's intrinsic height.
  */
 
+// Reuse your existing color system where it applies.
 private val NavyPrimary = Color(0xFF102A46)
 private val LineColor = Color.White.copy(alpha = 0.06f)
 private val LineColorStrong = Color.White.copy(alpha = 0.10f)
@@ -35,6 +52,10 @@ fun GyrMapBackground(
     backgroundColor: Color = NavyPrimary,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // CHANGED: was `modifier.fillMaxSize()` — that forced this Box to always
+    // stretch to fill its parent, which is wrong when you just want to wrap
+    // a fixed-size chunk of UI (like ProfileHeader) rather than the whole screen.
+    // Now it just uses whatever `modifier` the caller supplies.
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(color = backgroundColor)
@@ -47,6 +68,8 @@ fun GyrMapBackground(
         content()
     }
 }
+
+// ---- Radar / concentric circles -------------------------------------------------
 
 private fun drawRadarClusters(scope: DrawScope) = with(scope) {
     val clusters = listOf(
@@ -79,6 +102,8 @@ private fun drawRadarClusters(scope: DrawScope) = with(scope) {
     }
 }
 
+// ---- Winding dotted routes --------------------------------------------------
+
 private fun drawRoutes(scope: DrawScope) = with(scope) {
     val routeSeeds = listOf(
         Offset(size.width * 0.20f, size.height * 0.28f),
@@ -110,6 +135,8 @@ private fun drawRoutes(scope: DrawScope) = with(scope) {
         )
     }
 }
+
+// ---- Pin / marker glyphs -----------------------------------------------------
 
 private fun drawPins(scope: DrawScope) = with(scope) {
     val positions = listOf(
@@ -145,6 +172,8 @@ private fun drawPinGlyph(scope: DrawScope, center: Offset, r: Float) = with(scop
     drawCircle(color = LineColor, radius = r * 0.35f, center = Offset(center.x, center.y - r * 0.2f), style = Stroke(width = 1.dp.toPx()))
 }
 
+// ---- Tiny car glyphs, rotated at odd angles ----------------------------------
+
 private fun drawCars(scope: DrawScope) = with(scope) {
     val cars = listOf(
         Triple(Offset(size.width * 0.75f, size.height * 0.20f), size.width * 0.05f, 35f),
@@ -170,6 +199,7 @@ private fun drawCarGlyph(scope: DrawScope, center: Offset, s: Float, angleDeg: F
             close()
         }
         drawPath(path = bodyPath, color = LineColor, style = Stroke(width = 1.dp.toPx()))
+        // windshield line
         drawLine(
             color = LineColor,
             start = Offset(center.x - s * 0.5f, center.y - s * 0.6f),
@@ -178,6 +208,8 @@ private fun drawCarGlyph(scope: DrawScope, center: Offset, s: Float, angleDeg: F
         )
     }
 }
+
+// ---- Compass / star markers --------------------------------------------------
 
 private fun drawCompassStars(scope: DrawScope) = with(scope) {
     val positions = listOf(

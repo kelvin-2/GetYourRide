@@ -33,9 +33,9 @@ class ProfileViewModel : ViewModel() {
                     val profile = StudentProfile(
                         name = "${user.firstName} ${user.lastName}",
                         initials = "${user.firstName.take(1)}${user.lastName.take(1)}".uppercase(),
-                        studentNumber = "NMU-${user.id}", // Fallback since studentNumber isn't in AuthResponse
+                        studentNumber = "S-${user.studentNumber}", // Fallback since studentNumber isn't in AuthResponse
                         email = user.email,
-                        phone = "", // Not in AuthResponse
+                        phone = user.phone,
                         isNsfasFunded = user.isFunded ?: false
                     )
                     _uiState.value = ProfileUiState.Success(profile)
