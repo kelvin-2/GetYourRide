@@ -1,5 +1,7 @@
 package com.example.getyourride.data
 
+import com.example.getyourride.data.remote.dto.AuthResponse
+
 data class DriverPersonalInfo(
     val surname: String,
     val firstName: String,
@@ -41,10 +43,21 @@ data class DriverApplicationValidationResult(
     val message: String = ""
 )
 
+/**
+ * UI-facing state for the driver application submission flow.
+ *
+ * Success now carries the AuthResponse from the backend's auto-login.
+ * After a successful submission the backend returns JWT + student info +
+ * role=DRIVER_PENDING — the app saves this in UserSession and navigates
+ * directly to the Driver Home Screen without requiring a second login.
+ */
 sealed class DriverApplicationSubmitStatus {
     data object Idle : DriverApplicationSubmitStatus()
     data object Loading : DriverApplicationSubmitStatus()
-    data class Success(val message: String) : DriverApplicationSubmitStatus()
+    data class Success(
+        val message: String,
+        val authResponse: AuthResponse? = null
+    ) : DriverApplicationSubmitStatus()
     data class Error(val message: String) : DriverApplicationSubmitStatus()
 }
 

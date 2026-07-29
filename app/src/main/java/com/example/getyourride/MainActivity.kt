@@ -31,6 +31,7 @@ import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.data.mapper.toRideRequestDetails
 import com.example.getyourride.data.repository.GeocodingRepository
+import com.example.getyourride.data.repository.DriverApplicationRepository
 import com.example.getyourride.data.repository.StudentAuthRepository
 import com.example.getyourride.di.NetworkModule
 import com.example.getyourride.network.SpringBootApiService
@@ -50,6 +51,7 @@ import com.example.getyourride.viewmodel.AuthViewModel
 import com.example.getyourride.viewmodel.AuthViewModelFactory
 import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
+import com.example.getyourride.viewmodel.DriverApplicationViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
 import com.example.getyourride.viewmodel.MockRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
@@ -104,12 +106,9 @@ class MainActivity : ComponentActivity() {
             GetYourRideTheme {
                 val navController = rememberNavController()
 
-                // ── Existing mock API service (driver flow, offer ride) ────────
+                // ── Existing mock API service (offer ride, delete profile) ───
                 val apiService = remember {
                     SpringBootApiService(baseUrl = "https://your-spring-boot-api.example.com")
-                }
-                val driverApplicationViewModel = remember {
-                    DriverApplicationViewModel(apiService = apiService)
                 }
                 val offerRideViewModel = remember {
                     OfferRideViewModel(apiService = apiService)
@@ -117,6 +116,14 @@ class MainActivity : ComponentActivity() {
                 val deleteDriverProfileViewModel = remember {
                     DeleteDriverProfileViewModel(apiService = apiService)
                 }
+
+                // ── Real driver application — uses Retrofit + auto-login ──────
+                val driverApplicationRepository = remember {
+                    DriverApplicationRepository(api = NetworkModule.driverApplicationApi)
+                }
+                val driverApplicationViewModel: DriverApplicationViewModel = viewModel(
+                    factory = DriverApplicationViewModelFactory(driverApplicationRepository)
+                )
 
                 // ── Real auth — talks to StudentAuthController on :8080 ───────
                 val studentAuthRepository = remember {
@@ -242,11 +249,19 @@ class MainActivity : ComponentActivity() {
                     composable("driver_step_3") {
                         val context = LocalContext.current
 
-                        // Auto-navigate only when submission is successful
+                        // Auto-navigate when submission succeeds with auto-login
                         LaunchedEffect(driverApplicationViewModel.submitStatus) {
-                            if (driverApplicationViewModel.submitStatus is DriverApplicationSubmitStatus.Success) {
+                            val status = driverApplicationViewModel.submitStatus
+                            if (status is DriverApplicationSubmitStatus.Success) {
+                                // Save the JWT + user info from auto-login response
+                                val authResponse = status.authResponse
+                                if (authResponse != null) {
+                                    UserSession.save(authResponse)
+                                }
+
+                                // Navigate to Driver Home — no second login needed
                                 navController.navigate("student_driver_home") {
-                                    popUpTo("driver_step_1") { inclusive = true }
+                                    popUpTo("login") { inclusive = true }
                                     launchSingleTop = true
                                 }
                             }
@@ -291,25 +306,19 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // Use real session data — after auto-login, UserSession holds the driver's info
+                        val driverName = UserSession.firstName ?: "Driver"
+                        val verificationStatus = when {
+                            UserSession.isDriverPending  -> "Pending Review"
+                            UserSession.isDriverApproved -> "Approved"
+                            else                         -> "Pending Review"
+                        }
+
                         StudentDriverHomeScreen(
-                            driverName         = "Ayabulela",
-                            verificationStatus = "Pending Verification",
+                            driverName         = driverName,
+                            verificationStatus = verificationStatus,
                             isRefreshing       = isDriverHomeRefreshing,
-                            postedRides        = listOf(
-                                StudentDriverPostedRide(
-                                    rideId          = "1",
-                                    pickupLocation  = "South Campus",
-                                    destination     = "North Campus",
-                                    date            = "2026-07-01",
-                                    time            = "08:30",
-                                    availableSeats  = 3,
-                                    farePerSeat     = "R20.00",
-                                    acceptedStudents = listOf(
-                                        RideAcceptedStudent("Lanele Maqina",    "223456789"),
-                                        RideAcceptedStudent("Tichaona Mudingwa","224567890"),
-                                    )
-                                )
-                            ),
+                            postedRides        = emptyList(), // DRIVER_PENDING cannot post rides yet
                             onRefreshClick   = { isDriverHomeRefreshing = true },
                             onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
                             onOfferRideClick = { navController.navigate("offer_ride") },

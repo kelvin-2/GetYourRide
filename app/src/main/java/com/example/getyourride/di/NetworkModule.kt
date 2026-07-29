@@ -1,6 +1,7 @@
 package com.example.getyourride.di
 
 import com.example.getyourride.UserSession
+import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.GeocodingApi
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
@@ -71,5 +72,9 @@ object NetworkModule {
 
     val shuttleApi: ShuttleApi by lazy {
         retrofit.create(ShuttleApi::class.java)
+    }
+
+    val driverApplicationApi: DriverApplicationApi by lazy {
+        retrofit.create(DriverApplicationApi::class.java)
     }
 }
