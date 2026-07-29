@@ -88,7 +88,7 @@ import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
 import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
 import com.example.getyourride.ui.screens.shuttle.BookingConfirmation
 import com.example.getyourride.ui.screens.shuttle.BookingConfirmationScreen
-import com.example.getyourride.ui.screens.Profile.ProfileScreen
+import com.example.getyourride.ui.screens.profiles.ProfileScreen
 import com.example.getyourride.viewmodel.ProfileViewModel
 import com.example.getyourride.viewmodel.ScheduleRideViewModel
 import com.example.getyourride.viewmodel.ScheduleRideViewModelFactory
