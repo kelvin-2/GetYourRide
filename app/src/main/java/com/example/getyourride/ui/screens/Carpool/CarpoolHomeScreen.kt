@@ -67,7 +67,7 @@ fun CarpoolHomeScreen(
     StudentLayout(
         currentRoute  = GyrRoutes.HOME,
         navController = navController,
-        showBell      = true,
+
     ) {
         Column(
             modifier = Modifier

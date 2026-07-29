@@ -150,7 +150,6 @@ fun MyRidesScreen(
         StudentLayout(
             currentRoute = currentRoute,
             navController = navController,
-            showBell = true,
             content = content
         )
     }

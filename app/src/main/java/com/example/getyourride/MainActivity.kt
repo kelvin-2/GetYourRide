@@ -88,6 +88,8 @@ import com.example.getyourride.ui.screens.shuttle.BookShuttleScreen
 import com.example.getyourride.ui.screens.shuttle.ShuttleStopSelectionScreen
 import com.example.getyourride.ui.screens.shuttle.BookingConfirmation
 import com.example.getyourride.ui.screens.shuttle.BookingConfirmationScreen
+import com.example.getyourride.ui.screens.profiles.ProfileScreen
+import com.example.getyourride.viewmodel.ProfileViewModel
 import com.example.getyourride.viewmodel.ScheduleRideViewModel
 import com.example.getyourride.viewmodel.ScheduleRideViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleStopSearchViewModel
@@ -377,9 +379,6 @@ class MainActivity : ComponentActivity() {
                     // ── CARPOOL HOME (self-funded students) ────────────────────
                     composable(GyrRoutes.HOME) {
                         LaunchedEffect(Unit) {
-                            // Only load if it's the very first time (still in Loading state)
-                            // or if we explicitly want to refresh. This prevents a "white flash"
-                            // of the Loading state every time we pop back from RequestRideScreen.
                             if (rideViewModel.uiState is TripsUiState.Loading) {
                                 rideViewModel.loadAvailableTrips()
                             }
@@ -388,7 +387,24 @@ class MainActivity : ComponentActivity() {
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
                             onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
+                            onNotifications = { /* TODO: notifications screen */ },
                             navController = navController,
+                        )
+                    }
+
+                    // ── PROFILE ────────────────────────────────────────────────
+                    composable(GyrRoutes.PROFILE) {
+                        ProfileScreen(
+                            onEditProfile = { /* TODO: edit profile screen */ },
+                            onMyRides = {
+                                navController.navigate(if (UserSession.isFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
+                            },
+                            onLoggedOut = {
+                                navController.navigate("login") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                            navController = navController
                         )
                     }
 

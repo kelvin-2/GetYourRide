@@ -33,6 +33,12 @@ import kotlin.random.Random
  *
  * It's just a Box with a Canvas drawn behind `content`, so it drops into
  * any screen without changing your existing layout code.
+ *
+ * IMPORTANT: This composable does NOT force fillMaxSize() on itself anymore.
+ * It sizes to whatever `modifier` you pass in. If you want it full-screen,
+ * pass Modifier.fillMaxSize() from the call site. If you want it to wrap a
+ * fixed-height section (like a profile header), pass Modifier.fillMaxWidth()
+ * with an explicit height, or let it size to its content's intrinsic height.
  */
 
 // Reuse your existing color system where it applies.
@@ -46,7 +52,11 @@ fun GyrMapBackground(
     backgroundColor: Color = NavyPrimary,
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
+    // CHANGED: was `modifier.fillMaxSize()` — that forced this Box to always
+    // stretch to fill its parent, which is wrong when you just want to wrap
+    // a fixed-size chunk of UI (like ProfileHeader) rather than the whole screen.
+    // Now it just uses whatever `modifier` the caller supplies.
+    Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(color = backgroundColor)
             drawRadarClusters(this)

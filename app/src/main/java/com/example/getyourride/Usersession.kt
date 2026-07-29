@@ -37,6 +37,8 @@ object UserSession {
     val fullName:   String?  get() = "${current?.firstName} ${current?.lastName}".trim()
     val email:      String?  get() = current?.email
     val id:         Long?    get() = current?.id
+    val studentNumber: String? get()= current?.studentNumber
+    val cellphone: String? get() = current?.phone
     val isFunded:   Boolean  get() = current?.isFunded ?: false
     val isStudent:  Boolean  get() = current?.type == "STUDENT"
     val isDriver:   Boolean  get() = current?.type == "DRIVER"
