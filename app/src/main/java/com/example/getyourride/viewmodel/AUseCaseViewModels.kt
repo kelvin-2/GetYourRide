@@ -6,12 +6,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.DeleteDriverProfileRequest
 import com.example.getyourride.data.OfferRideRequest
 import com.example.getyourride.data.StudentProfileRequest
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.data.ValidationResult
+import com.example.getyourride.data.remote.dto.AddressSuggestion
+import com.example.getyourride.data.repository.GeocodingRepository
 import com.example.getyourride.network.ApiService
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -21,8 +27,10 @@ import java.util.Locale
  * API calls have been mocked to resolve issues with the network service as requested.
  */
 
+@OptIn(FlowPreview::class)
 class OfferRideViewModel(
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val geocodingRepository: GeocodingRepository
 ) : ViewModel() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -32,6 +40,67 @@ class OfferRideViewModel(
 
     var submitStatus by mutableStateOf<UseCaseSubmitStatus>(UseCaseSubmitStatus.Idle)
         private set
+
+    // --- Autocomplete Logic ---
+    private val _pickup = MutableStateFlow(LocationFieldState())
+    val pickup: StateFlow<LocationFieldState> = _pickup
+
+    private val _destination = MutableStateFlow(LocationFieldState())
+    val destination: StateFlow<LocationFieldState> = _destination
+
+    private val pickupQuery = MutableStateFlow("")
+    private val destinationQuery = MutableStateFlow("")
+
+    init {
+        observeQuery(pickupQuery, _pickup)
+        observeQuery(destinationQuery, _destination)
+    }
+
+    private fun observeQuery(queryFlow: MutableStateFlow<String>, stateFlow: MutableStateFlow<LocationFieldState>) {
+        viewModelScope.launch {
+            queryFlow
+                .debounce(500)
+                .distinctUntilChanged()
+                .filter { it.length >= 3 }
+                .collectLatest { query ->
+                    if (stateFlow.value.text != query) return@collectLatest
+                    stateFlow.update { it.copy(isLoading = true) }
+
+                    geocodingRepository.suggest(query)
+                        .onSuccess { results ->
+                            stateFlow.update { current ->
+                                if (current.selected != null || current.text != query) current
+                                else current.copy(suggestions = results, isLoading = false)
+                            }
+                        }
+                        .onFailure {
+                            stateFlow.update { current ->
+                                if (current.selected != null || current.text != query) current
+                                else current.copy(suggestions = emptyList(), isLoading = false)
+                            }
+                        }
+                }
+        }
+    }
+
+    fun onPickupTextChanged(text: String) {
+        _pickup.value = _pickup.value.copy(text = text, selected = null, suggestions = emptyList())
+        pickupQuery.value = text
+    }
+
+    fun onPickupSuggestionSelected(suggestion: AddressSuggestion) {
+        _pickup.value = LocationFieldState(text = suggestion.displayName, selected = suggestion)
+    }
+
+    fun onDestinationTextChanged(text: String) {
+        _destination.value = _destination.value.copy(text = text, selected = null, suggestions = emptyList())
+        destinationQuery.value = text
+    }
+
+    fun onDestinationSuggestionSelected(suggestion: AddressSuggestion) {
+        _destination.value = LocationFieldState(text = suggestion.displayName, selected = suggestion)
+    }
+    // ---------------------------
 
     fun postRide(request: OfferRideRequest) {
         val validationResult = validateOfferRide(request)

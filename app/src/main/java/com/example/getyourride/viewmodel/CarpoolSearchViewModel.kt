@@ -8,13 +8,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-data class LocationFieldState(
-    val text: String = "",
-    val suggestions: List<AddressSuggestion> = emptyList(),
-    val selected: AddressSuggestion? = null,   // holds lat/lon once picked
-    val isLoading: Boolean = false
-)
-
 @OptIn(FlowPreview::class)
 class CarpoolSearchViewModel(
     private val geocodingRepository: GeocodingRepository

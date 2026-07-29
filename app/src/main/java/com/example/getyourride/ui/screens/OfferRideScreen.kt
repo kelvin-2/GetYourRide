@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NearMe
@@ -35,6 +36,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -59,9 +61,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.data.OfferRideRequest
+import com.example.getyourride.data.remote.dto.AddressSuggestion
 import com.example.getyourride.ui.components.StudentDriverBottomBar
 import com.example.getyourride.ui.components.StudentDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
+import com.example.getyourride.viewmodel.LocationFieldState
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -84,7 +88,6 @@ import java.util.Locale
  */
 
 // Screen colour palette.
-// Keeping colours here makes the screen easier to adjust later.
 private val OfferBackground = Color(0xFFFBF8FD)
 private val OfferPrimary = Color(0xFF011844)
 private val OfferTopBar = Color(0xFF1A2E5A)
@@ -101,30 +104,24 @@ private val OfferSuccess = Color(0xFF2E7D32)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OfferRideScreen(
+    pickupState: LocationFieldState = LocationFieldState(),
+    destinationState: LocationFieldState = LocationFieldState(),
+    onPickupTextChanged: (String) -> Unit = {},
+    onPickupSuggestionSelected: (AddressSuggestion) -> Unit = {},
+    onDestinationTextChanged: (String) -> Unit = {},
+    onDestinationSuggestionSelected: (AddressSuggestion) -> Unit = {},
     onPostRideClick: (OfferRideRequest) -> Unit = {},
     errorMessage: String? = null,
     statusMessage: String? = null,
 
     /*
      * Bottom navigation callbacks.
-     *
-     * MainActivity decides where each button should navigate.
-     * This keeps this screen reusable and not directly tied to NavController.
      */
     onHomeClick: () -> Unit = {},
     onOfferRideClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-
-    // Form state for route details.
-    var pickupLocation by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    var destination by rememberSaveable {
-        mutableStateOf("")
-    }
 
     // Default date is today.
     var rideDate by rememberSaveable {
@@ -174,10 +171,6 @@ fun OfferRideScreen(
             )
         },
 
-        /*
-         * Bottom menu for student driver screens.
-         * Offer Ride is selected because the user is currently on this screen.
-         */
         bottomBar = {
             StudentDriverBottomBar(
                 selectedItem = StudentDriverBottomBarItem.OfferRide,
@@ -189,10 +182,6 @@ fun OfferRideScreen(
         containerColor = OfferBackground
     ) { innerPadding ->
 
-        /*
-         * Main content area.
-         * It scrolls so smaller phones can still access the Post Ride button.
-         */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -247,18 +236,22 @@ fun OfferRideScreen(
                         letterSpacing = 0.24.sp
                     )
 
-                    OfferTextField(
-                        value = pickupLocation,
-                        onValueChange = { pickupLocation = it },
-                        placeholder = "Pickup Location (e.g. Science Park)",
-                        icon = Icons.Outlined.LocationOn
+                    AutocompleteOfferField(
+                        label = "Pickup Location",
+                        state = pickupState,
+                        placeholder = "e.g. Science Park",
+                        icon = Icons.Outlined.LocationOn,
+                        onTextChanged = onPickupTextChanged,
+                        onSuggestionSelected = onPickupSuggestionSelected
                     )
 
-                    OfferTextField(
-                        value = destination,
-                        onValueChange = { destination = it },
-                        placeholder = "Destination (e.g. Main Library)",
-                        icon = Icons.Outlined.NearMe
+                    AutocompleteOfferField(
+                        label = "Destination",
+                        state = destinationState,
+                        placeholder = "e.g. Main Library",
+                        icon = Icons.Outlined.NearMe,
+                        onTextChanged = onDestinationTextChanged,
+                        onSuggestionSelected = onDestinationSuggestionSelected
                     )
 
                     Row(
@@ -275,11 +268,6 @@ fun OfferRideScreen(
                                     selectedDate = rideDate,
                                     onDateSelected = { selectedDate ->
                                         rideDate = selectedDate
-
-                                        /*
-                                         * If the selected date/time becomes invalid,
-                                         * reset the time to the minimum allowed time.
-                                         */
                                         if (!isRideDateTimeAllowed(rideDate, rideTime)) {
                                             rideTime = minimumRideTimeText()
                                         }
@@ -361,14 +349,13 @@ fun OfferRideScreen(
 
             /*
              * Submit button.
-             * It creates an OfferRideRequest and sends it to the ViewModel through MainActivity.
              */
             Button(
                 onClick = {
                     onPostRideClick(
                         OfferRideRequest(
-                            pickupLocation = pickupLocation.trim(),
-                            destination = destination.trim(),
+                            pickupLocation = pickupState.text.trim(),
+                            destination = destinationState.text.trim(),
                             rideDate = rideDate.trim(),
                             rideTime = rideTime.trim(),
                             availableSeats = availableSeats,
@@ -401,6 +388,104 @@ fun OfferRideScreen(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Text field with Nominatim-backed autocomplete for OfferRideScreen.
+ */
+@Composable
+private fun AutocompleteOfferField(
+    label: String,
+    state: LocationFieldState,
+    placeholder: String,
+    icon: ImageVector,
+    onTextChanged: (String) -> Unit,
+    onSuggestionSelected: (AddressSuggestion) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(
+            value = state.text,
+            onValueChange = onTextChanged,
+            placeholder = {
+                Text(
+                    text = placeholder,
+                    color = OfferOutline,
+                    fontSize = 14.sp
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = OfferOutline,
+                    modifier = Modifier.size(22.dp)
+                )
+            },
+            trailingIcon = {
+                if (state.selected != null) {
+                    Icon(
+                        imageVector = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = OfferAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = OfferText,
+                unfocusedTextColor = OfferText,
+                cursorColor = OfferPrimary,
+                focusedBorderColor = OfferTopBar,
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = OfferFieldBackground,
+                unfocusedContainerColor = OfferFieldBackground
+            )
+        )
+
+        if (state.isLoading) {
+            LinearProgressIndicator(
+                color = OfferAccent,
+                modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp))
+            )
+        }
+
+        if (state.suggestions.isNotEmpty() && state.selected == null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = OfferFieldBackground,
+                tonalElevation = 1.dp
+            ) {
+                Column {
+                    state.suggestions.forEach { suggestion ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSuggestionSelected(suggestion) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = OfferOutline,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = suggestion.displayName,
+                                fontSize = 13.sp,
+                                color = OfferText
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -465,8 +550,6 @@ private fun OfferTextField(
 
 /*
  * Read-only field for date and time.
- *
- * The transparent clickable Box on top makes the whole field clickable.
  */
 @Composable
 private fun OfferPickerField(
@@ -555,9 +638,6 @@ private fun showRideDatePicker(
 
 /*
  * Opens Android time picker.
- *
- * If the selected time is not at least 30 minutes from now,
- * the screen falls back to the minimum allowed time.
  */
 private fun showRideTimePicker(
     context: android.content.Context,
@@ -597,7 +677,6 @@ private fun currentRideDateText(): String {
 
 /*
  * Returns the earliest allowed ride time.
- * Business rule: ride must be at least 30 minutes from now.
  */
 private fun minimumRideTimeText(): String {
     return formatRideTime(
@@ -684,11 +763,6 @@ private fun formatRideTime(
 
 /*
  * Seat selector.
- *
- * The driver can reduce or increase seats.
- * Limits are enforced in OfferRideScreen:
- * - minimum 1
- * - maximum 7
  */
 @Composable
 private fun OfferSeatStepper(
@@ -774,7 +848,6 @@ private fun OfferMessageText(
 
 /*
  * Android Studio preview.
- * This helps us see the screen without running the full app.
  */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
