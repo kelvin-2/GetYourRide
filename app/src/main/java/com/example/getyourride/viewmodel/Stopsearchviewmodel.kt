@@ -1,7 +1,6 @@
 package com.example.getyourride.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.dto.AddressSuggestion
 import com.example.getyourride.data.repository.GeocodingRepository
@@ -121,4 +120,3 @@ class StopSearchViewModel(
         }
     }
 }
-
