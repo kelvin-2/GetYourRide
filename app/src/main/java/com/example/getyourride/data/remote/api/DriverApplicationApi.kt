@@ -5,12 +5,15 @@
 // PURPOSE — Retrofit interface for the Driver Application endpoints.
 //
 // The key flow:
-//   1. POST /api/driver-applications          → submit application data
-//   2. POST /api/driver-applications/{id}/documents → upload documents
+//   1. POST /api/driver-applications              → submit personal + vehicle data
+//      Backend: creates a row in `driver` (role=STUDENT_DRIVER, is_verified=false)
+//               creates a row in `driverapplications` (status=Pending Review)
+//   2. POST /api/driver-applications/{id}/documents → upload documents (optional)
+//   3. POST /api/driver-applications/{id}/finalize  → auto-login
+//      Backend: returns AuthResponse (JWT + type=DRIVER + role=DRIVER_PENDING)
 //
-// After documents are uploaded, the backend auto-logs the student in and
-// returns the same AuthResponse as the student login endpoint — with
-// role = "DRIVER_PENDING".
+// The student is NOT inserted into the `student` table during this flow.
+// They become a driver directly.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.data.remote.api
@@ -22,6 +25,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -52,11 +56,10 @@ interface DriverApplicationApi {
     ): Response<Unit>
 
     /**
-     * Phase 3: Finalize the application — tells the backend all documents are
-     * uploaded and it can process the application. The backend validates the
-     * NMU email, creates/finds the student, saves the driverapplications
-     * record with status=PENDING, and returns an AuthResponse (JWT + student
-     * info + role=DRIVER_PENDING) so the app auto-logs the student in.
+     * Phase 3: Finalize the application — the backend generates a JWT for
+     * the newly created driver and returns an AuthResponse (JWT + driver
+     * info + role=DRIVER_PENDING) so the app auto-logs them in.
+     * No second login required.
      */
     @POST("api/driver-applications/{applicationId}/finalize")
     suspend fun finalizeApplication(
@@ -68,6 +71,20 @@ interface DriverApplicationApi {
      */
     @GET("api/driver-applications/status")
     suspend fun getApplicationStatus(): Response<DriverApplicationStatusResponse>
+
+    /**
+     * Get the full driver profile (personal + vehicle + document status).
+     * Backend reads the driver_id from the JWT token.
+     */
+    @GET("api/driver-profile")
+    suspend fun getDriverProfile(): Response<DriverProfileResponse>
+
+    /**
+     * Deactivate (soft-delete) the driver profile.
+     * Backend reads the driver_id from the JWT token.
+     */
+    @DELETE("api/driver-profile")
+    suspend fun deleteDriverProfile(): Response<DriverProfileDeleteResponse>
 }
 
 /**
@@ -77,4 +94,36 @@ data class DriverApplicationStatusResponse(
     val applicationId: String,
     val status: String,  // "PENDING", "APPROVED", "REJECTED"
     val message: String? = null
+)
+
+/**
+ * Response from GET /api/driver-profile.
+ * Contains all information displayed on the Driver Profile Settings screen.
+ */
+data class DriverProfileResponse(
+    // Personal details
+    val firstName: String,
+    val surname: String,
+    val studentNumber: String,
+    val email: String,
+    val contactNumber: String,
+
+    // Vehicle details
+    val vehicleMake: String,
+    val vehicleModel: String,
+    val registrationNumber: String,
+    val vehicleColour: String,
+    val seatingCapacity: Int,
+
+    // Application & document status
+    val applicationStatus: String,       // "Pending Review", "Approved", "Rejected"
+    val driversLicenceStatus: String,    // "Uploaded", "Not Uploaded"
+    val vehicleRegistrationStatus: String // "Uploaded", "Not Uploaded"
+)
+
+/**
+ * Response from DELETE /api/driver-profile.
+ */
+data class DriverProfileDeleteResponse(
+    val message: String
 )

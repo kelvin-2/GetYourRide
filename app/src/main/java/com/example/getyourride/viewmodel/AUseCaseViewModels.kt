@@ -29,11 +29,9 @@ import java.util.Locale
 
 @OptIn(FlowPreview::class)
 class OfferRideViewModel(
-    private val apiService: ApiService,
+    private val tripApi: com.example.getyourride.data.remote.api.TripApi,
     private val geocodingRepository: GeocodingRepository
 ) : ViewModel() {
-
-    private val mainHandler = Handler(Looper.getMainLooper())
 
     var errorMessage by mutableStateOf<String?>(null)
         private set
@@ -112,23 +110,47 @@ class OfferRideViewModel(
         }
 
         submitStatus = UseCaseSubmitStatus.Loading
-        
-        // Mocking API call
-        mainHandler.postDelayed({
-            submitStatus = UseCaseSubmitStatus.Success("Ride posted successfully (Mocked)")
-        }, 1500)
 
-        /* Commented out real API call
-        Thread {
-            val result = apiService.offerRide(request)
-            mainHandler.post {
-                submitStatus = when (result) {
-                    is ApiResult.Success -> UseCaseSubmitStatus.Success(result.data.message)
-                    is ApiResult.Error -> UseCaseSubmitStatus.Error(result.message)
+        // Build the Retrofit request with coordinates from autocomplete
+        val apiRequest = com.example.getyourride.data.remote.api.OfferRideRequest(
+            pickupLocation = request.pickupLocation,
+            destination = request.destination,
+            rideDate = request.rideDate,
+            rideTime = request.rideTime,
+            availableSeats = request.availableSeats,
+            farePerSeat = request.farePerSeat,
+            pickupLat = _pickup.value.selected?.lat,
+            pickupLng = _pickup.value.selected?.lon,
+            destinationLat = _destination.value.selected?.lat,
+            destinationLng = _destination.value.selected?.lon
+        )
+
+        viewModelScope.launch {
+            try {
+                val response = tripApi.offerRide(apiRequest)
+                if (response.isSuccessful && response.body() != null) {
+                    submitStatus = UseCaseSubmitStatus.Success(response.body()!!.message)
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    val msg = extractErrorMessage(errorBody)
+                        ?: "Failed to post ride (${response.code()})."
+                    submitStatus = UseCaseSubmitStatus.Error(msg)
+                    errorMessage = msg
                 }
+            } catch (e: Exception) {
+                val msg = e.message ?: "Network error — could not reach server."
+                submitStatus = UseCaseSubmitStatus.Error(msg)
+                errorMessage = msg
             }
-        }.start()
-        */
+        }
+    }
+
+    private fun extractErrorMessage(json: String?): String? {
+        if (json.isNullOrBlank()) return null
+        return try {
+            val regex = "\"message\"\\s*:\\s*\"([^\"]+)\"".toRegex()
+            regex.find(json)?.groupValues?.get(1)
+        } catch (e: Exception) { null }
     }
 
     private fun validateOfferRide(request: OfferRideRequest): ValidationResult {

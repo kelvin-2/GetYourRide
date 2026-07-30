@@ -2,9 +2,15 @@ package com.example.getyourride.ui.screens
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,18 +24,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AirlineSeatReclineNormal
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.RocketLaunch
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,11 +57,16 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -70,40 +85,31 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/*
- * OfferRideScreen
- *
- * This screen is used by an approved student driver to post a carpool ride.
- *
- * The driver enters:
- * - pickup location
- * - destination
- * - ride date
- * - ride time
- * - available seats
- * - fare per seat
- *
- * The screen also has the student driver bottom navigation menu:
- * Home | Offer Ride | Profile
- */
-
-// Screen colour palette.
-private val OfferBackground = Color(0xFFFBF8FD)
-private val OfferPrimary = Color(0xFF011844)
-private val OfferTopBar = Color(0xFF1A2E5A)
+// ─── Color Palette ───────────────────────────────────────────────────────────
+private val OfferBackground = Color(0xFFF4F6FB)
+private val OfferPrimary = Color(0xFF1A2E5A)
+private val OfferPrimaryLight = Color(0xFF2E4A82)
+private val OfferTopBarStart = Color(0xFF1A2E5A)
+private val OfferTopBarEnd = Color(0xFF2E4A82)
 private val OfferAccent = Color(0xFFFC820C)
+private val OfferAccentLight = Color(0xFFFFA040)
 private val OfferCardBackground = Color(0xFFFFFFFF)
-private val OfferFieldBackground = Color(0xFFF5F3F7)
+private val OfferFieldBackground = Color(0xFFF7F8FC)
 private val OfferText = Color(0xFF1B1B1F)
-private val OfferTextMuted = Color(0xFF44464F)
-private val OfferOutline = Color(0xFF757780)
-private val OfferBorder = Color(0xFFC5C6D0)
-private val OfferError = Color(0xFFC62828)
-private val OfferSuccess = Color(0xFF2E7D32)
+private val OfferTextMuted = Color(0xFF5E6278)
+private val OfferOutline = Color(0xFF9CA3AF)
+private val OfferBorder = Color(0xFFE5E7EB)
+private val OfferError = Color(0xFFDC2626)
+private val OfferSuccess = Color(0xFF16A34A)
+private val OfferPendingBackground = Color(0xFFFEF3C7)
+private val OfferPendingText = Color(0xFF92400E)
+private val OfferDisabled = Color(0xFFD1D5DB)
+private val OfferSectionIcon = Color(0xFF6366F1)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OfferRideScreen(
+    isDriverVerified: Boolean = false,
     pickupState: LocationFieldState = LocationFieldState(),
     destinationState: LocationFieldState = LocationFieldState(),
     onPickupTextChanged: (String) -> Unit = {},
@@ -113,35 +119,16 @@ fun OfferRideScreen(
     onPostRideClick: (OfferRideRequest) -> Unit = {},
     errorMessage: String? = null,
     statusMessage: String? = null,
-
-    /*
-     * Bottom navigation callbacks.
-     */
     onHomeClick: () -> Unit = {},
     onOfferRideClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
-    // Default date is today.
-    var rideDate by rememberSaveable {
-        mutableStateOf(currentRideDateText())
-    }
-
-    // Default time is at least 30 minutes from now.
-    var rideTime by rememberSaveable {
-        mutableStateOf(minimumRideTimeText())
-    }
-
-    // Student driver can offer between 1 and 7 seats.
-    var availableSeats by rememberSaveable {
-        mutableStateOf(3)
-    }
-
-    // Kept as text because the user types it. It is converted to Double when posting.
-    var farePerSeat by rememberSaveable {
-        mutableStateOf("")
-    }
+    var rideDate by rememberSaveable { mutableStateOf(currentRideDateText()) }
+    var rideTime by rememberSaveable { mutableStateOf(minimumRideTimeText()) }
+    var availableSeats by rememberSaveable { mutableStateOf(3) }
+    var farePerSeat by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -156,7 +143,6 @@ fun OfferRideScreen(
                             contentDescription = null,
                             tint = Color.White
                         )
-
                         Text(
                             text = "GetYourRide",
                             color = Color.White,
@@ -166,11 +152,10 @@ fun OfferRideScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = OfferTopBar
+                    containerColor = OfferTopBarStart
                 )
             )
         },
-
         bottomBar = {
             StudentDriverBottomBar(
                 selectedItem = StudentDriverBottomBarItem.OfferRide,
@@ -186,170 +171,335 @@ fun OfferRideScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(OfferBackground)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // ─── Hero / Header Section with gradient ─────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(OfferTopBarStart, OfferPrimaryLight),
+                            start = Offset(0f, 0f),
+                            end = Offset(Float.POSITIVE_INFINITY, 300f)
+                        )
+                    )
+                    .padding(horizontal = 20.dp, vertical = 28.dp)
             ) {
-                Text(
-                    text = "Offer a Ride",
-                    color = OfferPrimary,
-                    fontSize = 24.sp,
-                    lineHeight = 31.sp,
-                    fontWeight = FontWeight.SemiBold
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Route,
+                                contentDescription = null,
+                                tint = OfferAccent,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = "Offer a Ride",
+                                color = Color.White,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 32.sp
+                            )
+                            Text(
+                                text = "Share your journey, split the costs",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ─── Route Details Card ──────────────────────────────────────────
+            OfferSectionCard(
+                title = "Route",
+                icon = Icons.Outlined.LocationOn,
+                iconTint = OfferSectionIcon
+            ) {
+                AutocompleteOfferField(
+                    label = "Pickup Location",
+                    state = pickupState,
+                    placeholder = "Where are you leaving from?",
+                    icon = Icons.Outlined.LocationOn,
+                    onTextChanged = onPickupTextChanged,
+                    onSuggestionSelected = onPickupSuggestionSelected
                 )
 
-                Text(
-                    text = "Share your journey and split costs with fellow students.",
-                    color = OfferOutline,
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp
+                Spacer(modifier = Modifier.height(14.dp))
+
+                AutocompleteOfferField(
+                    label = "Destination",
+                    state = destinationState,
+                    placeholder = "Where are you headed?",
+                    icon = Icons.Outlined.NearMe,
+                    onTextChanged = onDestinationTextChanged,
+                    onSuggestionSelected = onDestinationSuggestionSelected
                 )
             }
 
-            /*
-             * Card containing all ride form fields.
-             */
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = OfferCardBackground,
-                shape = RoundedCornerShape(12.dp),
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
-                border = BorderStroke(
-                    1.dp,
-                    OfferBorder.copy(alpha = 0.3f)
-                )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Schedule Card ───────────────────────────────────────────────
+            OfferSectionCard(
+                title = "Schedule",
+                icon = Icons.Outlined.CalendarToday,
+                iconTint = OfferAccent
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OfferPickerField(
+                        value = rideDate,
+                        label = "Date",
+                        icon = Icons.Outlined.CalendarToday,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            showRideDatePicker(
+                                context = context,
+                                selectedDate = rideDate,
+                                onDateSelected = { selectedDate ->
+                                    rideDate = selectedDate
+                                    if (!isRideDateTimeAllowed(rideDate, rideTime)) {
+                                        rideTime = minimumRideTimeText()
+                                    }
+                                }
+                            )
+                        }
+                    )
+
+                    OfferPickerField(
+                        value = rideTime,
+                        label = "Time",
+                        icon = Icons.Outlined.Schedule,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            showRideTimePicker(
+                                context = context,
+                                selectedTime = rideTime,
+                                selectedDate = rideDate,
+                                onTimeSelected = { selectedTime ->
+                                    rideTime = selectedTime
+                                }
+                            )
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(OfferFieldBackground)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Schedule,
+                        contentDescription = null,
+                        tint = OfferAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "ROUTE DETAILS",
-                        color = OfferPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.24.sp
-                    )
-
-                    AutocompleteOfferField(
-                        label = "Pickup Location",
-                        state = pickupState,
-                        placeholder = "e.g. Science Park",
-                        icon = Icons.Outlined.LocationOn,
-                        onTextChanged = onPickupTextChanged,
-                        onSuggestionSelected = onPickupSuggestionSelected
-                    )
-
-                    AutocompleteOfferField(
-                        label = "Destination",
-                        state = destinationState,
-                        placeholder = "e.g. Main Library",
-                        icon = Icons.Outlined.NearMe,
-                        onTextChanged = onDestinationTextChanged,
-                        onSuggestionSelected = onDestinationSuggestionSelected
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        OfferPickerField(
-                            value = rideDate,
-                            label = "Date",
-                            icon = Icons.Outlined.CalendarToday,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                showRideDatePicker(
-                                    context = context,
-                                    selectedDate = rideDate,
-                                    onDateSelected = { selectedDate ->
-                                        rideDate = selectedDate
-                                        if (!isRideDateTimeAllowed(rideDate, rideTime)) {
-                                            rideTime = minimumRideTimeText()
-                                        }
-                                    }
-                                )
-                            }
-                        )
-
-                        OfferPickerField(
-                            value = rideTime,
-                            label = "Time",
-                            icon = Icons.Outlined.Schedule,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                showRideTimePicker(
-                                    context = context,
-                                    selectedTime = rideTime,
-                                    selectedDate = rideDate,
-                                    onTimeSelected = { selectedTime ->
-                                        rideTime = selectedTime
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    Text(
-                        text = "This ride will start at $rideTime.",
+                        text = "Departing at $rideTime",
                         color = OfferTextMuted,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(start = 4.dp)
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Seats & Fare Card ───────────────────────────────────────────
+            OfferSectionCard(
+                title = "Seats & Fare",
+                icon = Icons.Outlined.AirlineSeatReclineNormal,
+                iconTint = OfferSuccess
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    OfferSeatStepper(
+                        seats = availableSeats,
+                        onDecreaseClick = {
+                            if (availableSeats > 1) availableSeats--
+                        },
+                        onIncreaseClick = {
+                            if (availableSeats < 7) availableSeats++
+                        },
+                        modifier = Modifier.weight(1f)
                     )
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.Bottom
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        OfferSeatStepper(
-                            seats = availableSeats,
-                            onDecreaseClick = {
-                                if (availableSeats > 1) {
-                                    availableSeats--
-                                }
-                            },
-                            onIncreaseClick = {
-                                if (availableSeats < 7) {
-                                    availableSeats++
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
+                        Text(
+                            text = "FARE PER SEAT",
+                            color = OfferPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
                         )
-
-                        OfferTextField(
+                        OutlinedTextField(
                             value = farePerSeat,
                             onValueChange = { farePerSeat = it },
-                            placeholder = "0.00",
-                            iconText = "R",
-                            keyboardType = KeyboardType.Decimal,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    if (!errorMessage.isNullOrBlank()) {
-                        OfferMessageText(
-                            text = errorMessage,
-                            color = OfferError
-                        )
-                    }
-
-                    if (!statusMessage.isNullOrBlank()) {
-                        OfferMessageText(
-                            text = statusMessage,
-                            color = OfferSuccess
+                            placeholder = {
+                                Text("0.00", color = OfferOutline, fontSize = 14.sp)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Payments,
+                                    contentDescription = null,
+                                    tint = OfferSuccess,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = offerTextFieldColors()
                         )
                     }
                 }
             }
 
-            /*
-             * Submit button.
-             */
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Error / Success Messages ────────────────────────────────────
+            AnimatedVisibility(
+                visible = !errorMessage.isNullOrBlank(),
+                enter = fadeIn() + slideInVertically()
+            ) {
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        color = Color(0xFFFEE2E2),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = OfferError,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = !statusMessage.isNullOrBlank(),
+                enter = fadeIn() + slideInVertically()
+            ) {
+                if (!statusMessage.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        color = Color(0xFFDCFCE7),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = OfferSuccess,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = statusMessage,
+                                color = OfferSuccess,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ─── Pending Verification Banner ─────────────────────────────────
+            if (!isDriverVerified) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    color = OfferPendingBackground,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFDE68A).copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Schedule,
+                                contentDescription = null,
+                                tint = OfferPendingText,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Verification Pending",
+                                color = OfferPendingText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "You cannot post rides until the admin approves your documents.",
+                                color = OfferPendingText.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ─── Submit Button ────────────────────────────────────────────────
+            val buttonScale by animateFloatAsState(
+                targetValue = if (isDriverVerified) 1f else 0.97f,
+                animationSpec = tween(200),
+                label = "buttonScale"
+            )
+
             Button(
                 onClick = {
                     onPostRideClick(
@@ -363,39 +513,107 @@ fun OfferRideScreen(
                         )
                     )
                 },
+                enabled = isDriverVerified,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 16.dp)
+                    .height(58.dp)
+                    .scale(buttonScale)
+                    .shadow(
+                        elevation = if (isDriverVerified) 8.dp else 0.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        ambientColor = OfferAccent.copy(alpha = 0.3f)
+                    ),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OfferAccent
+                    containerColor = OfferAccent,
+                    disabledContainerColor = OfferDisabled
                 ),
-                contentPadding = PaddingValues(horizontal = 16.dp)
+                contentPadding = PaddingValues(horizontal = 24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.RocketLaunch,
                     contentDescription = null,
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
                 )
-
-                Spacer(
-                    modifier = Modifier.width(12.dp)
-                )
-
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Post Ride",
+                    text = "Post Your Ride",
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
-/**
- * Text field with Nominatim-backed autocomplete for OfferRideScreen.
- */
+// ─── Reusable Section Card ───────────────────────────────────────────────────
+@Composable
+private fun OfferSectionCard(
+    title: String,
+    icon: ImageVector,
+    iconTint: Color,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        color = OfferCardBackground,
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 4.dp
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(iconTint.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = title.uppercase(),
+                    color = OfferPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+            }
+            content()
+        }
+    }
+}
+
+// ─── Shared TextField Colors ─────────────────────────────────────────────────
+@Composable
+private fun offerTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = OfferText,
+    unfocusedTextColor = OfferText,
+    cursorColor = OfferPrimary,
+    focusedBorderColor = OfferPrimary,
+    unfocusedBorderColor = OfferBorder,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = OfferFieldBackground
+)
+
+// ─── Autocomplete Field ──────────────────────────────────────────────────────
 @Composable
 private fun AutocompleteOfferField(
     label: String,
@@ -406,30 +624,34 @@ private fun AutocompleteOfferField(
     onSuggestionSelected: (AddressSuggestion) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = label.uppercase(),
+            color = OfferPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp
+        )
+
         OutlinedTextField(
             value = state.text,
             onValueChange = onTextChanged,
             placeholder = {
-                Text(
-                    text = placeholder,
-                    color = OfferOutline,
-                    fontSize = 14.sp
-                )
+                Text(text = placeholder, color = OfferOutline, fontSize = 14.sp)
             },
             leadingIcon = {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = OfferOutline,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             },
             trailingIcon = {
                 if (state.selected != null) {
                     Icon(
                         imageVector = Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                        tint = OfferAccent,
+                        contentDescription = "Selected",
+                        tint = OfferSuccess,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -437,21 +659,17 @@ private fun AutocompleteOfferField(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = OfferText,
-                unfocusedTextColor = OfferText,
-                cursorColor = OfferPrimary,
-                focusedBorderColor = OfferTopBar,
-                unfocusedBorderColor = Color.Transparent,
-                focusedContainerColor = OfferFieldBackground,
-                unfocusedContainerColor = OfferFieldBackground
-            )
+            colors = offerTextFieldColors()
         )
 
         if (state.isLoading) {
             LinearProgressIndicator(
                 color = OfferAccent,
-                modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp))
+                trackColor = OfferBorder,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
             )
         }
 
@@ -459,8 +677,9 @@ private fun AutocompleteOfferField(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = OfferFieldBackground,
-                tonalElevation = 1.dp
+                color = Color.White,
+                tonalElevation = 2.dp,
+                shadowElevation = 4.dp
             ) {
                 Column {
                     state.suggestions.forEach { suggestion ->
@@ -471,17 +690,26 @@ private fun AutocompleteOfferField(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.LocationOn,
-                                contentDescription = null,
-                                tint = OfferOutline,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(OfferSectionIcon.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = OfferSectionIcon,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
                             Text(
                                 text = suggestion.displayName,
                                 fontSize = 13.sp,
-                                color = OfferText
+                                color = OfferText,
+                                lineHeight = 18.sp
                             )
                         }
                     }
@@ -491,66 +719,7 @@ private fun AutocompleteOfferField(
     }
 }
 
-/*
- * Reusable text field used for pickup, destination and fare.
- */
-@Composable
-private fun OfferTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-    iconText: String? = null,
-    keyboardType: KeyboardType = KeyboardType.Text
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = {
-            Text(
-                text = placeholder,
-                color = OfferOutline,
-                fontSize = 14.sp
-            )
-        },
-        leadingIcon = {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = OfferOutline,
-                    modifier = Modifier.size(22.dp)
-                )
-            } else if (iconText != null) {
-                Text(
-                    text = iconText,
-                    color = OfferPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = keyboardType
-        ),
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = OfferText,
-            unfocusedTextColor = OfferText,
-            cursorColor = OfferPrimary,
-            focusedBorderColor = OfferTopBar,
-            unfocusedBorderColor = Color.Transparent,
-            focusedContainerColor = OfferFieldBackground,
-            unfocusedContainerColor = OfferFieldBackground
-        )
-    )
-}
-
-/*
- * Read-only field for date and time.
- */
+// ─── Date/Time Picker Field ──────────────────────────────────────────────────
 @Composable
 private fun OfferPickerField(
     value: String,
@@ -559,57 +728,136 @@ private fun OfferPickerField(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            placeholder = {
-                Text(
-                    text = label,
-                    color = OfferOutline,
-                    fontSize = 14.sp
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = OfferOutline,
-                    modifier = Modifier.size(22.dp)
-                )
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = OfferText,
-                unfocusedTextColor = OfferText,
-                cursorColor = OfferPrimary,
-                focusedBorderColor = OfferTopBar,
-                unfocusedBorderColor = Color.Transparent,
-                focusedContainerColor = OfferFieldBackground,
-                unfocusedContainerColor = OfferFieldBackground
+        Text(
+            text = label.uppercase(),
+            color = OfferPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp
+        )
+        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = OfferAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(12.dp),
+                colors = offerTextFieldColors()
             )
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable {
-                    onClick()
-                }
-        )
+            // Transparent overlay to capture click
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onClick() }
+            )
+        }
     }
 }
 
-/*
- * Opens Android date picker and prevents choosing dates before today.
- */
+// ─── Seat Stepper ────────────────────────────────────────────────────────────
+@Composable
+private fun OfferSeatStepper(
+    seats: Int,
+    onDecreaseClick: () -> Unit,
+    onIncreaseClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = "AVAILABLE SEATS",
+            color = OfferPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp
+        )
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = OfferFieldBackground,
+            border = BorderStroke(1.dp, OfferBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onDecreaseClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (seats > 1) OfferPrimary.copy(alpha = 0.1f)
+                            else Color.Transparent
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Remove,
+                        contentDescription = "Decrease seats",
+                        tint = if (seats > 1) OfferPrimary else OfferDisabled,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = seats.toString(),
+                        color = OfferPrimary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (seats == 1) "seat" else "seats",
+                        color = OfferTextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+
+                IconButton(
+                    onClick = onIncreaseClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (seats < 7) OfferAccent.copy(alpha = 0.1f)
+                            else Color.Transparent
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = "Increase seats",
+                        tint = if (seats < 7) OfferAccent else OfferDisabled,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Date Picker ─────────────────────────────────────────────────────────────
 private fun showRideDatePicker(
     context: android.content.Context,
     selectedDate: String,
@@ -625,7 +873,6 @@ private fun showRideDatePicker(
                 set(Calendar.MONTH, month)
                 set(Calendar.DAY_OF_MONTH, dayOfMonth)
             }
-
             onDateSelected(formatRideDate(selectedCalendar))
         },
         calendar.get(Calendar.YEAR),
@@ -636,9 +883,7 @@ private fun showRideDatePicker(
     }.show()
 }
 
-/*
- * Opens Android time picker.
- */
+// ─── Time Picker ─────────────────────────────────────────────────────────────
 private fun showRideTimePicker(
     context: android.content.Context,
     selectedTime: String,
@@ -653,7 +898,6 @@ private fun showRideTimePicker(
         context,
         { _, hourOfDay, minute ->
             val selectedTimeText = formatRideTime(hourOfDay, minute)
-
             onTimeSelected(
                 if (isRideDateTimeAllowed(selectedDate, selectedTimeText)) {
                     selectedTimeText
@@ -668,31 +912,18 @@ private fun showRideTimePicker(
     ).show()
 }
 
-/*
- * Returns today's date in yyyy-MM-dd format.
- */
+// ─── Date/Time Helpers ───────────────────────────────────────────────────────
 private fun currentRideDateText(): String {
     return formatRideDate(Calendar.getInstance())
 }
 
-/*
- * Returns the earliest allowed ride time.
- */
 private fun minimumRideTimeText(): String {
     return formatRideTime(
-        Calendar.getInstance().apply {
-            add(Calendar.MINUTE, 30)
-        }
+        Calendar.getInstance().apply { add(Calendar.MINUTE, 30) }
     )
 }
 
-/*
- * Validates that selected date and time are at least 30 minutes from now.
- */
-private fun isRideDateTimeAllowed(
-    rideDate: String,
-    rideTime: String
-): Boolean {
+private fun isRideDateTimeAllowed(rideDate: String, rideTime: String): Boolean {
     val selectedDate = parseRideDate(rideDate) ?: return false
     val selectedTime = parseRideTime(rideTime) ?: return false
 
@@ -713,9 +944,6 @@ private fun isRideDateTimeAllowed(
     return !selectedDateTime.before(earliestAllowed)
 }
 
-/*
- * Used by the DatePicker so the user cannot choose a date before today.
- */
 private fun startOfTodayMillis(): Long {
     return Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
@@ -751,108 +979,18 @@ private fun formatRideTime(calendar: Calendar): String {
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
 }
 
-private fun formatRideTime(
-    hourOfDay: Int,
-    minute: Int
-): String {
+private fun formatRideTime(hourOfDay: Int, minute: Int): String {
     return Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, hourOfDay)
         set(Calendar.MINUTE, minute)
     }.let(::formatRideTime)
 }
 
-/*
- * Seat selector.
- */
-@Composable
-private fun OfferSeatStepper(
-    seats: Int,
-    onDecreaseClick: () -> Unit,
-    onIncreaseClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = "SEATS AVAILABLE",
-            color = OfferPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.24.sp
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(OfferFieldBackground)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onDecreaseClick,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Remove,
-                    contentDescription = "Decrease seats",
-                    tint = OfferPrimary
-                )
-            }
-
-            Text(
-                text = seats.toString(),
-                color = OfferPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            IconButton(
-                onClick = onIncreaseClick,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Add,
-                    contentDescription = "Increase seats",
-                    tint = OfferPrimary
-                )
-            }
-        }
-    }
-}
-
-/*
- * Small status/error text under the form.
- */
-@Composable
-private fun OfferMessageText(
-    text: String,
-    color: Color
-) {
-    Text(
-        text = text,
-        color = color,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-/*
- * Android Studio preview.
- */
+// ─── Preview ─────────────────────────────────────────────────────────────────
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun OfferRideScreenPreview() {
     GetYourRideTheme(dynamicColor = false) {
-        OfferRideScreen()
+        OfferRideScreen(isDriverVerified = true)
     }
 }

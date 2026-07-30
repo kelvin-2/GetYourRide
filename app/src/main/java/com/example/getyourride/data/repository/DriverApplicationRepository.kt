@@ -18,6 +18,7 @@ import android.net.Uri
 import com.example.getyourride.data.DriverDocumentType
 import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.DriverApplicationStatusResponse
+import com.example.getyourride.data.remote.api.DriverProfileResponse
 import com.example.getyourride.data.remote.dto.AuthResponse
 import com.example.getyourride.data.remote.dto.DriverApplicationSubmitRequest
 import com.example.getyourride.data.remote.dto.DriverApplicationSubmitResponse
@@ -40,6 +41,22 @@ sealed class DriverApplicationResult {
 sealed class ApplicationStatusResult {
     data class Success(val status: DriverApplicationStatusResponse) : ApplicationStatusResult()
     data class Error(val message: String) : ApplicationStatusResult()
+}
+
+/**
+ * Result type for fetching driver profile.
+ */
+sealed class DriverProfileResult {
+    data class Success(val profile: DriverProfileResponse) : DriverProfileResult()
+    data class Error(val message: String) : DriverProfileResult()
+}
+
+/**
+ * Result type for deleting/deactivating driver profile.
+ */
+sealed class DriverProfileDeleteResult {
+    data class Success(val message: String) : DriverProfileDeleteResult()
+    data class Error(val message: String) : DriverProfileDeleteResult()
 }
 
 class DriverApplicationRepository(
@@ -140,6 +157,82 @@ class DriverApplicationRepository(
             ApplicationStatusResult.Error(
                 e.message ?: "Network error — could not reach server."
             )
+        }
+    }
+
+    /**
+     * Fetch the full driver profile (personal + vehicle + document status).
+     * JWT token is attached automatically by the auth interceptor in NetworkModule.
+     */
+    suspend fun getDriverProfile(): DriverProfileResult {
+        return try {
+            val response = api.getDriverProfile()
+            if (response.isSuccessful && response.body() != null) {
+                DriverProfileResult.Success(response.body()!!)
+            } else {
+                val errorMsg = extractMessage(response.errorBody()?.string())
+                    ?: "Could not fetch driver profile (${response.code()})."
+                DriverProfileResult.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            DriverProfileResult.Error(
+                e.message ?: "Network error — could not reach server."
+            )
+        }
+    }
+
+    /**
+     * Deactivate the driver profile. Backend reads driver_id from JWT.
+     */
+    suspend fun deleteDriverProfile(): DriverProfileDeleteResult {
+        return try {
+            val response = api.deleteDriverProfile()
+            if (response.isSuccessful && response.body() != null) {
+                DriverProfileDeleteResult.Success(response.body()!!.message)
+            } else {
+                val errorMsg = extractMessage(response.errorBody()?.string())
+                    ?: "Could not deactivate profile (${response.code()})."
+                DriverProfileDeleteResult.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            DriverProfileDeleteResult.Error(
+                e.message ?: "Network error — could not reach server."
+            )
+        }
+    }
+
+    /**
+     * Upload a document from the profile screen.
+     * Gets the applicationId from the status endpoint, then uploads.
+     * Returns null on success, or an error message.
+     */
+    suspend fun uploadDocumentFromProfile(
+        documentType: String,
+        fileName: String,
+        uriString: String,
+        contentResolver: ContentResolver
+    ): String? {
+        return try {
+            // First get the application ID
+            val statusResponse = api.getApplicationStatus()
+            if (!statusResponse.isSuccessful || statusResponse.body() == null) {
+                return "Could not find your application."
+            }
+            val applicationId = statusResponse.body()!!.applicationId
+
+            // Upload the document
+            val uri = Uri.parse(uriString)
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return "Failed to read file."
+
+            val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+            val filePart = MultipartBody.Part.createFormData("file", fileName, requestFile)
+            val typePart = documentType.toRequestBody("text/plain".toMediaTypeOrNull())
+
+            val response = api.uploadDocument(applicationId, typePart, filePart)
+            if (response.isSuccessful) null else "Upload failed (${response.code()})."
+        } catch (e: Exception) {
+            e.message ?: "Network error."
         }
     }
 
