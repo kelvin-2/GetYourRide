@@ -76,5 +76,20 @@ class TripRepository(private val api: TripApi) {
         }
     }
 
-
+    /**
+     * Fetch all trips posted by the logged-in driver.
+     * JWT token is automatically attached by the auth interceptor.
+     */
+    suspend fun getMyTrips(): Result<List<TripResponse>> {
+        return try {
+            val response = api.getMyTrips()
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to load your trips: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

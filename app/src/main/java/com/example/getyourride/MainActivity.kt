@@ -10,7 +10,9 @@ import android.os.Bundle
 import com.example.getyourride.UserSession
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -35,7 +37,6 @@ import com.example.getyourride.data.repository.GeocodingRepository
 import com.example.getyourride.data.repository.DriverApplicationRepository
 import com.example.getyourride.data.repository.StudentAuthRepository
 import com.example.getyourride.di.NetworkModule
-import com.example.getyourride.network.SpringBootApiService
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.screens.AddStopScreen
 import com.example.getyourride.ui.screens.Carpool.CarpoolHomeScreen
@@ -50,9 +51,14 @@ import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.viewmodel.AuthUiState
 import com.example.getyourride.viewmodel.AuthViewModel
 import com.example.getyourride.viewmodel.AuthViewModelFactory
-import com.example.getyourride.viewmodel.DeleteDriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModelFactory
+import com.example.getyourride.viewmodel.DriverProfileViewModel
+import com.example.getyourride.viewmodel.DriverProfileViewModelFactory
+import com.example.getyourride.viewmodel.DriverProfileUiState
+import com.example.getyourride.viewmodel.DriverDeleteUiState
+import com.example.getyourride.viewmodel.DriverHomeViewModel
+import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
 import com.example.getyourride.viewmodel.MockRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
@@ -60,14 +66,12 @@ import com.example.getyourride.viewmodel.TrackingViewModelFactory
 import com.example.getyourride.ui.screens.Tracking.TrackingScreen
 import com.example.getyourride.ui.screens.StudentDriverHomeScreen
 import com.example.getyourride.ui.screens.DriverProfileDetails
-import com.example.getyourride.ui.screens.RideAcceptedStudent
 import com.example.getyourride.ui.screens.Rides.MyRidesScreen
 import com.example.getyourride.ui.screens.Rides.RequestRideScreen
 import com.example.getyourride.ui.screens.Rides.RideRequestDetails
 import com.example.getyourride.ui.screens.Rides.BookingConfirmationDetails
 import com.example.getyourride.ui.screens.Rides.BookingConfirmedScreen
 import com.example.getyourride.ui.screens.Rides.toBookingConfirmationDetails
-import com.example.getyourride.ui.screens.StudentDriverPostedRide
 import com.example.getyourride.viewmodel.AllRidesViewModel
 import com.example.getyourride.viewmodel.AllRidesViewModelFactory
 import com.example.getyourride.viewmodel.AllTripsUiState
@@ -109,18 +113,12 @@ class MainActivity : ComponentActivity() {
             GetYourRideTheme {
                 val navController = rememberNavController()
 
-                // ── Existing mock API service (offer ride, delete profile) ───
-                val apiService = remember {
-                    SpringBootApiService(baseUrl = "https://your-spring-boot-api.example.com")
-                }
+                // ── Existing mock API service (delete profile) ─────────────
                 val offerRideViewModel = remember {
                     OfferRideViewModel(
-                        apiService = apiService,
+                        tripApi = NetworkModule.tripApi,
                         geocodingRepository = GeocodingRepository(NetworkModule.geocodingApi)
                     )
-                }
-                val deleteDriverProfileViewModel = remember {
-                    DeleteDriverProfileViewModel(apiService = apiService)
                 }
 
                 // ── Real driver application — uses Retrofit + auto-login ──────
@@ -175,7 +173,7 @@ class MainActivity : ComponentActivity() {
                             if (uiState is AuthUiState.Success) {
                                 UserSession.save(uiState.response)
                                 isNsfasFunded = uiState.response.isFunded ?: false
-                                navController.navigate(homeRouteFor(isNsfasFunded)) {
+                                navController.navigate(homeRouteFor(uiState.response)) {
                                     popUpTo("login") { inclusive = true }
                                 }
                                 authViewModel.resetState()
@@ -200,7 +198,7 @@ class MainActivity : ComponentActivity() {
                             if (uiState is AuthUiState.Success) {
                                 UserSession.save(uiState.response)
                                 isNsfasFunded = uiState.response.isFunded ?: false
-                                navController.navigate(homeRouteFor(isNsfasFunded)) {
+                                navController.navigate(homeRouteFor(uiState.response)) {
                                     popUpTo("login") { inclusive = true }
                                 }
                                 authViewModel.resetState()
@@ -290,7 +288,19 @@ class MainActivity : ComponentActivity() {
                         val pickupState by offerRideViewModel.pickup.collectAsState()
                         val destinationState by offerRideViewModel.destination.collectAsState()
 
+                        // Navigate to home after successful ride posting
+                        LaunchedEffect(submitStatus) {
+                            if (submitStatus is UseCaseSubmitStatus.Success) {
+                                kotlinx.coroutines.delay(800) // Brief delay so user sees success message
+                                navController.navigate("student_driver_home") {
+                                    popUpTo("offer_ride") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+
                         OfferRideScreen(
+                            isDriverVerified = UserSession.canPerformDriverActions,
                             pickupState = pickupState,
                             destinationState = destinationState,
                             onPickupTextChanged = offerRideViewModel::onPickupTextChanged,
@@ -312,16 +322,16 @@ class MainActivity : ComponentActivity() {
 
                     // ── STUDENT DRIVER HOME ────────────────────────────────────
                     composable("student_driver_home") {
-                        var isDriverHomeRefreshing by remember { mutableStateOf(false) }
+                        val driverHomeViewModel: DriverHomeViewModel = viewModel(
+                            factory = DriverHomeViewModelFactory(
+                                TripRepository(NetworkModule.tripApi)
+                            )
+                        )
 
-                        if (isDriverHomeRefreshing) {
-                            LaunchedEffect(Unit) {
-                                kotlinx.coroutines.delay(1200)
-                                isDriverHomeRefreshing = false
-                            }
+                        LaunchedEffect(Unit) {
+                            driverHomeViewModel.loadMyTrips()
                         }
 
-                        // Use real session data — after auto-login, UserSession holds the driver's info
                         val driverName = UserSession.firstName ?: "Driver"
                         val verificationStatus = when {
                             UserSession.isDriverPending  -> "Pending Review"
@@ -332,48 +342,125 @@ class MainActivity : ComponentActivity() {
                         StudentDriverHomeScreen(
                             driverName         = driverName,
                             verificationStatus = verificationStatus,
-                            isRefreshing       = isDriverHomeRefreshing,
-                            postedRides        = emptyList(), // DRIVER_PENDING cannot post rides yet
-                            onRefreshClick   = { isDriverHomeRefreshing = true },
-                            onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
-                            onOfferRideClick = { navController.navigate("offer_ride") },
-                            onProfileClick   = { navController.navigate("driver_profile_settings") }
+                            homeUiState        = driverHomeViewModel.uiState,
+                            onRefreshClick     = { driverHomeViewModel.loadMyTrips() },
+                            onHomeClick        = { navController.navigate("student_driver_home") { launchSingleTop = true } },
+                            onOfferRideClick   = { navController.navigate("offer_ride") },
+                            onProfileClick     = { navController.navigate("driver_profile_settings") },
+                            onCancelRide       = { tripId ->
+                                // TODO: call cancel API then reload
+                            }
                         )
                     }
 
                     // ── DRIVER PROFILE SETTINGS(Student Driver) ────────────────────────────────
                     composable("driver_profile_settings") {
-                        val submitStatus = deleteDriverProfileViewModel.submitStatus
-                        DriverProfileSettingsScreen(
-                            profileDetails = DriverProfileDetails(
-                                firstName                  = "Ayabulela",
-                                surname                    = "Mtwesi",
-                                studentNumber              = "223456789",
-                                contactNumber              = "071 234 5678",
-                                universityEmail            = "ayabulela@mandela.ac.za",
-                                vehicleMake                = "Toyota",
-                                vehicleModel               = "Corolla",
-                                vehicleRegistrationNumber  = "ABC 123 EC",
-                                vehicleColour              = "White",
-                                seatingCapacity            = 4,
-                                verificationStatus         = "Pending Verification",
-                                driversLicenceStatus       = "Uploaded",
-                                vehicleRegistrationStatus  = "Uploaded"
-                            ),
-                            onConfirmDeleteClick = { deleteDriverProfileViewModel.deactivateProfile() },
-                            statusMessage = when (submitStatus) {
-                                is UseCaseSubmitStatus.Loading -> "Deleting driver profile..."
-                                is UseCaseSubmitStatus.Success -> submitStatus.message
-                                else -> null
-                            },
-                            errorMessage = when (submitStatus) {
-                                is UseCaseSubmitStatus.Error -> submitStatus.message
-                                else -> null
-                            },
-                            onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
-                            onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
-                            onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } }
+                        val context = LocalContext.current
+                        val driverProfileViewModel: DriverProfileViewModel = viewModel(
+                            factory = DriverProfileViewModelFactory(driverApplicationRepository)
                         )
+
+                        LaunchedEffect(Unit) {
+                            driverProfileViewModel.loadProfile()
+                        }
+
+                        // File pickers for document upload from profile
+                        val licencePicker = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.OpenDocument()
+                        ) { uri: android.net.Uri? ->
+                            if (uri != null) {
+                                driverProfileViewModel.uploadDocument(
+                                    documentType = "DriversLicence",
+                                    fileName = uri.lastPathSegment ?: "licence.jpg",
+                                    uriString = uri.toString(),
+                                    contentResolver = context.contentResolver
+                                )
+                            }
+                        }
+
+                        val registrationPicker = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.OpenDocument()
+                        ) { uri: android.net.Uri? ->
+                            if (uri != null) {
+                                driverProfileViewModel.uploadDocument(
+                                    documentType = "VehicleRegistration",
+                                    fileName = uri.lastPathSegment ?: "registration.jpg",
+                                    uriString = uri.toString(),
+                                    contentResolver = context.contentResolver
+                                )
+                            }
+                        }
+
+                        when (val profileState = driverProfileViewModel.profileState) {
+                            is DriverProfileUiState.Loading -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            is DriverProfileUiState.Error -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Could not load profile: ${profileState.message}")
+                                        Button(onClick = { driverProfileViewModel.loadProfile() }) {
+                                            Text("Retry")
+                                        }
+                                    }
+                                }
+                            }
+                            is DriverProfileUiState.Success -> {
+                                val profile = profileState.profile
+                                val deleteState = driverProfileViewModel.deleteState
+
+                                // Navigate to login after successful deletion
+                                LaunchedEffect(deleteState) {
+                                    if (deleteState is DriverDeleteUiState.Success) {
+                                        UserSession.clear()
+                                        navController.navigate("login") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+
+                                DriverProfileSettingsScreen(
+                                    profileDetails = DriverProfileDetails(
+                                        firstName                 = profile.firstName,
+                                        surname                   = profile.surname,
+                                        studentNumber             = profile.studentNumber,
+                                        contactNumber             = profile.contactNumber,
+                                        universityEmail           = profile.email,
+                                        vehicleMake               = profile.vehicleMake,
+                                        vehicleModel              = profile.vehicleModel,
+                                        vehicleRegistrationNumber = profile.registrationNumber,
+                                        vehicleColour             = profile.vehicleColour,
+                                        seatingCapacity           = profile.seatingCapacity,
+                                        verificationStatus        = profile.applicationStatus,
+                                        driversLicenceStatus      = profile.driversLicenceStatus,
+                                        vehicleRegistrationStatus = profile.vehicleRegistrationStatus
+                                    ),
+                                    onConfirmDeleteClick = { driverProfileViewModel.deactivateProfile() },
+                                    onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
+                                    onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },
+                                    statusMessage = when (deleteState) {
+                                        is DriverDeleteUiState.Loading -> "Deactivating driver profile..."
+                                        is DriverDeleteUiState.Success -> deleteState.message
+                                        else -> null
+                                    },
+                                    errorMessage = when (deleteState) {
+                                        is DriverDeleteUiState.Error -> deleteState.message
+                                        else -> null
+                                    },
+                                    onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
+                                    onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
+                                    onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } }
+                                )
+                            }
+                        }
                     }
 
                     // ── CARPOOL HOME (self-funded students) ────────────────────
@@ -752,6 +839,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun homeRouteFor(isNsfasFunded: Boolean): String {
-    return if (isNsfasFunded) "shuttle_home" else GyrRoutes.HOME
+private fun homeRouteFor(response: com.example.getyourride.data.remote.dto.AuthResponse): String {
+    // Drivers go to driver home
+    if (response.type == "DRIVER") return "student_driver_home"
+    // NSFAS-funded students go to shuttle home
+    if (response.isFunded == true) return "shuttle_home"
+    // Self-funded students go to carpool home
+    return GyrRoutes.HOME
 }
