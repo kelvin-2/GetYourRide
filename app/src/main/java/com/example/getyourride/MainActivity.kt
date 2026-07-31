@@ -85,6 +85,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import com.example.getyourride.data.repository.ShuttleRepository
+import com.example.getyourride.data.repository.ShuttleDriverRepository
 import com.example.getyourride.ui.screens.shuttle.ShuttleHomeScreen
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
@@ -101,6 +102,11 @@ import com.example.getyourride.viewmodel.ShuttleStopSearchViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleUiState
 import com.example.getyourride.viewmodel.ShuttleViewModel
 import com.example.getyourride.viewmodel.ShuttleViewModelFactory
+import com.example.getyourride.viewmodel.ShuttleDriverProfileViewModel
+import com.example.getyourride.viewmodel.ShuttleDriverProfileViewModelFactory
+import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverBoardingScreen
+import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverProfileScreen
+import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverScanQrScreen
 
 
 class MainActivity : ComponentActivity() {
@@ -348,7 +354,7 @@ class MainActivity : ComponentActivity() {
                             onOfferRideClick   = { navController.navigate("offer_ride") },
                             onProfileClick     = { navController.navigate("driver_profile_settings") },
                             onCancelRide       = { tripId ->
-                                // TODO: call cancel API then reload
+                                driverHomeViewModel.cancelRide(tripId)
                             }
                         )
                     }
@@ -833,6 +839,59 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { navController.popBackStack() }
                         )
                     }
+
+                    // ── SHUTTLE DRIVER: BOARDING (Home) ────────────────────────
+                    composable("shuttle_driver_boarding") {
+                        ShuttleDriverBoardingScreen(
+                            onScanQrCodeClick = {
+                                navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
+                            },
+                            onBoardingClick = { /* already here */ },
+                            onProfileClick = {
+                                navController.navigate("shuttle_driver_profile") { launchSingleTop = true }
+                            }
+                        )
+                    }
+
+                    // ── SHUTTLE DRIVER: SCAN QR ───────────────────────────────
+                    composable("shuttle_driver_scan_qr") {
+                        ShuttleDriverScanQrScreen(
+                            onScanQrCodeClick = { /* already here */ },
+                            onBoardingClick = {
+                                navController.navigate("shuttle_driver_boarding") { launchSingleTop = true }
+                            },
+                            onProfileClick = {
+                                navController.navigate("shuttle_driver_profile") { launchSingleTop = true }
+                            }
+                        )
+                    }
+
+                    // ── SHUTTLE DRIVER: PROFILE ───────────────────────────────
+                    composable("shuttle_driver_profile") {
+                        val shuttleDriverProfileViewModel: ShuttleDriverProfileViewModel = viewModel(
+                            factory = ShuttleDriverProfileViewModelFactory(
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                            )
+                        )
+
+                        ShuttleDriverProfileScreen(
+                            uiState = shuttleDriverProfileViewModel.uiState,
+                            onLoadProfile = { shuttleDriverProfileViewModel.loadProfile() },
+                            onLogoutClick = {
+                                UserSession.clear()
+                                navController.navigate("login") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                            onScanQrCodeClick = {
+                                navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
+                            },
+                            onBoardingClick = {
+                                navController.navigate("shuttle_driver_boarding") { launchSingleTop = true }
+                            },
+                            onProfileClick = { /* already here */ }
+                        )
+                    }
                 }
             }
         }
@@ -840,7 +899,9 @@ class MainActivity : ComponentActivity() {
 }
 
 private fun homeRouteFor(response: com.example.getyourride.data.remote.dto.AuthResponse): String {
-    // Drivers go to driver home
+    // Shuttle drivers go to boarding screen (their home page)
+    if (response.type == "SHUTTLE_DRIVER") return "shuttle_driver_boarding"
+    // Student drivers go to driver home
     if (response.type == "DRIVER") return "student_driver_home"
     // NSFAS-funded students go to shuttle home
     if (response.isFunded == true) return "shuttle_home"

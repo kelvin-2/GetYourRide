@@ -4,6 +4,7 @@ import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.GeocodingApi
 import com.example.getyourride.data.remote.api.ShuttleApi
+import com.example.getyourride.data.remote.api.ShuttleDriverApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
 import com.example.getyourride.data.remote.api.TripApi
 import okhttp3.OkHttpClient
@@ -76,5 +77,9 @@ object NetworkModule {
 
     val driverApplicationApi: DriverApplicationApi by lazy {
         retrofit.create(DriverApplicationApi::class.java)
+    }
+
+    val shuttleDriverApi: ShuttleDriverApi by lazy {
+        retrofit.create(ShuttleDriverApi::class.java)
     }
 }
