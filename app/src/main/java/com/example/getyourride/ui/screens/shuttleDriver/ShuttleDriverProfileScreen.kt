@@ -11,18 +11,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -31,149 +42,77 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.data.remote.dto.ShuttleDriverProfileResponse
+import com.example.getyourride.data.remote.dto.ShuttleDriverTripSummaryResponse
+import com.example.getyourride.data.remote.dto.ShuttleDriverVehicleResponse
 import com.example.getyourride.ui.components.ShuttleDriverBottomBar
 import com.example.getyourride.ui.components.ShuttleDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
+import com.example.getyourride.viewmodel.ShuttleDriverProfileUiState
 
-/*
- * ShuttleDriverProfileScreen
- *
- * This page is for shuttle drivers only.
- *
- * Important system rule:
- * Shuttle drivers do not sign up inside the mobile app.
- * The admin creates the shuttle driver account and gives the driver login details.
- *
- * This screen only displays information that can come from the current database:
- * - driver
- * - vehicle
- * - trip
- * - trip_booking
- * - boarding_log
- *
- * We do not show:
- * - password
- * - verification status
- * - delete profile button
- * - document upload
- *
- * Shuttle drivers are already trusted/admin-created users when they log in.
- */
-
-// Screen colours matching the existing GetYourRide design.
-private val ShuttleProfileBackground = Color(0xFFFBF8FD)
-private val ShuttleProfilePrimary = Color(0xFF011844)
-private val ShuttleProfileTopBar = Color(0xFF1A2E5A)
-private val ShuttleProfileCardBackground = Color(0xFFFFFFFF)
-private val ShuttleProfileText = Color(0xFF1B1B1F)
-private val ShuttleProfileTextMuted = Color(0xFF44464F)
-private val ShuttleProfilePrimaryFixed = Color(0xFFDAE2FF)
-private val ShuttleProfileBorder = Color(0xFFE3E2E6)
-private val ShuttleProfileInfoBackground = Color(0xFFE3F2FD)
-private val ShuttleProfileInfoText = Color(0xFF1565C0)
-
-/*
- * Shuttle driver personal/account details.
- *
- * Database source later:
- * driver.driver_id
- * driver.first_name
- * driver.last_name
- * driver.email
- * driver.phone
- * driver.role
- * driver.join_date
- * driver.total_trips
- */
-@Immutable
-data class ShuttleDriverProfileDetails(
-    val driverId: Long,
-    val firstName: String,
-    val lastName: String,
-    val email: String,
-    val phone: String,
-    val role: String,
-    val joinDate: String,
-    val totalTrips: Int
-)
-
-/*
- * Vehicle assigned to the shuttle driver.
- *
- * Database source later:
- * vehicle.registration_number
- * vehicle.model
- * vehicle.vehicle_year
- * vehicle.colour
- * vehicle.capacity
- */
-@Immutable
-data class ShuttleDriverVehicleDetails(
-    val registrationNumber: String,
-    val model: String,
-    val vehicleYear: Int?,
-    val colour: String,
-    val capacity: Int
-)
-
-/*
- * Summary values calculated from trip, trip_booking, and boarding_log.
- *
- * Database source later:
- * trip.status
- * trip.trip_type = 'Shuttle'
- * trip_booking.booking_id
- * boarding_log.boarded_at
- */
-@Immutable
-data class ShuttleDriverTripSummary(
-    val currentTripRoute: String,
-    val currentTripStatus: String,
-    val scheduledTrips: Int,
-    val inProgressTrips: Int,
-    val completedTrips: Int,
-    val cancelledTrips: Int,
-    val studentsBookedToday: Int,
-    val studentsBoardedToday: Int
-)
+// ── Design tokens ───────────────────────────────────────────────────────────
+private val ProfileBackground = Color(0xFFF6F8FC)
+private val ProfilePrimary = Color(0xFF0D1B4A)
+private val ProfileAccent = Color(0xFFFC820C)
+private val ProfileTopBarStart = Color(0xFF0D1B4A)
+private val ProfileTopBarEnd = Color(0xFF1A3A7A)
+private val ProfileCardBg = Color(0xFFFFFFFF)
+private val ProfileText = Color(0xFF1B1B1F)
+private val ProfileTextMuted = Color(0xFF5E6278)
+private val ProfileIconBg = Color(0xFFEDF1FA)
+private val ProfileDivider = Color(0xFFE8EBF0)
+private val ProfileInfoBg = Color(0xFFE8F4FD)
+private val ProfileInfoText = Color(0xFF1565C0)
+private val ProfileSuccessBg = Color(0xFFE8F5E9)
+private val ProfileSuccessText = Color(0xFF2E7D32)
+private val ProfileWarningBg = Color(0xFFFFF8E1)
+private val ProfileWarningText = Color(0xFFE65100)
+private val ProfileErrorBg = Color(0xFFFFEBEE)
+private val ProfileErrorText = Color(0xFFC62828)
+private val ProfileLogoutBg = Color(0xFFFFF0F0)
+private val ProfileLogoutText = Color(0xFFD32F2F)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShuttleDriverProfileScreen(
-    profileDetails: ShuttleDriverProfileDetails = sampleShuttleDriverProfileDetails(),
-    vehicleDetails: ShuttleDriverVehicleDetails = sampleShuttleDriverVehicleDetails(),
-    tripSummary: ShuttleDriverTripSummary = sampleShuttleDriverTripSummary(),
+    uiState: ShuttleDriverProfileUiState,
+    onLoadProfile: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
     onScanQrCodeClick: () -> Unit = {},
     onBoardingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
+    // Load profile data when screen opens
+    LaunchedEffect(Unit) {
+        onLoadProfile()
+    }
+
     Scaffold(
         topBar = {
-            /*
-             * Same top bar style as the Student Driver and Shuttle Boarding pages.
-             */
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.DirectionsCar,
+                            imageVector = Icons.Outlined.DirectionsBus,
                             contentDescription = null,
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
-
                         Text(
                             text = "GetYourRide",
                             color = Color.White,
@@ -183,14 +122,11 @@ fun ShuttleDriverProfileScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ShuttleProfileTopBar
+                    containerColor = ProfileTopBarStart
                 )
             )
         },
         bottomBar = {
-            /*
-             * Profile is selected because the shuttle driver is currently on this page.
-             */
             ShuttleDriverBottomBar(
                 selectedItem = ShuttleDriverBottomBarItem.Profile,
                 onScanQrCodeClick = onScanQrCodeClick,
@@ -198,199 +134,397 @@ fun ShuttleDriverProfileScreen(
                 onProfileClick = onProfileClick
             )
         },
-        containerColor = ShuttleProfileBackground
+        containerColor = ProfileBackground
     ) { innerPadding ->
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(ShuttleProfileBackground)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Profile",
-                    color = ShuttleProfilePrimary,
-                    fontSize = 26.sp,
-                    lineHeight = 32.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "View your shuttle driver account details.",
-                    color = ShuttleProfileTextMuted,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
+        when (uiState) {
+            is ShuttleDriverProfileUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = ProfileAccent,
+                            strokeWidth = 3.dp
+                        )
+                        Text(
+                            text = "Loading profile...",
+                            color = ProfileTextMuted,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
 
-            AccountManagedByAdminCard()
-
-            ProfileSectionCard(
-                title = "Driver Information",
-                icon = Icons.Outlined.Person
-            ) {
-                ProfileDetailRow(
-                    label = "Full Name",
-                    value = "${profileDetails.firstName} ${profileDetails.lastName}"
-                )
-
-                ProfileDetailRow(
-                    label = "Email",
-                    value = profileDetails.email,
-                    icon = Icons.Outlined.Email
-                )
-
-                ProfileDetailRow(
-                    label = "Phone",
-                    value = profileDetails.phone,
-                    icon = Icons.Outlined.Phone
-                )
-
-                ProfileDetailRow(
-                    label = "Role",
-                    value = profileDetails.role
-                )
-
-                ProfileDetailRow(
-                    label = "Join Date",
-                    value = profileDetails.joinDate
-                )
-
-                ProfileDetailRow(
-                    label = "Total Trips",
-                    value = profileDetails.totalTrips.toString()
-                )
+            is ShuttleDriverProfileUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = ProfileErrorBg,
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = ProfileErrorText,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = uiState.message,
+                            color = ProfileErrorText,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = onLoadProfile,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ProfilePrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Retry", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
 
-            ProfileSectionCard(
-                title = "Assigned Vehicle",
-                icon = Icons.Outlined.DirectionsCar
-            ) {
-                ProfileDetailRow(
-                    label = "Registration Number",
-                    value = vehicleDetails.registrationNumber
-                )
-
-                ProfileDetailRow(
-                    label = "Model",
-                    value = vehicleDetails.model
-                )
-
-                ProfileDetailRow(
-                    label = "Year",
-                    value = vehicleDetails.vehicleYear?.toString() ?: "Not set"
-                )
-
-                ProfileDetailRow(
-                    label = "Colour",
-                    value = vehicleDetails.colour
-                )
-
-                ProfileDetailRow(
-                    label = "Capacity",
-                    value = vehicleDetails.capacity.toString()
+            is ShuttleDriverProfileUiState.Success -> {
+                ProfileContent(
+                    profile = uiState.profile,
+                    onLogoutClick = onLogoutClick,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
                 )
             }
-
-            ProfileSectionCard(
-                title = "Trip Summary",
-                icon = Icons.Outlined.VerifiedUser
-            ) {
-                ProfileDetailRow(
-                    label = "Current Trip",
-                    value = tripSummary.currentTripRoute
-                )
-
-                ProfileDetailRow(
-                    label = "Current Trip Status",
-                    value = tripSummary.currentTripStatus
-                )
-
-                TripStatusGrid(
-                    tripSummary = tripSummary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
-/*
- * Shows that this shuttle driver account is controlled by the admin.
- */
 @Composable
-private fun AccountManagedByAdminCard() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = ShuttleProfileInfoBackground,
-        shape = RoundedCornerShape(16.dp)
+private fun ProfileContent(
+    profile: ShuttleDriverProfileResponse,
+    onLogoutClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
+        // ── Profile Header Card ─────────────────────────────────────────
+        ProfileHeaderCard(profile)
+
+        // ── Admin Managed Notice ────────────────────────────────────────
+        AdminManagedNotice()
+
+        // ── Driver Information ──────────────────────────────────────────
+        SectionCard(
+            title = "Driver Information",
+            icon = Icons.Outlined.Person
+        ) {
+            InfoRow(icon = Icons.Outlined.Email, label = "Email", value = profile.email)
+            ProfileDividerLine()
+            InfoRow(icon = Icons.Outlined.Phone, label = "Phone", value = profile.phone ?: "Not provided")
+            ProfileDividerLine()
+            InfoRow(icon = Icons.Outlined.VerifiedUser, label = "Role", value = formatRole(profile.role))
+            ProfileDividerLine()
+            InfoRow(icon = Icons.Outlined.CalendarMonth, label = "Member Since", value = profile.joinDate ?: "Unknown")
+            ProfileDividerLine()
+            InfoRow(icon = Icons.Outlined.Route, label = "Total Trips Completed", value = profile.totalTrips.toString())
+        }
+
+        // ── Vehicle Details ─────────────────────────────────────────────
+        profile.vehicle?.let { vehicle ->
+            SectionCard(
+                title = "Assigned Vehicle",
+                icon = Icons.Outlined.DirectionsCar
+            ) {
+                InfoRow(label = "Registration", value = vehicle.registrationNumber)
+                ProfileDividerLine()
+                InfoRow(label = "Model", value = vehicle.model ?: "Not set")
+                ProfileDividerLine()
+                InfoRow(label = "Year", value = vehicle.vehicleYear?.toString() ?: "Not set")
+                ProfileDividerLine()
+                InfoRow(label = "Colour", value = vehicle.colour ?: "Not set")
+                ProfileDividerLine()
+                InfoRow(label = "Capacity", value = "${vehicle.capacity} seats")
+            }
+        }
+
+        // ── Trip Statistics ─────────────────────────────────────────────
+        profile.tripSummary?.let { summary ->
+            SectionCard(
+                title = "Trip Statistics",
+                icon = Icons.Outlined.Speed
+            ) {
+                // Current trip info
+                if (summary.currentTripRoute != null) {
+                    CurrentTripBanner(
+                        route = summary.currentTripRoute,
+                        status = summary.currentTripStatus ?: "Unknown"
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Stats grid
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatCard(
+                        label = "Scheduled",
+                        value = summary.scheduledTrips.toString(),
+                        color = ProfileInfoText,
+                        bgColor = ProfileInfoBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        label = "In Progress",
+                        value = summary.inProgressTrips.toString(),
+                        color = ProfileWarningText,
+                        bgColor = ProfileWarningBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatCard(
+                        label = "Completed",
+                        value = summary.completedTrips.toString(),
+                        color = ProfileSuccessText,
+                        bgColor = ProfileSuccessBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        label = "Cancelled",
+                        value = summary.cancelledTrips.toString(),
+                        color = ProfileErrorText,
+                        bgColor = ProfileErrorBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatCard(
+                        label = "Booked Today",
+                        value = summary.studentsBookedToday.toString(),
+                        color = ProfilePrimary,
+                        bgColor = ProfileIconBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        label = "Boarded Today",
+                        value = summary.studentsBoardedToday.toString(),
+                        color = ProfileSuccessText,
+                        bgColor = ProfileSuccessBg,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // ── Logout Button ───────────────────────────────────────────────
+        Button(
+            onClick = onLogoutClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ProfileLogoutBg,
+                contentColor = ProfileLogoutText
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ExitToApp,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Log Out",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(vertical = 6.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+// ── Profile Header ──────────────────────────────────────────────────────────
+
+@Composable
+private fun ProfileHeaderCard(profile: ShuttleDriverProfileResponse) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(ProfileTopBarStart, ProfileTopBarEnd)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(24.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Avatar circle with initials
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.15f),
+                    modifier = Modifier.size(68.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "${profile.firstName.firstOrNull() ?: ""}${profile.lastName.firstOrNull() ?: ""}",
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "${profile.firstName} ${profile.lastName}",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = formatRole(profile.role),
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 14.sp
+                    )
+
+                    // Verification badge
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (profile.isVerified) {
+                            ProfileSuccessBg.copy(alpha = 0.9f)
+                        } else {
+                            ProfileWarningBg.copy(alpha = 0.9f)
+                        },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.VerifiedUser,
+                                contentDescription = null,
+                                tint = if (profile.isVerified) ProfileSuccessText else ProfileWarningText,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (profile.isVerified) "Verified" else "Pending Verification",
+                                color = if (profile.isVerified) ProfileSuccessText else ProfileWarningText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Admin Notice ────────────────────────────────────────────────────────────
+
+@Composable
+private fun AdminManagedNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = ProfileInfoBg,
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top
         ) {
             Icon(
                 imageVector = Icons.Outlined.Info,
                 contentDescription = null,
-                tint = ShuttleProfileInfoText,
-                modifier = Modifier.size(24.dp)
+                tint = ProfileInfoText,
+                modifier = Modifier.size(22.dp)
             )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "Admin Managed Account",
-                    color = ShuttleProfileInfoText,
-                    fontSize = 15.sp,
+                    color = ProfileInfoText,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
-
                 Text(
-                    text = "Your shuttle driver account is created and managed by the administrator. Contact admin if your details are incorrect.",
-                    color = ShuttleProfileInfoText,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
+                    text = "Your account is managed by the administrator. Contact admin to update your details.",
+                    color = ProfileInfoText.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
                 )
             }
         }
     }
 }
 
-/*
- * Reusable card section.
- *
- * We use this for:
- * - Driver Information
- * - Assigned Vehicle
- * - Trip Summary
- */
+// ── Section Card ────────────────────────────────────────────────────────────
+
 @Composable
-private fun ProfileSectionCard(
+private fun SectionCard(
     title: String,
     icon: ImageVector,
     content: @Composable () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ShuttleProfileCardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        )
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = ProfileCardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -398,250 +532,224 @@ private fun ProfileSectionCard(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Section header
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(ShuttleProfilePrimaryFixed),
+                        .background(ProfileIconBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = ShuttleProfilePrimary,
-                        modifier = Modifier.size(24.dp)
+                        tint = ProfilePrimary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-
                 Text(
                     text = title,
-                    color = ShuttleProfilePrimary,
-                    fontSize = 18.sp,
+                    color = ProfilePrimary,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            DividerLine()
+            // Thin divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(ProfileDivider)
+            )
 
             content()
         }
     }
 }
 
-/*
- * One row of profile information.
- */
+// ── Info Row ────────────────────────────────────────────────────────────────
+
 @Composable
-private fun ProfileDetailRow(
+private fun InfoRow(
     label: String,
     value: String,
     icon: ImageVector? = null
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = ShuttleProfileTextMuted,
-                modifier = Modifier.size(20.dp)
+                tint = ProfileTextMuted,
+                modifier = Modifier.size(18.dp)
             )
         }
-
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
                 text = label,
-                color = ShuttleProfileTextMuted,
+                color = ProfileTextMuted,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Medium
             )
-
             Text(
                 text = value,
-                color = ShuttleProfileText,
+                color = ProfileText,
                 fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+// ── Current Trip Banner ─────────────────────────────────────────────────────
+
+@Composable
+private fun CurrentTripBanner(route: String, status: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = ProfileWarningBg,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.LocalShipping,
+                contentDescription = null,
+                tint = ProfileWarningText,
+                modifier = Modifier.size(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = route,
+                    color = ProfileWarningText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = status,
+                    color = ProfileWarningText.copy(alpha = 0.8f),
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
+// ── Stat Card ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun StatCard(
+    label: String,
+    value: String,
+    color: Color,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = bgColor,
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = value,
+                color = color,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                color = color.copy(alpha = 0.75f),
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
         }
     }
 }
 
-/*
- * Trip statistics shown in small cards.
- */
+// ── Divider ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun TripStatusGrid(
-    tripSummary: ShuttleDriverTripSummary
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            SummaryBox(
-                label = "Scheduled",
-                value = tripSummary.scheduledTrips.toString(),
-                modifier = Modifier.weight(1f)
-            )
-
-            SummaryBox(
-                label = "In Progress",
-                value = tripSummary.inProgressTrips.toString(),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            SummaryBox(
-                label = "Completed",
-                value = tripSummary.completedTrips.toString(),
-                modifier = Modifier.weight(1f)
-            )
-
-            SummaryBox(
-                label = "Cancelled",
-                value = tripSummary.cancelledTrips.toString(),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            SummaryBox(
-                label = "Booked Today",
-                value = tripSummary.studentsBookedToday.toString(),
-                modifier = Modifier.weight(1f)
-            )
-
-            SummaryBox(
-                label = "Boarded Today",
-                value = tripSummary.studentsBoardedToday.toString(),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/*
- * Small statistic box used in Trip Summary.
- */
-@Composable
-private fun SummaryBox(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(ShuttleProfileBackground)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Text(
-            text = label,
-            color = ShuttleProfileTextMuted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        Text(
-            text = value,
-            color = ShuttleProfilePrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-/*
- * Divider used inside section cards.
- */
-@Composable
-private fun DividerLine() {
+private fun ProfileDividerLine() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 2.dp)
             .height(1.dp)
-            .background(ShuttleProfileBorder)
+            .background(ProfileDivider)
     )
 }
 
-/*
- * Temporary sample data for frontend preview/testing.
- *
- * Later this will come from the driver table.
- */
-private fun sampleShuttleDriverProfileDetails(): ShuttleDriverProfileDetails {
-    return ShuttleDriverProfileDetails(
-        driverId = 1L,
-        firstName = "Michael",
-        lastName = "Johnson",
-        email = "michael.driver@getyourride.co.za",
-        phone = "071 555 0987",
-        role = "Shuttle Driver",
-        joinDate = "2026-01-15",
-        totalTrips = 128
-    )
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+private fun formatRole(role: String): String {
+    return when (role.uppercase()) {
+        "SHUTTLE_DRIVER" -> "Shuttle Driver"
+        "STUDENT_DRIVER" -> "Student Driver"
+        else -> role.replace("_", " ")
+            .lowercase()
+            .replaceFirstChar { it.uppercase() }
+    }
 }
 
-/*
- * Temporary sample data for frontend preview/testing.
- *
- * Later this will come from the vehicle table.
- */
-private fun sampleShuttleDriverVehicleDetails(): ShuttleDriverVehicleDetails {
-    return ShuttleDriverVehicleDetails(
-        registrationNumber = "SHU 245 EC",
-        model = "Toyota Quantum",
-        vehicleYear = 2022,
-        colour = "White",
-        capacity = 24
-    )
-}
+// ── Preview ─────────────────────────────────────────────────────────────────
 
-/*
- * Temporary sample data for frontend preview/testing.
- *
- * Later this will be calculated from trip, trip_booking, and boarding_log.
- */
-private fun sampleShuttleDriverTripSummary(): ShuttleDriverTripSummary {
-    return ShuttleDriverTripSummary(
-        currentTripRoute = "South Campus → Central",
-        currentTripStatus = "In Progress",
-        scheduledTrips = 3,
-        inProgressTrips = 1,
-        completedTrips = 124,
-        cancelledTrips = 0,
-        studentsBookedToday = 18,
-        studentsBoardedToday = 12
-    )
-}
-
-/*
- * Android Studio preview.
- */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun ShuttleDriverProfileScreenPreview() {
+private fun ShuttleDriverProfileScreenPreview() {
+    val sampleProfile = ShuttleDriverProfileResponse(
+        driverId = 1,
+        firstName = "Thabo",
+        lastName = "Nkosi",
+        email = "thabo.nkosi@shuttle.nmu.ac.za",
+        phone = "082 123 4501",
+        role = "SHUTTLE_DRIVER",
+        joinDate = "2024-02-01",
+        totalTrips = 142,
+        isVerified = true,
+        vehicle = ShuttleDriverVehicleResponse(
+            vehicleId = 1,
+            registrationNumber = "NMU001EC",
+            model = "Toyota Quantum",
+            vehicleYear = 2021,
+            colour = "White",
+            capacity = 15
+        ),
+        tripSummary = ShuttleDriverTripSummaryResponse(
+            currentTripRoute = "North Campus \u2192 South Campus",
+            currentTripStatus = "In Progress",
+            scheduledTrips = 3,
+            inProgressTrips = 1,
+            completedTrips = 138,
+            cancelledTrips = 0,
+            studentsBookedToday = 18,
+            studentsBoardedToday = 12
+        )
+    )
+
     GetYourRideTheme(dynamicColor = false) {
-        ShuttleDriverProfileScreen()
+        ShuttleDriverProfileScreen(
+            uiState = ShuttleDriverProfileUiState.Success(sampleProfile)
+        )
     }
 }

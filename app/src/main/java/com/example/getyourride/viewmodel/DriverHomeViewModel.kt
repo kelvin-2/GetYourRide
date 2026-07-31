@@ -56,6 +56,39 @@ class DriverHomeViewModel(
             }
         }
     }
+
+    /**
+     * Cancel a trip: calls backend PATCH /api/trips/{id}/cancel,
+     * then moves it from active to past rides locally for instant feedback,
+     * and reloads from server in background.
+     */
+    fun cancelRide(tripId: Long) {
+        viewModelScope.launch {
+            // Optimistic UI update: move trip to past rides immediately
+            val currentState = uiState
+            if (currentState is DriverHomeUiState.Success) {
+                val cancelledTrip = currentState.activeRides.find { it.tripId == tripId }
+                if (cancelledTrip != null) {
+                    val updatedActive = currentState.activeRides.filter { it.tripId != tripId }
+                    val updatedPast = listOf(
+                        cancelledTrip.copy(status = "CANCELLED")
+                    ) + currentState.pastRides
+                    uiState = DriverHomeUiState.Success(
+                        activeRides = updatedActive,
+                        pastRides = updatedPast
+                    )
+                }
+            }
+
+            // Call backend
+            val result = tripRepository.cancelTrip(tripId)
+            result.onFailure {
+                // If backend fails, reload to restore correct state
+                loadMyTrips()
+            }
+            // On success the optimistic update is already correct
+        }
+    }
 }
 
 class DriverHomeViewModelFactory(
