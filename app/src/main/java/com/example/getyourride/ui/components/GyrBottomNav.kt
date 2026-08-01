@@ -168,7 +168,7 @@ fun GyrScaffold(
         bottomBar = {
             GyrBottomNav(
                 currentRoute = currentRoute,
-                onNavigate   = onNavigate,
+                onNavigate   = { route -> onNavigate(route) },
             )
         },
     ) { innerPadding ->

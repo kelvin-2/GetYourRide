@@ -57,7 +57,7 @@ fun CarpoolHomeScreen(
     onViewAllTrips      : () -> Unit               = {},
     onSearchRides       : (pickup: AddressSuggestion, destination: AddressSuggestion) -> Unit = { _, _ -> },
     onNotifications     : () -> Unit               = {},
-    navController       : androidx.navigation.NavController = rememberNavController(),
+    navController       : androidx.navigation.NavController,
 )
 
 {
@@ -409,5 +409,9 @@ private fun RecentTripsSection(onViewAll: () -> Unit) {
 @Preview(showBackground = true, showSystemUi = true, name = "Carpool Home")
 @Composable
 fun CarpoolHomePreview() {
-    MaterialTheme { CarpoolHomeScreen() } // defaults to Loading state
+    MaterialTheme { 
+        CarpoolHomeScreen(
+            navController = rememberNavController()
+        ) 
+    } // defaults to Loading state
 }

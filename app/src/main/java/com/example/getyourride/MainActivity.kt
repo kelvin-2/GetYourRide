@@ -826,6 +826,7 @@ class MainActivity : ComponentActivity() {
                         )
                         TrackingScreen(
                             viewModel = trackingViewModel,
+                            navController = navController,
                             onBackClick = { navController.popBackStack() }
                         )
                     }
@@ -847,6 +848,7 @@ class MainActivity : ComponentActivity() {
                         )
                         TrackingScreen(
                             viewModel = trackingViewModel,
+                            navController = navController,
                             onBackClick = { navController.popBackStack() }
                         )
                     }

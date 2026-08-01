@@ -88,7 +88,7 @@ private val CardGrey = Color(0xFFF5F6F8)
 @Composable
 fun TrackingScreen(
     viewModel: TrackingViewModel,
-    navController: androidx.navigation.NavController = rememberNavController(),
+    navController: androidx.navigation.NavController,
     onBackClick: (() -> Unit)? = null,
     onMessageDriver: () -> Unit = {},
     onCallDriver: () -> Unit = {},
