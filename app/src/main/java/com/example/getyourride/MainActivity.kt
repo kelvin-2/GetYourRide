@@ -505,7 +505,10 @@ class MainActivity : ComponentActivity() {
                         val context = LocalContext.current
                         val shuttleViewModel: ShuttleViewModel = viewModel(
                             factory = ShuttleViewModelFactory(
-                                ShuttleRepository(NetworkModule.shuttleApi)
+                                ShuttleRepository(
+                                    api = NetworkModule.shuttleApi,
+                                    tripApi = NetworkModule.tripApi
+                                )
                             )
                         )
 
@@ -639,7 +642,10 @@ class MainActivity : ComponentActivity() {
                         val context = LocalContext.current
                         val shuttleViewModel: ScheduleRideViewModel = viewModel(
                             factory = ScheduleRideViewModelFactory(
-                                ShuttleRepository(NetworkModule.shuttleApi)
+                                ShuttleRepository(
+                                    api = NetworkModule.shuttleApi,
+                                    tripApi = NetworkModule.tripApi
+                                )
                             )
                         )
 
@@ -700,7 +706,10 @@ class MainActivity : ComponentActivity() {
                         
                         val shuttleStopSearchViewModel: ShuttleStopSearchViewModel = viewModel(
                             factory = ShuttleStopSearchViewModelFactory(
-                                ShuttleRepository(NetworkModule.shuttleApi)
+                                ShuttleRepository(
+                                    api = NetworkModule.shuttleApi,
+                                    tripApi = NetworkModule.tripApi
+                                )
                             )
                         )
 
@@ -710,7 +719,10 @@ class MainActivity : ComponentActivity() {
                         val shuttleViewModel: ScheduleRideViewModel = viewModel(
                             viewModelStoreOwner = bookShuttleEntry,
                             factory = ScheduleRideViewModelFactory(
-                                ShuttleRepository(NetworkModule.shuttleApi)
+                                ShuttleRepository(
+                                    api = NetworkModule.shuttleApi,
+                                    tripApi = NetworkModule.tripApi
+                                )
                             )
                         )
 

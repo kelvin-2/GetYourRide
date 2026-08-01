@@ -1,48 +1,81 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.ShuttleStopResponse
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.api.ShuttleApi
+import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import kotlinx.coroutines.delay
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Repository for shuttle data.
  */
-class ShuttleRepository(private val api: ShuttleApi) {
+class ShuttleRepository(
+    private val api: ShuttleApi,
+    private val tripApi: TripApi
+) {
 
     suspend fun fetchShuttleHomeData(): ShuttleHomeData {
-        delay(900) // simulated network latency
+        val response = tripApi.getMyTrips()
+        
+        if (!response.isSuccessful) {
+            throw Exception("Failed to fetch trips: ${response.message()}")
+        }
 
-        // For now, home data (upcoming/recent) is still hardcoded or coming from another endpoint.
-        // If there's no endpoint for this yet, we keep it mocked.
-        val upcoming = listOf(
-            UpcomingShuttle(
-                from = "Gqeberha Bus Terminal",
-                to = "NMU South Campus",
-                status = "Confirmed",
-                time = "07:45",
-                date = "Today, 16 Jul",
-                seat = "14B"
-            ),
-            UpcomingShuttle(
-                from = "NMU North Campus",
-                to = "Missionvale Campus",
-                status = "Confirmed",
-                time = "13:15",
-                date = "Tomorrow, 17 Jul",
-                seat = "09A"
-            )
-        )
+        val allTrips = response.body() ?: emptyList()
+        
+        // Filter for SHUTTLE trips only
+        val shuttleTrips = allTrips.filter { it.tripType.equals("SHUTTLE", ignoreCase = true) }
 
-        val recent = listOf(
-            RecentTrip(from = "Missionvale Campus", to = "Gqeberha Bus Terminal", date = "14 Jul", time = "16:40"),
-            RecentTrip(from = "NMU South Campus", to = "NMU North Campus", date = "12 Jul", time = "08:10"),
-            RecentTrip(from = "Gqeberha Bus Terminal", to = "Missionvale Campus", date = "09 Jul", time = "15:20")
-        )
+        // 1. Upcoming = SCHEDULED or ACTIVE
+        val upcoming = shuttleTrips
+            .filter { it.status.equals("SCHEDULED", ignoreCase = true) || it.status.equals("ACTIVE", ignoreCase = true) }
+            .map { it.toUpcomingShuttle() }
+
+        // 2. Recent = COMPLETED (take last 5)
+        val recent = shuttleTrips
+            .filter { it.status.equals("COMPLETED", ignoreCase = true) }
+            .sortedByDescending { it.departureTime }
+            .take(5)
+            .map { it.toRecentTrip() }
 
         return ShuttleHomeData(upcoming, recent)
+    }
+
+    private fun TripResponse.toUpcomingShuttle(): UpcomingShuttle {
+        val dateTime = try {
+            LocalDateTime.parse(departureTime)
+        } catch (e: Exception) {
+            null
+        }
+
+        return UpcomingShuttle(
+            from = departureStop,
+            to = destinationStop,
+            status = status.lowercase().replaceFirstChar { it.uppercase() },
+            time = dateTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: departureTime.takeLast(8),
+            date = dateTime?.format(DateTimeFormatter.ofPattern("EEE, dd MMM")) ?: "Upcoming",
+            seat = "Any" // Backend doesn't return specific seat numbers yet
+        )
+    }
+
+    private fun TripResponse.toRecentTrip(): RecentTrip {
+        val dateTime = try {
+            LocalDateTime.parse(departureTime)
+        } catch (e: Exception) {
+            null
+        }
+
+        return RecentTrip(
+            from = departureStop,
+            to = destinationStop,
+            date = dateTime?.format(DateTimeFormatter.ofPattern("dd MMM")) ?: "Past",
+            time = dateTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: ""
+        )
     }
 
     suspend fun fetchStops(): List<ShuttleStopResponse> {
