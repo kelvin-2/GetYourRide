@@ -41,7 +41,6 @@ private val LogoutRed = Color(0xFFEB5757)
 fun ProfileScreen(
     navController: NavController,
     onEditProfile: () -> Unit = {},
-    onMyRides: () -> Unit = {},
     onPaymentMethods: () -> Unit = {},
     onNotifications: () -> Unit = {},
     onHelpSupport: () -> Unit = {},
@@ -152,7 +151,9 @@ fun ProfileScreen(
 
                             val settingsItems = buildList {
                                 add(SettingsItem(Icons.Outlined.Edit, "Edit Profile", onEditProfile))
-                                add(SettingsItem(Icons.Outlined.DirectionsCar, "My Rides", onMyRides))
+                                add(SettingsItem(Icons.Outlined.DirectionsCar, "My Rides", {
+                                    navController.navigate(if (profile.isNsfasFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
+                                }))
                                 // Payment Methods only makes sense for students paying
                                 // out of pocket (carpool). NSFAS shuttle rides are
                                 // pre-funded, so this is hidden for those students.

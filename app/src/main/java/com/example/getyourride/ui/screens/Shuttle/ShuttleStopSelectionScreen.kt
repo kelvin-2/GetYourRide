@@ -63,7 +63,7 @@ fun ShuttleStopSelectionScreen(
             // Search field
             OutlinedTextField(
                 value = query,
-                onValueChange = viewModel::onQueryChanged,
+                onValueChange = { viewModel.onQueryChanged(it) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))

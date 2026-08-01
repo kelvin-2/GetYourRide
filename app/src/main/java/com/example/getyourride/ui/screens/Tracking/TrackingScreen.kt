@@ -1,5 +1,7 @@
 package com.example.getyourride.ui.screens.Tracking
 
+import android.graphics.DashPathEffect
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.LocationOn
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +64,7 @@ import com.example.getyourride.viewmodel.TrackingViewModel
 import com.example.getyourride.ui.theme.*
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -85,8 +88,8 @@ private val CardGrey = Color(0xFFF5F6F8)
 @Composable
 fun TrackingScreen(
     viewModel: TrackingViewModel,
-    onBackClick: () -> Unit = {},
     navController: androidx.navigation.NavController = rememberNavController(),
+    onBackClick: (() -> Unit)? = null,
     onMessageDriver: () -> Unit = {},
     onCallDriver: () -> Unit = {},
     onCancelRide: () -> Unit = {},
@@ -99,11 +102,11 @@ fun TrackingScreen(
 
     StudentLayout(
         currentRoute = GyrRoutes.TRACK,
-        navController = navController
+        navController = navController,
+        onBackClick = onBackClick
     ) {
         TrackingScreenContent(
             uiState = uiState,
-            onBackClick = onBackClick,
             onMessageDriver = onMessageDriver,
             onCallDriver = onCallDriver,
             onCancelRide = { viewModel.cancelRide(onCancelRide) }
@@ -118,7 +121,6 @@ fun TrackingScreen(
 @Composable
 fun TrackingScreenContent(
     uiState: TrackingUiState,
-    onBackClick: () -> Unit = {},
     onMessageDriver: () -> Unit = {},
     onCallDriver: () -> Unit = {},
     onCancelRide: () -> Unit = {}
@@ -159,6 +161,11 @@ fun TrackingScreenContent(
 private val previewUiState = TrackingUiState(
     driverLocation = GeoPoint(-33.9581, 25.6014),      // sample NMU South Campus-ish coords
     destinationLocation = GeoPoint(-33.9615, 25.6089),
+    stops = listOf(
+        GeoPoint(-33.9590, 25.6030),
+        GeoPoint(-33.9600, 25.6050)
+    ),
+    currentStopIndex = 1,
     isConnected = true,
     error = null,
     tripInfo = TripTrackingInfo(
@@ -199,6 +206,8 @@ private fun OsmMapSection(uiState: TrackingUiState) {
         OsmMapView(
             driverLocation = uiState.driverLocation,
             destinationLocation = uiState.destinationLocation,
+            stops = uiState.stops,
+            currentStopIndex = uiState.currentStopIndex,
             destinationLabel = uiState.tripInfo?.destinationLabel ?: "Destination",
             modifier = Modifier.fillMaxSize()
         )
@@ -236,44 +245,148 @@ private fun OsmMapSection(uiState: TrackingUiState) {
 private fun OsmMapView(
     driverLocation: GeoPoint?,
     destinationLocation: GeoPoint?,
+    stops: List<GeoPoint> = emptyList(),
+    currentStopIndex: Int = 0,
     destinationLabel: String,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
+    val cartoDbPositron = remember {
+        XYTileSource(
+            "CartoDB Positron",
+            1, 19, 256, ".png",
+            arrayOf(
+                "https://a.basemaps.cartocdn.com/light_all/",
+                "https://b.basemaps.cartocdn.com/light_all/",
+                "https://c.basemaps.cartocdn.com/light_all/",
+                "https://d.basemaps.cartocdn.com/light_all/"
+            ),
+            "© OpenStreetMap contributors, © CARTO"
+        )
+    }
+
     val mapView = remember {
         Configuration.getInstance().userAgentValue = context.packageName
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK) // free OpenStreetMap tiles, no API key
+            setTileSource(cartoDbPositron) // cleaner "light" tiles
             setMultiTouchControls(true)
             controller.setZoom(16.0)
         }
     }
 
-    val driverMarker = remember { Marker(mapView) }
-    val destinationMarker = remember { Marker(mapView) }
-    val routeLine = remember { Polyline(mapView) }
+    val driverMarker = remember {
+        Marker(mapView).apply {
+            icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_driver_marker)
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        }
+    }
+    val destinationMarker = remember {
+        Marker(mapView).apply {
+            icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_destination_marker)
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        }
+    }
+    
+    // Intermediate stops markers
+    val stopMarkers = remember { mutableListOf<Marker>() }
 
-    DisposableEffect(Unit) {
-        mapView.overlays.add(routeLine)
-        mapView.overlays.add(destinationMarker)
-        mapView.overlays.add(driverMarker)
-        onDispose { mapView.onDetach() }
+    val routeLineTraveled = remember { Polyline(mapView).apply { outlinePaint.color = UniRideOrange.toArgb() } }
+    val routeLineRemaining = remember { 
+        Polyline(mapView).apply { 
+            outlinePaint.color = UniRideNavy.copy(alpha = 0.6f).toArgb()
+            outlinePaint.pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
+        } 
     }
 
-    LaunchedEffect(driverLocation, destinationLocation) {
-        driverLocation?.let { point ->
-            driverMarker.position = point
-            driverMarker.title = "Your shuttle"
-            mapView.controller.animateTo(point)
+    DisposableEffect(Unit) {
+        mapView.overlays.add(routeLineTraveled)
+        mapView.overlays.add(routeLineRemaining)
+        mapView.overlays.add(destinationMarker)
+        mapView.overlays.add(driverMarker)
+        onDispose { 
+            mapView.onDetach() 
+            stopMarkers.forEach { mapView.overlays.remove(it) }
         }
+    }
+
+    // Smooth Driver Marker Animation
+    LaunchedEffect(driverLocation) {
+        driverLocation?.let { target ->
+            val start = driverMarker.position
+            if (start == null || (start.latitude == 0.0 && start.longitude == 0.0)) {
+                driverMarker.position = target
+                mapView.controller.animateTo(target)
+            } else {
+                // Animate over 1.5s (slightly less than the 2s update interval)
+                val duration = 1500L
+                val startTime = System.currentTimeMillis()
+                while (System.currentTimeMillis() - startTime < duration) {
+                    val progress = (System.currentTimeMillis() - startTime).toFloat() / duration
+                    val lat = start.latitude + (target.latitude - start.latitude) * progress
+                    val lng = start.longitude + (target.longitude - start.longitude) * progress
+                    driverMarker.position = GeoPoint(lat, lng)
+                    
+                    // Update traveled route line to follow the marker
+                    val traveledPoints = mutableListOf<GeoPoint>()
+                    // Add all passed stops to the traveled line
+                    for (i in 0 until currentStopIndex) {
+                        if (i < stops.size) traveledPoints.add(stops[i])
+                    }
+                    traveledPoints.add(driverMarker.position)
+                    routeLineTraveled.setPoints(traveledPoints)
+                    
+                    mapView.invalidate()
+                    kotlinx.coroutines.delay(16) // ~60fps
+                }
+                driverMarker.position = target
+            }
+        }
+    }
+
+    // Update markers and remaining route
+    LaunchedEffect(driverLocation, destinationLocation, stops, currentStopIndex) {
         destinationLocation?.let { point ->
             destinationMarker.position = point
             destinationMarker.title = destinationLabel
         }
-        if (driverLocation != null && destinationLocation != null) {
-            routeLine.setPoints(listOf(driverLocation, destinationLocation))
+        
+        // Update Stop Markers
+        // Clear old stop markers from overlays
+        stopMarkers.forEach { mapView.overlays.remove(it) }
+        stopMarkers.clear()
+        
+        stops.forEachIndexed { index, point ->
+            val marker = Marker(mapView).apply {
+                position = point
+                icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_stop_marker)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                
+                // Dim passed stops
+                if (index < currentStopIndex) {
+                    alpha = 0.4f
+                    title = "Passed Stop"
+                } else if (index == currentStopIndex) {
+                    alpha = 1.0f
+                    title = "Next Stop"
+                } else {
+                    alpha = 0.8f
+                    title = "Upcoming Stop"
+                }
+            }
+            stopMarkers.add(marker)
+            mapView.overlays.add(marker)
         }
+        
+        // Update remaining route line
+        val remainingPoints = mutableListOf<GeoPoint>()
+        driverLocation?.let { remainingPoints.add(it) }
+        for (i in currentStopIndex until stops.size) {
+            remainingPoints.add(stops[i])
+        }
+        destinationLocation?.let { remainingPoints.add(it) }
+        routeLineRemaining.setPoints(remainingPoints)
+
         mapView.invalidate()
     }
 

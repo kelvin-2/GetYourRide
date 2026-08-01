@@ -82,10 +82,10 @@ fun CarpoolHomeScreen(
             FindCarpoolHeader(
                 pickupState                     = pickupState,
                 destinationState                = destinationState,
-                onPickupTextChanged             = searchViewModel::onPickupTextChanged,
-                onPickupSuggestionSelected      = searchViewModel::onPickupSuggestionSelected,
-                onDestinationTextChanged        = searchViewModel::onDestinationTextChanged,
-                onDestinationSuggestionSelected = searchViewModel::onDestinationSuggestionSelected,
+                onPickupTextChanged             = { searchViewModel.onPickupTextChanged(it) },
+                onPickupSuggestionSelected      = { searchViewModel.onPickupSuggestionSelected(it) },
+                onDestinationTextChanged        = { searchViewModel.onDestinationTextChanged(it) },
+                onDestinationSuggestionSelected = { searchViewModel.onDestinationSuggestionSelected(it) },
                 onSearchRides = {
                     val pickup = pickupState.selected
                     val destination = destinationState.selected

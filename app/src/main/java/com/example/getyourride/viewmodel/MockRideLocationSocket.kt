@@ -14,6 +14,7 @@ class MockRideLocationSocket : RideLocationSocket {
     override fun connect(
         rideId: String,
         onUpdate: (DriverLocationUpdate) -> Unit,
+        onStopUpdate: (Int) -> Unit,
         onError: (String) -> Unit
     ) {
         job?.cancel()
@@ -21,6 +22,7 @@ class MockRideLocationSocket : RideLocationSocket {
             // Starting point (roughly around Gqeberha/Port Elizabeth area for context)
             var lat = -33.99
             var lng = 25.66
+            var count = 0
 
             while (isActive) {
                 // Simulate small movements towards a "destination"
@@ -34,6 +36,13 @@ class MockRideLocationSocket : RideLocationSocket {
                         heading = Random.nextFloat() * 360f
                     )
                 )
+
+                // Simulate passing a stop every 10 updates
+                count++
+                if (count % 10 == 0) {
+                    onStopUpdate(count / 10)
+                }
+
                 delay(2000) // Update every 2 seconds
             }
         }

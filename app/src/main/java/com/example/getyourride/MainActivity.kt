@@ -61,6 +61,7 @@ import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
 import com.example.getyourride.viewmodel.MockRideLocationSocket
+import com.example.getyourride.viewmodel.StompRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
 import com.example.getyourride.viewmodel.TrackingViewModelFactory
 import com.example.getyourride.ui.screens.Tracking.TrackingScreen
@@ -309,10 +310,10 @@ class MainActivity : ComponentActivity() {
                             isDriverVerified = UserSession.canPerformDriverActions,
                             pickupState = pickupState,
                             destinationState = destinationState,
-                            onPickupTextChanged = offerRideViewModel::onPickupTextChanged,
-                            onPickupSuggestionSelected = offerRideViewModel::onPickupSuggestionSelected,
-                            onDestinationTextChanged = offerRideViewModel::onDestinationTextChanged,
-                            onDestinationSuggestionSelected = offerRideViewModel::onDestinationSuggestionSelected,
+                            onPickupTextChanged = { text -> offerRideViewModel.onPickupTextChanged(text) },
+                            onPickupSuggestionSelected = { suggestion -> offerRideViewModel.onPickupSuggestionSelected(suggestion) },
+                            onDestinationTextChanged = { text -> offerRideViewModel.onDestinationTextChanged(text) },
+                            onDestinationSuggestionSelected = { suggestion -> offerRideViewModel.onDestinationSuggestionSelected(suggestion) },
                             onPostRideClick = { request -> offerRideViewModel.postRide(request) },
                             errorMessage    = offerRideViewModel.errorMessage,
                             statusMessage   = when (submitStatus) {
@@ -489,10 +490,8 @@ class MainActivity : ComponentActivity() {
                     composable(GyrRoutes.PROFILE) {
                         ProfileScreen(
                             onEditProfile = { /* TODO: edit profile screen */ },
-                            onMyRides = {
-                                navController.navigate(if (UserSession.isFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
-                            },
                             onLoggedOut = {
+                                UserSession.clear()
                                 navController.navigate("login") {
                                     popUpTo(0) { inclusive = true }
                                 }
@@ -813,10 +812,16 @@ class MainActivity : ComponentActivity() {
                     // ── TRACK RIDE ─────────────────────────────────────────────
                     // Route for the bottom nav tab (no ID)
                     composable(GyrRoutes.TRACK) {
+                        val useRealSocket = false // TOGGLE THIS FOR REAL DATA
+                        val socket = remember {
+                            if (useRealSocket) StompRideLocationSocket()
+                            else MockRideLocationSocket()
+                        }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
                                 rideId = "0", // Default state
-                                socket = remember { MockRideLocationSocket() }
+                                socket = socket,
+                                tripApi = NetworkModule.tripApi
                             )
                         )
                         TrackingScreen(
@@ -828,10 +833,16 @@ class MainActivity : ComponentActivity() {
                     // Route for direct tracking from My Rides (with ID)
                     composable("track/{rideId}") { backStackEntry ->
                         val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
+                        val useRealSocket = false // TOGGLE THIS FOR REAL DATA
+                        val socket = remember {
+                            if (useRealSocket) StompRideLocationSocket()
+                            else MockRideLocationSocket()
+                        }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
                                 rideId = rideId,
-                                socket = remember { MockRideLocationSocket() }
+                                socket = socket,
+                                tripApi = NetworkModule.tripApi
                             )
                         )
                         TrackingScreen(
