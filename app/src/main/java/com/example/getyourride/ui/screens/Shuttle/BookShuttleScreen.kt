@@ -89,7 +89,7 @@ fun BookShuttleScreen(
                 TripLocationCard(
                     pickupLabel = uiState.pickupLabel,
                     destinationLabel = uiState.destinationLabel,
-                    onSwapClick = viewModel::onSwapLocations,
+                    onSwapClick = { viewModel.onSwapLocations() },
                     onPickupClick = onPickPickup,
                     onDestinationClick = onPickDestination
                 )
@@ -119,7 +119,7 @@ fun BookShuttleScreen(
                 DepartureTimeGrid(
                     times = uiState.availableTimes,
                     selectedTime = uiState.selectedTime,
-                    onTimeSelected = viewModel::onTimeSelected
+                    onTimeSelected = { time -> viewModel.onTimeSelected(time) }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

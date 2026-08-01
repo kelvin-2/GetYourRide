@@ -55,14 +55,24 @@ fun StudentLayout(
                 GyrBottomNav(
                     currentRoute = currentRoute,
                     onNavigate = { route ->
-                        navController.navigate(route) {
+                        try {
+                            navController.navigate(route) {
+                                // SAFELY access the graph if it exists. 
+                                // Sometimes Live Edit or fast tab switching can 
+                                // trigger a nav call before the graph is attached.
+                                try {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                } catch (e: Exception) {
+                                    // Fallback: graph not ready or startDestination missing
+                                }
 
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
+                                restoreState = true
+                                launchSingleTop = true
                             }
-
-                            restoreState = true
-                            launchSingleTop = true
+                        } catch (e: Exception) {
+                            android.util.Log.e("StudentLayout", "Navigation failed: ${e.message}")
                         }
                     }
                 )

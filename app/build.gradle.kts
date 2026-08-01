@@ -79,6 +79,10 @@ dependencies {
 
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
+    // STOMP WebSocket support
+    implementation("org.hildan.krossbow:krossbow-stomp-core:9.3.0")
+    implementation("org.hildan.krossbow:krossbow-websocket-okhttp:9.3.0")
+
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.zxing:core:3.5.3")
 }

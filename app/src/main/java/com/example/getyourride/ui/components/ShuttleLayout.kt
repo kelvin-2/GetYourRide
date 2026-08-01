@@ -28,12 +28,20 @@ fun ShuttleLayout(
             GyrBottomNav(
                 currentRoute = currentRoute,
                 onNavigate   = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
+                    try {
+                        navController.navigate(route) {
+                            try {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                            } catch (e: Exception) {
+                                // Fallback
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
+                    } catch (e: Exception) {
+                        android.util.Log.e("ShuttleLayout", "Navigation failed: ${e.message}")
                     }
                 },
                 isShuttle = true

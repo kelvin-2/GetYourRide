@@ -22,16 +22,17 @@ interface TripApi {
     @GET("api/trips/status/{status}")
     suspend fun getTripsByStatus(@Path("status") status: String): Response<List<TripResponse>>
 
-    // GET /api/trips/search?pickupLat=...&pickupLng=...&destinationLat=...&destinationLng=...
-    // Backend not built yet — frontend sends the query now so the endpoint just needs
-    // to be dropped in later with matching param names.
+    // GET /api/trips/search?depLat=...&depLng=...&destLat=...&destLng=...
     @GET("api/trips/search")
     suspend fun searchTrips(
-        @Query("pickupLat") pickupLat: Double,
-        @Query("pickupLng") pickupLng: Double,
-        @Query("destinationLat") destinationLat: Double,
-        @Query("destinationLng") destinationLng: Double
+        @Query("depLat") departureLat: Double,
+        @Query("depLng") departureLng: Double,
+        @Query("destLat") destinationLat: Double,
+        @Query("destLng") destinationLng: Double
     ): Response<List<TripResponse>>
+
+    @GET("api/trips/{id}")
+    suspend fun getTripById(@Path("id") tripId: Long): Response<TripResponse>
 
     @PATCH("api/trips/{id}/cancel")
     suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>

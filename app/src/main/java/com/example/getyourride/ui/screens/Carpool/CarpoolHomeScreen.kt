@@ -57,7 +57,7 @@ fun CarpoolHomeScreen(
     onViewAllTrips      : () -> Unit               = {},
     onSearchRides       : (pickup: AddressSuggestion, destination: AddressSuggestion) -> Unit = { _, _ -> },
     onNotifications     : () -> Unit               = {},
-    navController       : androidx.navigation.NavController = rememberNavController(),
+    navController       : androidx.navigation.NavController,
 )
 
 {
@@ -82,10 +82,10 @@ fun CarpoolHomeScreen(
             FindCarpoolHeader(
                 pickupState                     = pickupState,
                 destinationState                = destinationState,
-                onPickupTextChanged             = searchViewModel::onPickupTextChanged,
-                onPickupSuggestionSelected      = searchViewModel::onPickupSuggestionSelected,
-                onDestinationTextChanged        = searchViewModel::onDestinationTextChanged,
-                onDestinationSuggestionSelected = searchViewModel::onDestinationSuggestionSelected,
+                onPickupTextChanged             = { searchViewModel.onPickupTextChanged(it) },
+                onPickupSuggestionSelected      = { searchViewModel.onPickupSuggestionSelected(it) },
+                onDestinationTextChanged        = { searchViewModel.onDestinationTextChanged(it) },
+                onDestinationSuggestionSelected = { searchViewModel.onDestinationSuggestionSelected(it) },
                 onSearchRides = {
                     val pickup = pickupState.selected
                     val destination = destinationState.selected
@@ -409,5 +409,9 @@ private fun RecentTripsSection(onViewAll: () -> Unit) {
 @Preview(showBackground = true, showSystemUi = true, name = "Carpool Home")
 @Composable
 fun CarpoolHomePreview() {
-    MaterialTheme { CarpoolHomeScreen() } // defaults to Loading state
+    MaterialTheme { 
+        CarpoolHomeScreen(
+            navController = rememberNavController()
+        ) 
+    } // defaults to Loading state
 }

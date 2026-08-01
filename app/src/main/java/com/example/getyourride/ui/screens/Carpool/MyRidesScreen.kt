@@ -42,7 +42,7 @@ private enum class RideTab(val label: String) {
 fun MyRidesScreen(
     viewModel     : AllRidesViewModel,
     onTrackRide   : (String) -> Unit = {},
-    navController : androidx.navigation.NavController = rememberNavController(),
+    navController : androidx.navigation.NavController,
     currentRoute  : String = GyrRoutes.RIDES,
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }

@@ -30,12 +30,14 @@ class ProfileViewModel : ViewModel() {
             try {
                 val user = UserSession.current
                 if (user != null) {
+                    val firstName = user.firstName ?: ""
+                    val lastName = user.lastName ?: ""
                     val profile = StudentProfile(
-                        name = "${user.firstName} ${user.lastName}",
-                        initials = "${user.firstName.take(1)}${user.lastName.take(1)}".uppercase(),
-                        studentNumber = "S-${user.studentNumber}", // Fallback since studentNumber isn't in AuthResponse
-                        email = user.email,
-                        phone = user.phone,
+                        name = "$firstName $lastName".trim(),
+                        initials = "${firstName.take(1)}${lastName.take(1)}".uppercase(),
+                        studentNumber = user.studentNumber ?: "N/A",
+                        email = user.email ?: "",
+                        phone = user.phone ?: "",
                         isNsfasFunded = user.isFunded ?: false
                     )
                     _uiState.value = ProfileUiState.Success(profile)
