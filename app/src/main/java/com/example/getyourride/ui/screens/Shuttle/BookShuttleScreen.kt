@@ -119,7 +119,7 @@ fun BookShuttleScreen(
                 DepartureTimeGrid(
                     times = uiState.availableTimes,
                     selectedTime = uiState.selectedTime,
-                    onTimeSelected = { time -> viewModel.onTimeSelected(time) }
+                    onTimeSelected = { slot -> viewModel.onTimeSelected(slot) }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

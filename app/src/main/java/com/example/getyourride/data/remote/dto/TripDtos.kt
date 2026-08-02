@@ -24,12 +24,10 @@ data class TripResponse(
     val availableSeats: Int,
     val price: BigDecimal,
     val status: String,
+    val slotTime: String? = null,   // NEW — "06:45:00 - 07:30:00", matches backend TripResponse.slotTime
     val vehicleModel: String?,
     val vehicleColour: String?,
     val vehicleCapacity: Int?,
-    // NEW - matches the "stops" array your backend already returns per trip.
-    // Defaults to emptyList() so older/mocked responses without this field
-    // still parse fine instead of crashing Gson.
     val stops: List<TripStopResponse> = emptyList()
 )
 

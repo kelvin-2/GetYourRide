@@ -13,6 +13,7 @@
 
     <application
         android:name=".GetYourRideApp"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
