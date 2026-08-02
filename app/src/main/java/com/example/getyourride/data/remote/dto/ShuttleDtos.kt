@@ -17,9 +17,25 @@ data class ShuttleTimeSlotResponse(
 )
 
 /**
- * UI representation of a time slot, capturing both the period and the time string.
+ * UI representation of a time slot.
+ * `slotId` and `arrives` are needed to resolve the real Trip that matches
+ * this slot before booking — slotId is NOT the same as Trip.tripId.
  */
 data class ShuttleTimeSlot(
+    val slotId: Int,
     val departs: String,
+    val arrives: String,
     val period: String
+)
+data class BookingConfirmationResponse(
+    val bookingId: Long,
+    val tripId: Long,
+    val status: String,
+    val message: String
+)
+
+data class ShuttleBookingSummaryResponse(
+    val bookingConfirmation: BookingConfirmationResponse,
+    val myShuttleTrips: List<TripResponse>,
+    val allShuttleTrips: List<TripResponse>
 )

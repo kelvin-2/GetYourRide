@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
+import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.repository.ShuttleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,9 +19,11 @@ data class ScheduleRideUiState(
     val destinationLabel: String = "Select Destination",
     val availableTimes: List<ShuttleTimeSlot> = emptyList(),
     val selectedTime: String? = null,
+    val selectedSlot: ShuttleTimeSlot? = null,
     val isConfirming: Boolean = false,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val lastBookedTrip: TripResponse? = null // real trip data for the confirmation screen
 )
 
 class ScheduleRideViewModel(
@@ -46,8 +49,8 @@ class ScheduleRideViewModel(
         }
     }
 
-    fun onTimeSelected(time: String) {
-        _uiState.update { it.copy(selectedTime = time) }
+    fun onTimeSelected(slot: ShuttleTimeSlot) {
+        _uiState.update { it.copy(selectedTime = slot.departs, selectedSlot = slot) }
     }
 
     fun onSwapLocations() {
@@ -60,15 +63,34 @@ class ScheduleRideViewModel(
     }
 
     fun onConfirmBooking(onSuccess: () -> Unit) {
+        val state = _uiState.value
+        val slot = state.selectedSlot
+
+        if (slot == null) {
+            _uiState.update { it.copy(errorMessage = "Please select a departure time") }
+            return
+        }
+        if (state.pickupLabel == "Select Pickup") {
+            _uiState.update { it.copy(errorMessage = "Please select a pickup stop") }
+            return
+        }
+
         _uiState.update { it.copy(isConfirming = true, errorMessage = null) }
         viewModelScope.launch {
             try {
-                // TODO: Wire to a real booking endpoint
-                kotlinx.coroutines.delay(1000)
-                _uiState.update { it.copy(isConfirming = false) }
+                val trip = repository.findAvailableTrip(state.pickupLabel, slot)
+                    ?: throw Exception("No shuttle available for this stop and time — try another slot")
+
+                repository.bookShuttle(trip.tripId)
+
+                // Store the real trip (driver, plate, vehicle, times) for the confirmation screen,
+                // instead of leaving the caller to invent placeholder data.
+                _uiState.update { it.copy(isConfirming = false, lastBookedTrip = trip) }
                 onSuccess()
             } catch (e: Exception) {
-                _uiState.update { it.copy(isConfirming = false, errorMessage = "Booking failed") }
+                _uiState.update {
+                    it.copy(isConfirming = false, errorMessage = e.message ?: "Booking failed")
+                }
             }
         }
     }

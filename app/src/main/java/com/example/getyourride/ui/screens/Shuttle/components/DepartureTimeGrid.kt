@@ -22,7 +22,7 @@ import com.example.getyourride.ui.theme.OrangeAccent
 fun DepartureTimeGrid(
     times: List<ShuttleTimeSlot>,
     selectedTime: String?,
-    onTimeSelected: (String) -> Unit,
+    onTimeSelected: (ShuttleTimeSlot) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val morningTimes = times.filter { it.period.equals("Morning", ignoreCase = true) }
@@ -54,7 +54,7 @@ private fun TimeSection(
     title: String,
     times: List<ShuttleTimeSlot>,
     selectedTime: String?,
-    onTimeSelected: (String) -> Unit
+    onTimeSelected: (ShuttleTimeSlot) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -74,7 +74,7 @@ private fun TimeSection(
                     TimeSlotChip(
                         time = slot.departs,
                         isSelected = slot.departs == selectedTime,
-                        onClick = { onTimeSelected(slot.departs) },
+                        onClick = { onTimeSelected(slot) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -108,7 +108,7 @@ private fun TimeSlotChip(
     ) {
         // Formats time like "06:45:00" -> "06:45"
         val displayTime = if (time.count { it == ':' } == 2) time.substringBeforeLast(':') else time
-        
+
         Text(
             text = displayTime,
             fontSize = 13.sp,
@@ -123,10 +123,10 @@ private fun TimeSlotChip(
 private fun DepartureTimeGridPreview() {
     DepartureTimeGrid(
         times = listOf(
-            ShuttleTimeSlot("06:45:00", "Morning"),
-            ShuttleTimeSlot("07:45:00", "Morning"),
-            ShuttleTimeSlot("12:30:00", "Afternoon"),
-            ShuttleTimeSlot("14:30:00", "Afternoon")
+            ShuttleTimeSlot(1, "06:45:00", "07:30:00", "Morning"),
+            ShuttleTimeSlot(2, "07:45:00", "08:30:00", "Morning"),
+            ShuttleTimeSlot(5, "12:30:00", "13:15:00", "Afternoon"),
+            ShuttleTimeSlot(6, "14:30:00", "15:15:00", "Afternoon")
         ),
         selectedTime = "07:45:00",
         onTimeSelected = {}

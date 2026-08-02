@@ -513,9 +513,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         LaunchedEffect(Unit) {
-                            if (shuttleViewModel.uiState is ShuttleUiState.Loading) {
-                                shuttleViewModel.loadShuttleHomeData()
-                            }
+                            shuttleViewModel.loadShuttleHomeData()
                         }
 
                         when (val state = shuttleViewModel.uiState) {
@@ -660,16 +658,17 @@ class MainActivity : ComponentActivity() {
                             },
                             onBookingConfirmed = {
                                 val uiState = shuttleViewModel.uiState.value
+                                val trip = uiState.lastBookedTrip
                                 confirmedShuttle = BookingConfirmation(
-                                    shuttleId = "SH-102",
+                                    shuttleId = trip?.tripId?.toString() ?: "SH-102",
                                     ticketId = "GYR-" + (1000..9999).random(),
                                     pickupLocation = uiState.pickupLabel,
                                     dropoffLocation = uiState.destinationLabel,
                                     date = "Today",
                                     departureTime = uiState.selectedTime ?: "08:30",
-                                    driverName = "S. Mokoena",
-                                    plateNumber = "BS 42 GP",
-                                    vehicleModel = "Mercedes Sprinter"
+                                    driverName = trip?.driverName ?: "S. Mokoena",
+                                    plateNumber = trip?.registrationNumber ?: "BS 42 GP",
+                                    vehicleModel = trip?.vehicleModel ?: "Mercedes Sprinter"
                                 )
                                 navController.navigate("shuttle_booking_confirmed") {
                                     popUpTo("shuttle_home")
@@ -703,7 +702,7 @@ class MainActivity : ComponentActivity() {
                     // ── ADD A STOP (SHUTTLE) ───────────────────────────────────
                     composable("add_stop_shuttle/{type}") { backStackEntry ->
                         val type = backStackEntry.arguments?.getString("type") ?: "pickup"
-                        
+
                         val shuttleStopSearchViewModel: ShuttleStopSearchViewModel = viewModel(
                             factory = ShuttleStopSearchViewModelFactory(
                                 ShuttleRepository(
