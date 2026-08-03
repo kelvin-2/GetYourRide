@@ -14,7 +14,7 @@ class MockRideLocationSocket : RideLocationSocket {
     override fun connect(
         rideId: String,
         onUpdate: (DriverLocationUpdate) -> Unit,
-        onStopUpdate: (Int) -> Unit,
+        onStopUpdate: (stopId: Long) -> Unit,
         onError: (String) -> Unit
     ) {
         job?.cancel()
@@ -28,7 +28,7 @@ class MockRideLocationSocket : RideLocationSocket {
                 // Simulate small movements towards a "destination"
                 lat += (Random.nextDouble() - 0.45) * 0.001
                 lng += (Random.nextDouble() - 0.45) * 0.001
-                
+
                 onUpdate(
                     DriverLocationUpdate(
                         latitude = lat,
@@ -37,10 +37,12 @@ class MockRideLocationSocket : RideLocationSocket {
                     )
                 )
 
-                // Simulate passing a stop every 10 updates
+                // Simulate passing a stop every 10 updates. This is preview/demo data, not a real
+                // trip_stop.id - TrackingViewModel treats it as a plain index since stopIds is
+                // never populated for the mock's synthetic trip.
                 count++
                 if (count % 10 == 0) {
-                    onStopUpdate(count / 10)
+                    onStopUpdate((count / 10).toLong())
                 }
 
                 delay(2000) // Update every 2 seconds

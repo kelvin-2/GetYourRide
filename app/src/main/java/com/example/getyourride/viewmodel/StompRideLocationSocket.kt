@@ -1,5 +1,6 @@
 package com.example.getyourride.viewmodel
 
+import com.example.getyourride.UserSession
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.*
@@ -26,42 +27,63 @@ class StompRideLocationSocket(
     override fun connect(
         rideId: String,
         onUpdate: (DriverLocationUpdate) -> Unit,
-        onStopUpdate: (Int) -> Unit,
+        onStopUpdate: (stopId: Long) -> Unit,
         onError: (String) -> Unit
     ) {
         if (isConnecting) return
         isConnecting = true
-        
+
         scope.launch {
             var retryDelay = 2000L
             val maxDelay = 30000L
-            
+
             while (isActive) {
                 try {
-                    val httpClient = OkHttpClient()
+                    // The /ws handshake goes through the same Spring Security filter chain as any
+                    // REST call and requires "Authorization: Bearer <token>" (see JwtAuthFilter).
+                    // A plain OkHttpClient() sends no such header, so the handshake gets rejected
+                    // once the endpoint actually enforces authentication - attach the same
+                    // interceptor pattern used for Retrofit in NetworkModule.
+                    val authInterceptor = okhttp3.Interceptor { chain ->
+                        val original = chain.request()
+                        val token = UserSession.token
+                        val request = if (token != null) {
+                            original.newBuilder()
+                                .addHeader("Authorization", "Bearer $token")
+                                .build()
+                        } else {
+                            original
+                        }
+                        chain.proceed(request)
+                    }
+                    val httpClient = OkHttpClient.Builder()
+                        .addInterceptor(authInterceptor)
+                        .build()
                     val client = StompClient(OkHttpWebSocketClient(httpClient))
-                    
+
                     session = client.connect(baseUrl)
                     isConnecting = false
                     retryDelay = 2000L // Reset delay on success
-                    
+
                     // Subscribe to the trip topic
                     val subscription = session?.subscribeText("/topic/trip/$rideId")
-                    
+
                     subscription?.collect { message ->
                         try {
                             val json = gson.fromJson(message, JsonObject::class.java)
                             val type = if (json.has("type")) json.get("type").asString else null
-                            
+
                             when (type) {
                                 "LOCATION_UPDATE" -> {
-                                    if (json.has("data")) {
-                                        val data = json.getAsJsonObject("data")
+                                    // Wire format is flat, per LocationUpdateDTO and
+                                    // TrackingMessageContractTest on the backend:
+                                    // {"type":"LOCATION_UPDATE","tripId":42,"lat":-33.96,"lng":25.61,"legIndex":1}
+                                    if (json.has("lat") && json.has("lng")) {
                                         val update = DriverLocationUpdate(
-                                            latitude = data.get("latitude").asDouble,
-                                            longitude = data.get("longitude").asDouble,
-                                            heading = if (data.has("heading")) data.get("heading").asFloat else 0f,
-                                            timestamp = if (data.has("timestamp")) data.get("timestamp").asLong else System.currentTimeMillis()
+                                            latitude = json.get("lat").asDouble,
+                                            longitude = json.get("lng").asDouble,
+                                            heading = 0f,
+                                            timestamp = System.currentTimeMillis()
                                         )
                                         withContext(Dispatchers.Main) {
                                             onUpdate(update)
@@ -69,9 +91,13 @@ class StompRideLocationSocket(
                                     }
                                 }
                                 "STOP_EVENT" -> {
-                                    val stopIndex = if (json.has("stopIndex")) json.get("stopIndex").asInt else 0
+                                    // Wire format per StopEventDTO:
+                                    // {"type":"STOP_EVENT","tripId":42,"stopId":7,"status":"ARRIVED"}
+                                    // stopId is trip_stop.id, not a list index - callers that need a
+                                    // position in the stops list must resolve it themselves.
+                                    val stopId = if (json.has("stopId")) json.get("stopId").asLong else 0L
                                     withContext(Dispatchers.Main) {
-                                        onStopUpdate(stopIndex)
+                                        onStopUpdate(stopId)
                                     }
                                 }
                             }
