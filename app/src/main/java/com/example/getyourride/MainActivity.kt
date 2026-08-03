@@ -216,12 +216,11 @@ class MainActivity : ComponentActivity() {
                             onBackClick         = { navController.popBackStack() },
                             onLoginClick        = { navController.popBackStack() },
                             onBecomeDriverClick = { navController.navigate("driver_step_1") },
-                            onSignUpClick = { fullName, studentNumber, email, password, isFunded ->
-                                val nameParts = fullName.trim().split(" ", limit = 2)
+                            onSignUpClick = { firstName, lastName, studentNumber, email, password, isFunded ->
                                 authViewModel.register(
                                     studentNumber = studentNumber,
-                                    firstName     = nameParts.getOrElse(0) { "" },
-                                    lastName      = nameParts.getOrElse(1) { "" },
+                                    firstName     = firstName,
+                                    lastName      = lastName,
                                     email         = email,
                                     phone         = "",
                                     password      = password,
@@ -823,11 +822,10 @@ class MainActivity : ComponentActivity() {
                     // ── TRACK RIDE ─────────────────────────────────────────────
                     // Route for the bottom nav tab (no ID)
                     composable(GyrRoutes.TRACK) {
-                        val useRealSocket = false // TOGGLE THIS FOR REAL DATA
-                        val socket = remember {
-                            if (useRealSocket) StompRideLocationSocket()
-                            else MockRideLocationSocket()
-                        }
+                        // Stays on the mock: rideId is hardcoded to "0" below (no real trip to
+                        // track from this entry point), so a real socket would just fail trying
+                        // to subscribe to a trip that doesn't exist.
+                        val socket = remember { MockRideLocationSocket() }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
                                 rideId = "0", // Default state
@@ -845,11 +843,10 @@ class MainActivity : ComponentActivity() {
                     // Route for direct tracking from My Rides (with ID)
                     composable("track/{rideId}") { backStackEntry ->
                         val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
-                        val useRealSocket = false // TOGGLE THIS FOR REAL DATA
-                        val socket = remember {
-                            if (useRealSocket) StompRideLocationSocket()
-                            else MockRideLocationSocket()
-                        }
+                        // This route always has a real trip id, so it uses the real STOMP socket.
+                        // Was previously hardcoded to the mock ("useRealSocket = false") here too,
+                        // which meant live tracking never actually connected to the backend.
+                        val socket = remember { StompRideLocationSocket() }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
                                 rideId = rideId,

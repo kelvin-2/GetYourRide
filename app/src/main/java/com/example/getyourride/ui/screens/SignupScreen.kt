@@ -40,16 +40,17 @@ import com.example.getyourride.ui.components.*
 @Composable
 fun SignUpScreen(
     onBackClick          : () -> Unit = {},
-    onCreateAccountClick : () -> Unit = {},   // ✅ default added — preview now compiles
-    onLoginClick         : () -> Unit = {},   // ✅ zero-arg — just navigates back, not a real login call
+    onCreateAccountClick : () -> Unit = {},   // Default no-op so the @Preview functions compile without wiring navigation
+    onLoginClick         : () -> Unit = {},   // Zero-arg callback; navigates back rather than performing a real login
     onBecomeDriverClick  : () -> Unit = {},
     onTermsClick         : () -> Unit = {},
     onPrivacyClick       : () -> Unit = {},
-    onSignUpClick         : (fullName: String, studentNumber: String, email: String, password: String, isNsfasFunded: Boolean) -> Unit = { _, _, _, _, _ -> },
-    isLoading             : Boolean = false,   // ✅ now actually used below
-    errorMessage          : String? = null,    // ✅ now actually used below
+    onSignUpClick         : (firstName: String, lastName: String, studentNumber: String, email: String, password: String, isNsfasFunded: Boolean) -> Unit = { _, _, _, _, _, _ -> },
+    isLoading             : Boolean = false,   // Drives the loading spinner and disables the Sign Up button
+    errorMessage          : String? = null,    // Displayed above the Sign Up button when registration fails
 ) {
-    var fullName        by remember { mutableStateOf("") }
+    var firstName        by remember { mutableStateOf("") }
+    var lastName         by remember { mutableStateOf("") }
     var studentNumber   by remember { mutableStateOf("") }
     var universityEmail by remember { mutableStateOf("") }
     var password        by remember { mutableStateOf("") }
@@ -121,10 +122,18 @@ fun SignUpScreen(
                 ) {
 
                     GyrTextField(
-                        label         = "Full Name",
-                        value         = fullName,
-                        onValueChange = { fullName = it },
-                        placeholder   = "John Doe",
+                        label         = "First Name",
+                        value         = firstName,
+                        onValueChange = { firstName = it },
+                        placeholder   = "John",
+                        leadingIcon   = Icons.Outlined.Person,
+                    )
+
+                    GyrTextField(
+                        label         = "Last Name",
+                        value         = lastName,
+                        onValueChange = { lastName = it },
+                        placeholder   = "Doe",
                         leadingIcon   = Icons.Outlined.Person,
                     )
 
@@ -233,7 +242,7 @@ fun SignUpScreen(
                         )
                     }
 
-                    // ── Error message — shows above the Sign Up button when present ──
+                    // Error message, shown above the Sign Up button when present
                     if (errorMessage != null) {
                         Text(
                             text     = errorMessage,
@@ -245,18 +254,20 @@ fun SignUpScreen(
 
                     Spacer(Modifier.height(4.dp))
 
-                    // ── Sign Up button — shows spinner + disables while loading ────
+                    // Sign Up button; shows a spinner and disables itself while loading
                     Button(
                         onClick = {
                             onSignUpClick(
-                                fullName,
+                                firstName,
+                                lastName,
                                 studentNumber,
                                 universityEmail,
                                 password,
                                 isNsfasFunded == true,
                             )
                         },
-                        enabled  = agreedToTerms && isNsfasFunded != null && !isLoading,
+                        enabled  = firstName.isNotBlank() && lastName.isNotBlank() &&
+                                agreedToTerms && isNsfasFunded != null && !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
