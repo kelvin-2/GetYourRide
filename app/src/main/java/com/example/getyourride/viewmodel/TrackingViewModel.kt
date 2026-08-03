@@ -26,6 +26,10 @@ data class TrackingUiState(
     val driverLocation: GeoPoint? = null,
     val destinationLocation: GeoPoint? = null,
     val stops: List<GeoPoint> = emptyList(),
+    // trip_stop.id for each entry in `stops`, same order, same length. Needed because
+    // STOP_EVENT broadcasts carry a stopId (see RideLocationSocket doc below), not a
+    // position in this list, so we need a way to translate one into the other.
+    val stopIds: List<Long> = emptyList(),
     val currentStopIndex: Int = 0,
     val tripInfo: TripTrackingInfo? = null,
     val isConnected: Boolean = false,
@@ -40,7 +44,9 @@ interface RideLocationSocket {
     fun connect(
         rideId: String,
         onUpdate: (DriverLocationUpdate) -> Unit,
-        onStopUpdate: (Int) -> Unit,
+        // Carries trip_stop.id, per the backend's StopEventDTO contract - NOT a position
+        // in the stops list. TrackingViewModel resolves it against TrackingUiState.stopIds.
+        onStopUpdate: (stopId: Long) -> Unit,
         onError: (String) -> Unit
     )
     fun disconnect()
@@ -54,7 +60,7 @@ class TrackingViewModel(
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
-    
+
     private var pollingJob: Job? = null
 
     fun startTracking() {
@@ -91,8 +97,20 @@ class TrackingViewModel(
                     )
                 }
             },
-            onStopUpdate = { stopIndex ->
-                _uiState.update { it.copy(currentStopIndex = stopIndex) }
+            onStopUpdate = { stopId ->
+                _uiState.update { state ->
+                    // Real backend events carry trip_stop.id; the mock socket (demo/preview mode,
+                    // when stopIds is never populated) sends plain sequential positions instead.
+                    // Resolve against stopIds when we have them, otherwise fall back to treating
+                    // the value as an index so the demo still animates.
+                    val resolvedIndex = if (state.stopIds.isNotEmpty()) {
+                        val index = state.stopIds.indexOf(stopId)
+                        if (index >= 0) index else state.currentStopIndex
+                    } else {
+                        stopId.toInt()
+                    }
+                    state.copy(currentStopIndex = resolvedIndex)
+                }
             },
             onError = { message ->
                 _uiState.update { it.copy(isConnected = false, error = message) }
@@ -103,7 +121,7 @@ class TrackingViewModel(
 
     private fun startPollingIfDisconnected() {
         if (pollingJob?.isActive == true || rideId == "0") return
-        
+
         pollingJob = viewModelScope.launch {
             while (!_uiState.value.isConnected) {
                 loadTripDetails()
@@ -121,9 +139,10 @@ class TrackingViewModel(
                     trip?.let { t ->
                         _uiState.update { state ->
                             state.copy(
-                                destinationLocation = if (t.destinationLat != null && t.destinationLng != null) 
+                                destinationLocation = if (t.destinationLat != null && t.destinationLng != null)
                                     GeoPoint(t.destinationLat, t.destinationLng) else state.destinationLocation,
                                 stops = t.stops.map { GeoPoint(it.latitude, it.longitude) },
+                                stopIds = t.stops.map { it.id },
                                 tripInfo = TripTrackingInfo(
                                     driverName = t.driverName ?: "Unknown Driver",
                                     driverRating = 4.8,
