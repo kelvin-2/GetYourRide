@@ -36,12 +36,16 @@ import com.example.getyourride.ui.theme.OrangeAccent
 // ---------- Data models for this screen ----------
 
 data class UpcomingShuttle(
+    val tripId: String,
     val from: String,
     val to: String,
     val status: String,
     val time: String,
     val date: String,
-    val seat: String
+    val seat: String,
+    val driverName: String? = null,
+    val plateNumber: String? = null,
+    val vehicleModel: String? = null
 )
 
 data class RecentTrip(
@@ -387,12 +391,16 @@ private fun ShuttleHomeScreenPreview() {
         userName = "Alex",
         upcomingShuttles = listOf(
             UpcomingShuttle(
+                tripId = "SH-101",
                 from = "Gqeberha",
                 to = "Missionvale",
                 status = "Active",
                 time = "08:30",
                 date = "Today, 14 Oct",
-                seat = "12A"
+                seat = "12A",
+                driverName = "S. Mokoena",
+                plateNumber = "BS 42 GP",
+                vehicleModel = "Mercedes Sprinter"
             )
         ),
         recentTrips = listOf(
