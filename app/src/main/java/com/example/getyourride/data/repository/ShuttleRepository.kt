@@ -64,12 +64,16 @@ class ShuttleRepository(
         }
 
         return UpcomingShuttle(
+            tripId = tripId.toString(),
             from = departureStop,
             to = destinationStop,
             status = status.lowercase().replaceFirstChar { it.uppercase() },
             time = dateTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: departureTime.takeLast(8),
             date = dateTime?.format(DateTimeFormatter.ofPattern("EEE, dd MMM")) ?: "Upcoming",
-            seat = "Any" // Backend doesn't return specific seat numbers yet
+            seat = "Any", // Backend doesn't return specific seat numbers yet
+            driverName = driverName,
+            plateNumber = registrationNumber,
+            vehicleModel = vehicleModel
         )
     }
 

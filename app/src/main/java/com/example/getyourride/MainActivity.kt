@@ -554,7 +554,19 @@ class MainActivity : ComponentActivity() {
                                     },
 
                                     onShowTicket = { shuttle ->
-                                        Toast.makeText(context, "Ticket: ${shuttle.from} → ${shuttle.to} — screen coming soon", Toast.LENGTH_SHORT).show()
+                                        confirmedShuttle = BookingConfirmation(
+                                            shuttleId = shuttle.tripId,
+                                            ticketId = "GYR-" + (1000..9999).random(),
+                                            pickupLocation = shuttle.from,
+                                            dropoffLocation = shuttle.to,
+                                            date = shuttle.date,
+                                            departureTime = shuttle.time,
+                                            driverName = shuttle.driverName ?: "S. Mokoena",
+                                            plateNumber = shuttle.plateNumber ?: "BS 42 GP",
+                                            vehicleModel = shuttle.vehicleModel ?: "Mercedes Sprinter",
+                                            status = shuttle.status
+                                        )
+                                        navController.navigate("shuttle_booking_confirmed")
                                     },
                                     onTripClick = { trip ->
                                         Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()

@@ -2,6 +2,7 @@ package com.example.getyourride.data.remote.api
 
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.remote.dto.TripStopRequest
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -54,15 +55,25 @@ interface TripApi {
     /**
      * POST /api/trips/offer — Student driver posts a new carpool ride.
      * Backend reads driver_id from the JWT token.
+     * Simpler flow: string date/time, farePerSeat, no intermediate stops.
      */
     @POST("api/trips/offer")
     suspend fun offerRide(
         @Body request: OfferRideRequest
     ): Response<OfferRideResponse>
+
+    /**
+     * POST /api/trips — Create a full trip (shuttle or student-driver).
+     * Backend endpoint: TripController#createTrip.
+     * Supports intermediate stops and a structured departureTime/price,
+     * unlike the simpler /api/trips/offer flow above.
+     */
+    @POST("api/trips")
+    suspend fun createTrip(@Body request: CreateTripRequest): Response<TripResponse>
 }
 
 /**
- * Request body for offering a ride.
+ * Request body for offering a ride (POST /api/trips/offer).
  */
 data class OfferRideRequest(
     val pickupLocation: String,
@@ -83,4 +94,28 @@ data class OfferRideRequest(
 data class OfferRideResponse(
     val tripId: Long,
     val message: String
+)
+
+/**
+ * Request body for creating a full trip (POST /api/trips).
+ * Mirrors backend CreateTripRequest exactly — field names and nullability matter
+ * for JSON deserialization on the Spring side (tripType/departureStop/destinationStop
+ * and departureTime/availableSeats/price are @NotBlank / @NotNull server-side).
+ *
+ * departureTime must be an ISO-8601 string (e.g. "2026-08-15T14:30:00") to match
+ * java.time.LocalDateTime on the backend.
+ * price is sent as a string to preserve precision when mapped to BigDecimal server-side.
+ */
+data class CreateTripRequest(
+    val tripType: String,              // "SHUTTLE" or "STUDENT_DRIVER"
+    val departureStop: String,
+    val destinationStop: String,
+    val departureLat: Double? = null,
+    val departureLng: Double? = null,
+    val destinationLat: Double? = null,
+    val destinationLng: Double? = null,
+    val departureTime: String,         // ISO-8601, e.g. "2026-08-15T14:30:00"
+    val availableSeats: Int,
+    val price: String,                 // decimal as string, e.g. "25.00"
+    val stops: List<TripStopRequest>? = null
 )
