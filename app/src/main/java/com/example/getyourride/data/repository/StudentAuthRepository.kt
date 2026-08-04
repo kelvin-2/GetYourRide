@@ -12,8 +12,10 @@
 
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.api.ShuttleDriverApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
 import com.example.getyourride.data.remote.dto.AuthResponse
+import com.example.getyourride.data.remote.dto.ShuttleDriverLoginRequest
 import com.example.getyourride.data.remote.dto.StudentLoginRequest
 import com.example.getyourride.data.remote.dto.StudentRegisterRequest
 
@@ -28,15 +30,51 @@ sealed class AuthResult {
 
 class StudentAuthRepository(
     private val api: StudentAuthApi,
+    private val shuttleDriverApi: ShuttleDriverApi? = null,
 ) {
 
     suspend fun login(email: String, password: String): AuthResult {
         return try {
             val response = api.login(StudentLoginRequest(email = email, password = password))
+
+            if (response.isSuccessful && response.body() != null) {
+                return AuthResult.Success(response.body()!!)
+            }
+
+            // Student login failed — try shuttle driver login if available
+            if (shuttleDriverApi != null) {
+                val driverResult = tryShuttleDriverLogin(email, password)
+                if (driverResult != null) return driverResult
+            }
+
+            // Both failed — return original student error
             handleResponse(response)
         } catch (e: Exception) {
-            // Network failure (no internet, server down, timeout, etc.)
+            // Network failure on student login — still try shuttle driver
+            if (shuttleDriverApi != null) {
+                val driverResult = tryShuttleDriverLogin(email, password)
+                if (driverResult != null) return driverResult
+            }
             AuthResult.Error(e.message ?: "Network error — could not reach server")
+        }
+    }
+
+    /**
+     * Try to log in as a shuttle driver.
+     * Returns AuthResult.Success if it works, null if it fails.
+     */
+    private suspend fun tryShuttleDriverLogin(email: String, password: String): AuthResult? {
+        return try {
+            val response = shuttleDriverApi!!.login(
+                ShuttleDriverLoginRequest(email = email, password = password)
+            )
+            if (response.isSuccessful && response.body() != null) {
+                AuthResult.Success(response.body()!!)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 

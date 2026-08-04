@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,198 +20,101 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.DirectionsBus
+import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.automirrored.outlined.FactCheck
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.data.remote.dto.BoardedStudentResponse
+import com.example.getyourride.data.remote.dto.ShuttleDriverActiveTripResponse
 import com.example.getyourride.ui.components.ShuttleDriverBottomBar
 import com.example.getyourride.ui.components.ShuttleDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
+import com.example.getyourride.viewmodel.BoardingUiState
 
-/*
- * ShuttleDriverBoardingScreen
- *
- * This is the Boarding page for the shuttle driver.
- *
- * Database tables this screen will later use:
- * - trip
- * - vehicle
- * - trip_booking
- * - student
- * - boarding_log
- * - shuttle_stop
- *
- * Important:
- * We do not create a new "boarding status" column in the database.
- * The frontend status is calculated from boarding_log.boarded_at:
- *
- * boarded_at == null     -> Pending
- * boarded_at is not null -> Boarded
- */
-
-// App colours matching the existing GetYourRide style.
-private val ShuttleBackground = Color(0xFFFBF8FD)
-private val ShuttlePrimary = Color(0xFF011844)
-private val ShuttleTopBar = Color(0xFF1A2E5A)
-private val ShuttleAccent = Color(0xFFFC820C)
-private val ShuttleCardBackground = Color(0xFFFFFFFF)
-private val ShuttleFieldBackground = Color(0xFFF5F3F7)
-private val ShuttleText = Color(0xFF1B1B1F)
-private val ShuttleTextMuted = Color(0xFF44464F)
-private val ShuttleOutline = Color(0xFF757780)
-private val ShuttleBorder = Color(0xFFE3E2E6)
-private val ShuttlePrimaryFixed = Color(0xFFDAE2FF)
-private val ShuttlePendingBackground = Color(0xFFFFF3CD)
-private val ShuttlePendingText = Color(0xFF8A5A00)
-private val ShuttleBoardedBackground = Color(0xFFE8F5E9)
-private val ShuttleBoardedText = Color(0xFF2E7D32)
-
-/*
- * Current shuttle trip shown at the top of the Boarding page.
- *
- * Database source later:
- * - trip.trip_id
- * - trip.departure_time
- * - trip.arrival_time
- * - trip.status
- * - shuttle_stop.stop_name for departure and destination names
- * - vehicle.capacity
- */
-@Immutable
-data class ShuttleBoardingTrip(
-    val tripId: Long,
-    val departureStopName: String,
-    val destinationStopName: String,
-    val departureTime: String,
-    val arrivalTime: String,
-    val capacity: Int,
-    val tripStatus: String
-)
-
-/*
- * One booked student for this shuttle trip.
- *
- * Database source later:
- * - trip_booking.booking_id
- * - trip_booking.booking_status
- * - student.student_id
- * - student.first_name
- * - student.last_name
- * - student.student_number
- * - boarding_log.boarded_at
- */
-@Immutable
-data class ShuttleBoardingStudent(
-    val bookingId: Long,
-    val studentId: Long,
-    val firstName: String,
-    val lastName: String,
-    val studentNumber: String,
-    val bookingStatus: String,
-    val boardedAt: String?
-)
-
-/*
- * Helper value used only by the UI.
- *
- * This is not a database column.
- */
-private enum class BoardingDisplayStatus(
-    val label: String
-) {
-    Pending("Pending"),
-    Boarded("Boarded")
-}
+// ── Design tokens (matching profile screen) ─────────────────────────────────
+private val BoardingBackground = Color(0xFFF6F8FC)
+private val BoardingPrimary = Color(0xFF0D1B4A)
+private val BoardingAccent = Color(0xFFFC820C)
+private val BoardingTopBarStart = Color(0xFF0D1B4A)
+private val BoardingTopBarEnd = Color(0xFF1A3A7A)
+private val BoardingCardBg = Color(0xFFFFFFFF)
+private val BoardingText = Color(0xFF1B1B1F)
+private val BoardingTextMuted = Color(0xFF5E6278)
+private val BoardingIconBg = Color(0xFFEDF1FA)
+private val BoardingDivider = Color(0xFFE8EBF0)
+private val BoardingFieldBg = Color(0xFFF2F4F8)
+private val BoardingSuccessBg = Color(0xFFE8F5E9)
+private val BoardingSuccessText = Color(0xFF2E7D32)
+private val BoardingWarningBg = Color(0xFFFFF8E1)
+private val BoardingWarningText = Color(0xFFE65100)
+private val BoardingInfoBg = Color(0xFFE8F4FD)
+private val BoardingInfoText = Color(0xFF1565C0)
+private val BoardingErrorBg = Color(0xFFFFEBEE)
+private val BoardingErrorText = Color(0xFFC62828)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShuttleDriverBoardingScreen(
-    trip: ShuttleBoardingTrip = sampleBoardingTrip(),
-    students: List<ShuttleBoardingStudent> = sampleBoardingStudents(),
-    onMarkAsBoardedClick: (Long) -> Unit = {},
+    uiState: BoardingUiState = BoardingUiState.Loading,
+    markingBookingId: Long? = null,
+    onLoadData: () -> Unit = {},
+    onMarkAsBoarded: (Long) -> Unit = {},
     onScanQrCodeClick: () -> Unit = {},
     onBoardingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
-    /*
-     * Local state for now.
-     *
-     * Later, this list will come from the backend.
-     * When the driver marks a student as boarded, the backend should update
-     * boarding_log.boarded_at using the student's booking_id.
-     */
-    var bookedStudents by remember {
-        mutableStateOf(students)
-    }
-
-    var searchText by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    val totalBookedStudents = bookedStudents.size
-
-    val boardedStudentsCount = bookedStudents.count { student ->
-        student.boardedAt != null
-    }
-
-    /*
-     * The user asked to search by student number.
-     * We also allow name/surname search to make testing easier.
-     */
-    val filteredStudents = bookedStudents.filter { student ->
-        val query = searchText.trim()
-
-        query.isBlank() ||
-                student.studentNumber.contains(query, ignoreCase = true) ||
-                student.firstName.contains(query, ignoreCase = true) ||
-                student.lastName.contains(query, ignoreCase = true)
+    LaunchedEffect(Unit) {
+        onLoadData()
     }
 
     Scaffold(
         topBar = {
-            /*
-             * Same top bar style used on Student Driver pages.
-             */
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.DirectionsCar,
+                            imageVector = Icons.Outlined.DirectionsBus,
                             contentDescription = null,
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
-
                         Text(
                             text = "GetYourRide",
                             color = Color.White,
@@ -220,7 +124,7 @@ fun ShuttleDriverBoardingScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ShuttleTopBar
+                    containerColor = BoardingTopBarStart
                 )
             )
         },
@@ -232,92 +136,460 @@ fun ShuttleDriverBoardingScreen(
                 onProfileClick = onProfileClick
             )
         },
-        containerColor = ShuttleBackground
+        containerColor = BoardingBackground
     ) { innerPadding ->
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(ShuttleBackground)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Text(
-                text = "Boarding",
-                color = ShuttlePrimary,
-                fontSize = 26.sp,
-                lineHeight = 32.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            CurrentTripCard(
-                trip = trip,
-                boardedStudentsCount = boardedStudentsCount
-            )
-
-            StudentListHeader(
-                totalBookedStudents = totalBookedStudents
-            )
-
-            StudentSearchBar(
-                searchText = searchText,
-                onSearchTextChange = { searchText = it }
-            )
-
-            if (filteredStudents.isEmpty()) {
-                EmptyStudentSearchCard()
-            } else {
-                filteredStudents.forEach { student ->
-                    ShuttleStudentBoardingCard(
-                        student = student,
-                        onMarkAsBoardedClick = {
-                            /*
-                             * Frontend-only update for now.
-                             *
-                             * Later:
-                             * onMarkAsBoardedClick(student.bookingId) should call backend.
-                             * Backend should update boarding_log.boarded_at.
-                             */
-                            onMarkAsBoardedClick(student.bookingId)
-
-                            bookedStudents = bookedStudents.map { currentStudent ->
-                                if (currentStudent.bookingId == student.bookingId) {
-                                    currentStudent.copy(
-                                        boardedAt = "Now"
-                                    )
-                                } else {
-                                    currentStudent
-                                }
-                            }
-                        }
-                    )
+        when (uiState) {
+            is BoardingUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = BoardingAccent,
+                            strokeWidth = 3.dp
+                        )
+                        Text(
+                            text = "Loading boarding data...",
+                            color = BoardingTextMuted,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            is BoardingUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = BoardingErrorBg,
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = BoardingErrorText,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = uiState.message,
+                            color = BoardingErrorText,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = onLoadData,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BoardingPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Retry", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            is BoardingUiState.NoTrip -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = BoardingInfoBg,
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.EventBusy,
+                                    contentDescription = null,
+                                    tint = BoardingInfoText,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "No Active Trip",
+                            color = BoardingPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = uiState.message,
+                            color = BoardingTextMuted,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = onLoadData,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BoardingPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Refresh", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            is BoardingUiState.Success -> {
+                BoardingContent(
+                    trip = uiState.trip,
+                    students = uiState.students,
+                    markingBookingId = markingBookingId,
+                    onMarkAsBoarded = onMarkAsBoarded,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                )
+            }
         }
     }
 }
 
-/*
- * Shows the current shuttle trip and trip statistics.
- */
+
+// ── Main Content ────────────────────────────────────────────────────────────
+
 @Composable
-private fun CurrentTripCard(
-    trip: ShuttleBoardingTrip,
-    boardedStudentsCount: Int
+private fun BoardingContent(
+    trip: ShuttleDriverActiveTripResponse,
+    students: List<BoardedStudentResponse>,
+    markingBookingId: Long?,
+    onMarkAsBoarded: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var searchText by rememberSaveable { mutableStateOf("") }
+
+    val filteredStudents = students.filter { student ->
+        val query = searchText.trim()
+        query.isBlank() ||
+                student.studentNumber.contains(query, ignoreCase = true) ||
+                student.firstName.contains(query, ignoreCase = true) ||
+                student.lastName.contains(query, ignoreCase = true)
+    }
+
+    val boardedCount = students.count { it.boardedAt != null }
+    val pendingCount = students.count { it.boardedAt == null }
+
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // ── Page Header ─────────────────────────────────────────────────
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "Boarding",
+                color = BoardingPrimary,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Manage student boarding for your active trip.",
+                color = BoardingTextMuted,
+                fontSize = 14.sp
+            )
+        }
+
+        // ── Trip Header Card (gradient like profile) ────────────────────
+        TripHeaderCard(trip = trip, boardedCount = boardedCount)
+
+        // ── Stats Row ───────────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            BoardingStatCard(
+                label = "Total Booked",
+                value = students.size.toString(),
+                color = BoardingInfoText,
+                bgColor = BoardingInfoBg,
+                modifier = Modifier.weight(1f)
+            )
+            BoardingStatCard(
+                label = "Boarded",
+                value = boardedCount.toString(),
+                color = BoardingSuccessText,
+                bgColor = BoardingSuccessBg,
+                modifier = Modifier.weight(1f)
+            )
+            BoardingStatCard(
+                label = "Pending",
+                value = pendingCount.toString(),
+                color = BoardingWarningText,
+                bgColor = BoardingWarningBg,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // ── Student List Section ────────────────────────────────────────
+        BoardingSectionCard(
+            title = "Booked Students",
+            icon = Icons.Outlined.Groups
+        ) {
+            // Search bar
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                placeholder = {
+                    Text(
+                        text = "Search by name or student number",
+                        color = BoardingTextMuted,
+                        fontSize = 14.sp
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = BoardingTextMuted
+                    )
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = BoardingText,
+                    unfocusedTextColor = BoardingText,
+                    cursorColor = BoardingPrimary,
+                    focusedBorderColor = BoardingPrimary,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedContainerColor = BoardingFieldBg,
+                    unfocusedContainerColor = BoardingFieldBg
+                )
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            if (filteredStudents.isEmpty()) {
+                EmptySearchState()
+            } else {
+                filteredStudents.forEach { student ->
+                    StudentBoardingCard(
+                        student = student,
+                        isMarking = markingBookingId == student.bookingId,
+                        onMarkAsBoarded = { onMarkAsBoarded(student.bookingId) }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+
+// ── Trip Header Card ────────────────────────────────────────────────────────
+
+@Composable
+private fun TripHeaderCard(
+    trip: ShuttleDriverActiveTripResponse,
+    boardedCount: Int
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ShuttleCardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 3.dp
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(BoardingTopBarStart, BoardingTopBarEnd)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(20.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Route and status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "ACTIVE TRIP",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "${trip.departureStop} \u2192 ${trip.destinationStop}",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 24.sp
+                        )
+                    }
+                    TripStatusChip(status = trip.status)
+                }
+
+                // Info boxes
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TripMetricBox(
+                        label = "Departure",
+                        value = trip.departureTime,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TripMetricBox(
+                        label = "Boarded",
+                        value = "$boardedCount/${trip.capacity}",
+                        modifier = Modifier.weight(1f)
+                    )
+                    TripMetricBox(
+                        label = "Vehicle",
+                        value = trip.registrationNumber,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TripStatusChip(status: String) {
+    val (bg, text) = when (status.uppercase()) {
+        "IN_PROGRESS", "IN PROGRESS" -> BoardingWarningBg to BoardingWarningText
+        "SCHEDULED" -> BoardingInfoBg to BoardingInfoText
+        "COMPLETED" -> BoardingSuccessBg to BoardingSuccessText
+        else -> BoardingInfoBg to BoardingInfoText
+    }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bg.copy(alpha = 0.9f)
+    ) {
+        Text(
+            text = status.uppercase().replace("_", " "),
+            color = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
+    }
+}
+
+@Composable
+private fun TripMetricBox(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+
+// ── Stat Card ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun BoardingStatCard(
+    label: String,
+    value: String,
+    color: Color,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = bgColor,
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                color = color,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                color = color.copy(alpha = 0.75f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+// ── Section Card (same pattern as profile) ──────────────────────────────────
+
+@Composable
+private fun BoardingSectionCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = BoardingCardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -326,313 +598,183 @@ private fun CurrentTripCard(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.weight(1f)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BoardingIconBg),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "CURRENT TRIP",
-                        color = ShuttleTextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.4.sp
-                    )
-
-                    Text(
-                        text = "${trip.departureStopName} → ${trip.destinationStopName}",
-                        color = ShuttlePrimary,
-                        fontSize = 18.sp,
-                        lineHeight = 23.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = BoardingPrimary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-
-                TripStatusBadge(
-                    status = trip.tripStatus
+                Text(
+                    text = title,
+                    color = BoardingPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            DividerLine()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(BoardingDivider)
+            )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TripInfoBox(
-                    label = "Departure",
-                    value = trip.departureTime,
-                    modifier = Modifier.weight(1f)
-                )
-
-                TripInfoBox(
-                    label = "Arrival",
-                    value = trip.arrivalTime,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TripInfoBox(
-                    label = "Boarded",
-                    value = boardedStudentsCount.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-
-                TripInfoBox(
-                    label = "Capacity",
-                    value = trip.capacity.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            content()
         }
     }
 }
 
-/*
- * Badge for trip.status.
- */
-@Composable
-private fun TripStatusBadge(
-    status: String
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(ShuttlePendingBackground)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-    ) {
-        Text(
-            text = status.uppercase(),
-            color = ShuttlePendingText,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
 
-/*
- * Small box used for departure, arrival, boarded count, and capacity.
- */
-@Composable
-private fun TripInfoBox(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(ShuttleFieldBackground)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Text(
-            text = label,
-            color = ShuttleTextMuted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+// ── Student Boarding Card ───────────────────────────────────────────────────
 
-        Text(
-            text = value,
-            color = ShuttlePrimary,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-/*
- * Header above the booked student list.
- */
 @Composable
-private fun StudentListHeader(
-    totalBookedStudents: Int
+private fun StudentBoardingCard(
+    student: BoardedStudentResponse,
+    isMarking: Boolean,
+    onMarkAsBoarded: () -> Unit
 ) {
-    Row(
+    val isBoarded = student.boardedAt != null
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        color = if (isBoarded) BoardingSuccessBg.copy(alpha = 0.3f) else BoardingFieldBg,
+        shape = RoundedCornerShape(14.dp)
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = "List of Students",
-                color = ShuttlePrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Students who booked this shuttle.",
-                color = ShuttleTextMuted,
-                fontSize = 13.sp
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(ShuttlePrimary)
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = "$totalBookedStudents Total",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-/*
- * Search field for finding a booked student.
- */
-@Composable
-private fun StudentSearchBar(
-    searchText: String,
-    onSearchTextChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = searchText,
-        onValueChange = onSearchTextChange,
-        placeholder = {
-            Text(
-                text = "Search by student number",
-                color = ShuttleOutline,
-                fontSize = 14.sp
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Outlined.Search,
-                contentDescription = null,
-                tint = ShuttleOutline
-            )
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Text
-        ),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = ShuttleText,
-            unfocusedTextColor = ShuttleText,
-            cursorColor = ShuttlePrimary,
-            focusedBorderColor = ShuttleTopBar,
-            unfocusedBorderColor = Color.Transparent,
-            focusedContainerColor = ShuttleFieldBackground,
-            unfocusedContainerColor = ShuttleFieldBackground
-        )
-    )
-}
-
-/*
- * Card for one booked student.
- */
-@Composable
-private fun ShuttleStudentBoardingCard(
-    student: ShuttleBoardingStudent,
-    onMarkAsBoardedClick: () -> Unit
-) {
-    val displayStatus = if (student.boardedAt == null) {
-        BoardingDisplayStatus.Pending
-    } else {
-        BoardingDisplayStatus.Boarded
-    }
-
-    val isBoarded = displayStatus == BoardingDisplayStatus.Boarded
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ShuttleCardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                StudentAvatar()
+                // Avatar with initials
+                Surface(
+                    shape = CircleShape,
+                    color = if (isBoarded) BoardingSuccessBg else BoardingIconBg,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (isBoarded) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = BoardingSuccessText,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "${student.firstName.firstOrNull() ?: ""}${student.lastName.firstOrNull() ?: ""}",
+                                color = BoardingPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
 
+                // Student info
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = "${student.firstName} ${student.lastName}",
-                        color = ShuttleText,
+                        color = BoardingText,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
-
                     Text(
-                        text = "Student No: ${student.studentNumber}",
-                        color = ShuttleTextMuted,
+                        text = student.studentNumber,
+                        color = BoardingTextMuted,
                         fontSize = 12.sp
                     )
                 }
 
-                StudentBoardingStatusBadge(
-                    status = displayStatus
-                )
+                // Status chip
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isBoarded) BoardingSuccessBg else BoardingWarningBg
+                ) {
+                    Text(
+                        text = if (isBoarded) "BOARDED" else "PENDING",
+                        color = if (isBoarded) BoardingSuccessText else BoardingWarningText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
+            // Mark as Boarded button (only for pending students)
             if (!isBoarded) {
                 Button(
-                    onClick = onMarkAsBoardedClick,
+                    onClick = onMarkAsBoarded,
+                    enabled = !isMarking,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ShuttleAccent,
-                        contentColor = Color.White
+                        containerColor = BoardingAccent,
+                        contentColor = Color.White,
+                        disabledContainerColor = BoardingAccent.copy(alpha = 0.5f)
                     ),
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    contentPadding = PaddingValues(vertical = 10.dp)
                 ) {
-                    Text(
-                        text = "Mark as Boarded",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isMarking) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Marking...",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.FactCheck,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Mark as Boarded",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             } else {
+                // Boarded confirmation row
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.CheckCircle,
                         contentDescription = null,
-                        tint = ShuttleBoardedText,
-                        modifier = Modifier.size(20.dp)
+                        tint = BoardingSuccessText,
+                        modifier = Modifier.size(16.dp)
                     )
-
                     Text(
-                        text = "Student has been marked as boarded.",
-                        color = ShuttleBoardedText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
+                        text = "Boarded at ${student.boardedAt}",
+                        color = BoardingSuccessText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -640,201 +782,71 @@ private fun ShuttleStudentBoardingCard(
     }
 }
 
-/*
- * Simple student icon/avatar.
- */
+// ── Empty State ─────────────────────────────────────────────────────────────
+
 @Composable
-private fun StudentAvatar() {
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(ShuttlePrimaryFixed),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Person,
-            contentDescription = null,
-            tint = ShuttlePrimary,
-            modifier = Modifier.size(24.dp)
-        )
-    }
-}
-
-/*
- * Status badge shown on each student card.
- */
-@Composable
-private fun StudentBoardingStatusBadge(
-    status: BoardingDisplayStatus
-) {
-    val backgroundColor = when (status) {
-        BoardingDisplayStatus.Pending -> ShuttlePendingBackground
-        BoardingDisplayStatus.Boarded -> ShuttleBoardedBackground
-    }
-
-    val textColor = when (status) {
-        BoardingDisplayStatus.Pending -> ShuttlePendingText
-        BoardingDisplayStatus.Boarded -> ShuttleBoardedText
-    }
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(backgroundColor)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-    ) {
-        Text(
-            text = status.label.uppercase(),
-            color = textColor,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-/*
- * Empty state shown when no student matches the search.
- */
-@Composable
-private fun EmptyStudentSearchCard() {
-    Card(
+private fun EmptySearchState() {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ShuttleCardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        )
+        color = BoardingFieldBg,
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.Outlined.VerifiedUser,
+                imageVector = Icons.Outlined.Person,
                 contentDescription = null,
-                tint = ShuttleTextMuted,
-                modifier = Modifier.size(24.dp)
+                tint = BoardingTextMuted,
+                modifier = Modifier.size(32.dp)
             )
-
             Text(
-                text = "No booked student found for that search.",
-                color = ShuttleTextMuted,
+                text = "No students found",
+                color = BoardingTextMuted,
                 fontSize = 14.sp,
-                lineHeight = 20.sp
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Try a different search term.",
+                color = BoardingTextMuted.copy(alpha = 0.7f),
+                fontSize = 12.sp
             )
         }
     }
 }
 
-/*
- * Small divider used inside cards.
- */
-@Composable
-private fun DividerLine() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(ShuttleBorder)
-    )
-}
 
-/*
- * Sample current trip for preview/testing.
- *
- * Later this should come from:
- * trip + vehicle + shuttle_stop.
- */
-private fun sampleBoardingTrip(): ShuttleBoardingTrip {
-    return ShuttleBoardingTrip(
-        tripId = 1L,
-        departureStopName = "South Campus",
-        destinationStopName = "Central",
-        departureTime = "12:30",
-        arrivalTime = "13:10",
-        capacity = 16,
-        tripStatus = "In Progress"
-    )
-}
+// ── Preview ─────────────────────────────────────────────────────────────────
 
-/*
- * Sample booked students for preview/testing.
- *
- * boardedAt = null means Pending.
- * boardedAt has a value means Boarded.
- */
-private fun sampleBoardingStudents(): List<ShuttleBoardingStudent> {
-    return listOf(
-        ShuttleBoardingStudent(
-            bookingId = 1L,
-            studentId = 101L,
-            firstName = "Kevin",
-            lastName = "De Bruyne",
-            studentNumber = "229875460",
-            bookingStatus = "Confirmed",
-            boardedAt = null
-        ),
-        ShuttleBoardingStudent(
-            bookingId = 6L,
-            studentId = 109L,
-            firstName = "Cristiano",
-            lastName = "Ronaldo",
-            studentNumber = "226988957",
-            bookingStatus = "Confirmed",
-            boardedAt = null
-        ),
-        ShuttleBoardingStudent(
-            bookingId = 2L,
-            studentId = 102L,
-            firstName = "Elena",
-            lastName = "Rodriguez",
-            studentNumber = "240968674",
-            bookingStatus = "Confirmed",
-            boardedAt = null
-        ),
-        ShuttleBoardingStudent(
-            bookingId = 3L,
-            studentId = 103L,
-            firstName = "Jordan",
-            lastName = "Smith",
-            studentNumber = "224958672",
-            bookingStatus = "Confirmed",
-            boardedAt = "2026-07-02 07:25"
-        ),
-        ShuttleBoardingStudent(
-            bookingId = 4L,
-            studentId = 104L,
-            firstName = "Rafael",
-            lastName = "Leao",
-            studentNumber = "22489852",
-            bookingStatus = "Confirmed",
-            boardedAt = "2026-07-02 07:25"
-        ),
-        ShuttleBoardingStudent(
-            bookingId = 6L,
-            studentId = 105L,
-            firstName = "Pedro",
-            lastName = "Neto",
-            studentNumber = "209865642",
-            bookingStatus = "Confirmed",
-            boardedAt = null
-        )
-    )
-}
-
-/*
- * Android Studio preview.
- */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun ShuttleDriverBoardingScreenPreview() {
+private fun ShuttleDriverBoardingScreenPreview() {
+    val sampleTrip = ShuttleDriverActiveTripResponse(
+        tripId = 24,
+        departureStop = "North Campus",
+        destinationStop = "South Campus",
+        departureTime = "12:30",
+        arrivalTime = "13:15",
+        status = "IN_PROGRESS",
+        capacity = 15,
+        registrationNumber = "NMU001EC",
+        totalBooked = 5,
+        totalBoarded = 2
+    )
+
+    val sampleStudents = listOf(
+        BoardedStudentResponse(1, 101, "Kevin", "De Bruyne", "229875460", "Confirmed", null),
+        BoardedStudentResponse(2, 102, "Elena", "Rodriguez", "240968674", "Confirmed", null),
+        BoardedStudentResponse(3, 103, "Jordan", "Smith", "224958672", "Confirmed", "12:35"),
+        BoardedStudentResponse(4, 104, "Rafael", "Leao", "22489852", "Confirmed", "12:37"),
+        BoardedStudentResponse(5, 105, "Pedro", "Neto", "209865642", "Confirmed", null)
+    )
+
     GetYourRideTheme(dynamicColor = false) {
-        ShuttleDriverBoardingScreen()
+        ShuttleDriverBoardingScreen(
+            uiState = BoardingUiState.Success(trip = sampleTrip, students = sampleStudents)
+        )
     }
 }
