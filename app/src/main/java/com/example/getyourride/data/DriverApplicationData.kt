@@ -30,7 +30,7 @@ data class DriverApplicationRequest(
     val personalInfo: DriverPersonalInfo,
     val vehicleInfo: DriverVehicleInfo,
     val documents: List<DriverDocumentInfo>,
-    val status: DriverApplicationStatus = DriverApplicationStatus.PendingVerification
+    val status: DriverApplicationStatus = DriverApplicationStatus.PendingReview
 )
 
 data class DriverApplicationResponse(
@@ -67,7 +67,7 @@ enum class DriverDocumentType {
 }
 
 enum class DriverApplicationStatus {
-    PendingVerification,
+    PendingReview,
     Approved,
     Rejected
 }
