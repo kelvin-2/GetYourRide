@@ -105,6 +105,8 @@ import com.example.getyourride.viewmodel.ShuttleViewModel
 import com.example.getyourride.viewmodel.ShuttleViewModelFactory
 import com.example.getyourride.viewmodel.ShuttleDriverProfileViewModel
 import com.example.getyourride.viewmodel.ShuttleDriverProfileViewModelFactory
+import com.example.getyourride.viewmodel.ShuttleDriverBoardingViewModel
+import com.example.getyourride.viewmodel.ShuttleDriverBoardingViewModelFactory
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverBoardingScreen
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverProfileScreen
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverScanQrScreen
@@ -138,7 +140,10 @@ class MainActivity : ComponentActivity() {
 
                 // ── Real auth — talks to StudentAuthController on :8080 ───────
                 val studentAuthRepository = remember {
-                    StudentAuthRepository(api = NetworkModule.studentAuthApi)
+                    StudentAuthRepository(
+                        api = NetworkModule.studentAuthApi,
+                        shuttleDriverApi = NetworkModule.shuttleDriverApi
+                    )
                 }
                 val authViewModel: AuthViewModel = viewModel(
                     factory = AuthViewModelFactory(studentAuthRepository)
@@ -875,7 +880,19 @@ class MainActivity : ComponentActivity() {
 
                     // ── SHUTTLE DRIVER: BOARDING (Home) ────────────────────────
                     composable("shuttle_driver_boarding") {
+                        val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
+                            factory = ShuttleDriverBoardingViewModelFactory(
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                            )
+                        )
+
                         ShuttleDriverBoardingScreen(
+                            uiState = boardingViewModel.uiState,
+                            markingBookingId = boardingViewModel.markingBookingId,
+                            onLoadData = { boardingViewModel.loadBoardingData() },
+                            onMarkAsBoarded = { bookingId ->
+                                boardingViewModel.markStudentAsBoarded(bookingId)
+                            },
                             onScanQrCodeClick = {
                                 navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
                             },
@@ -934,6 +951,7 @@ class MainActivity : ComponentActivity() {
 private fun homeRouteFor(response: com.example.getyourride.data.remote.dto.AuthResponse): String {
     // Shuttle drivers go to boarding screen (their home page)
     if (response.type == "SHUTTLE_DRIVER") return "shuttle_driver_boarding"
+    if (response.role == "SHUTTLE_DRIVER") return "shuttle_driver_boarding"
     // Student drivers go to driver home
     if (response.type == "DRIVER") return "student_driver_home"
     // NSFAS-funded students go to shuttle home

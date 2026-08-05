@@ -61,3 +61,55 @@ data class ShuttleDriverTripSummaryResponse(
     val studentsBookedToday: Int,
     val studentsBoardedToday: Int
 )
+
+// ── Boarding Screen DTOs ────────────────────────────────────────────────────
+
+/**
+ * The active trip for the shuttle driver's boarding screen.
+ * Backend returns the current/next trip assigned to this driver.
+ *
+ * Maps to: trip + vehicle tables
+ */
+data class ShuttleDriverActiveTripResponse(
+    val tripId: Long,
+    val departureStop: String,
+    val destinationStop: String,
+    val departureTime: String,
+    val arrivalTime: String?,
+    val status: String,
+    val capacity: Int,
+    val registrationNumber: String,
+    val totalBooked: Int,
+    val totalBoarded: Int
+)
+
+/**
+ * One booked student shown on the boarding list.
+ *
+ * Maps to: trip_booking + student + boarding_log
+ */
+data class BoardedStudentResponse(
+    val bookingId: Long,
+    val studentId: Long,
+    val firstName: String,
+    val lastName: String,
+    val studentNumber: String,
+    val bookingStatus: String,
+    val boardedAt: String?
+)
+
+/**
+ * Request body when the driver marks a student as boarded.
+ */
+data class MarkAsBoardedRequest(
+    val bookingId: Long
+)
+
+/**
+ * Simple success response after marking a student as boarded.
+ */
+data class MarkAsBoardedResponse(
+    val success: Boolean,
+    val message: String,
+    val boardedAt: String?
+)
