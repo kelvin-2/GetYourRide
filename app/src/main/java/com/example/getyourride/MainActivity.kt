@@ -454,6 +454,13 @@ class MainActivity : ComponentActivity() {
                                         driversLicenceStatus      = profile.driversLicenceStatus,
                                         vehicleRegistrationStatus = profile.vehicleRegistrationStatus
                                     ),
+                                    onConfirmDeleteClick = { driverProfileViewModel.deactivateProfile() },
+                                    onLogoutClick = {
+                                        UserSession.clear()
+                                        navController.navigate("login") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    },
                                     onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
                                     onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
@@ -118,6 +119,7 @@ fun DriverProfileSettingsScreen(
     profileDetails: DriverProfileDetails,
     onBackClick: () -> Unit = {},
     onConfirmDeleteClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
     onUploadLicence: () -> Unit = {},
     onUploadRegistration: () -> Unit = {},
     statusMessage: String? = null,
@@ -451,6 +453,37 @@ fun DriverProfileSettingsScreen(
                         }
                     }
 
+                    // ── Logout Button ────────────────────────────────────────
+                    OutlinedButton(
+                        onClick = onLogoutClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = ProfileError
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp, ProfileError.copy(alpha = 0.4f)
+                        ),
+                        contentPadding = PaddingValues(vertical = 14.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ExitToApp,
+                            contentDescription = null,
+                            tint = ProfileError,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Log Out",
+                            color = ProfileError,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ── Delete Button ────────────────────────────────────────
                     OutlinedButton(
                         onClick = { showDeleteDialog = true },
                         modifier = Modifier.fillMaxWidth(),
