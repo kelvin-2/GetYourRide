@@ -468,7 +468,13 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
                                     onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
-                                    onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } }
+                                    onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } },
+                                    onLogoutClick    = {
+                                        UserSession.clear()
+                                        navController.navigate("login") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
                                 )
                             }
                         }
