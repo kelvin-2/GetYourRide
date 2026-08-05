@@ -461,10 +461,11 @@ class MainActivity : ComponentActivity() {
                                             popUpTo(0) { inclusive = true }
                                         }
                                     },
+                                    onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
                                     onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },
                                     statusMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Loading -> "Deactivating driver profile..."
+                                        is DriverDeleteUiState.Loading -> "Deleting driver profile..."
                                         is DriverDeleteUiState.Success -> deleteState.message
                                         else -> null
                                     },

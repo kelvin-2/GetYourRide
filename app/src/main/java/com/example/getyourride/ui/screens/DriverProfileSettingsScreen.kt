@@ -446,7 +446,7 @@ fun DriverProfileSettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Permanently deactivate your driver profile",
+                                text = "Permanently delete your driver profile",
                                 color = ProfileError.copy(alpha = 0.7f),
                                 fontSize = 12.sp
                             )
@@ -546,7 +546,7 @@ fun DriverProfileSettingsScreen(
             },
             text = {
                 Text(
-                    text = "This will permanently deactivate your student driver profile. You will no longer be able to offer rides.",
+                    text = "This will permanently delete your student driver profile and all associated data. You will no longer be able to offer rides.",
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )

@@ -22,7 +22,7 @@ sealed class DriverProfileUiState {
 }
 
 /**
- * UI state for the delete/deactivate action.
+ * UI state for the delete action.
  */
 sealed class DriverDeleteUiState {
     data object Idle : DriverDeleteUiState()
@@ -51,7 +51,7 @@ class DriverProfileViewModel(
         }
     }
 
-    fun deactivateProfile() {
+    fun deleteProfile() {
         deleteState = DriverDeleteUiState.Loading
         viewModelScope.launch {
             deleteState = when (val result = repository.deleteDriverProfile()) {

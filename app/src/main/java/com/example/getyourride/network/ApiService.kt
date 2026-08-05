@@ -71,7 +71,7 @@ class SpringBootApiService(
         ) { responseBody ->
             DriverApplicationResponse(
                 applicationId = responseBody.extractJsonValue("applicationId").orEmpty(),
-                status = DriverApplicationStatus.PendingVerification
+                status = DriverApplicationStatus.PendingReview
             )
         }
     }
