@@ -583,9 +583,11 @@ class MainActivity : ComponentActivity() {
 
                     // ── SHUTTLE RIDES ──────────────────────────────────────────
                     composable(GyrRoutes.SHUTTLE_RIDES) {
-                        val allRidesViewModel: AllRidesViewModel = viewModel(
-                            factory = AllRidesViewModelFactory(TripRepository(NetworkModule.tripApi))
-                        )
+                        LaunchedEffect(Unit) {
+                            if (allRidesViewModel.uiState is AllTripsUiState.Loading) {
+                                allRidesViewModel.loadAllTrips()
+                            }
+                        }
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
                             navController = navController,
