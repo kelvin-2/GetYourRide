@@ -37,7 +37,7 @@ class AllRidesViewModel(
         viewModelScope.launch {
             uiState = AllTripsUiState.Loading
 
-            repository.getTrips()
+            repository.getMyTrips()
                 .onSuccess { trips ->
                     uiState = AllTripsUiState.Success(trips)
                 }

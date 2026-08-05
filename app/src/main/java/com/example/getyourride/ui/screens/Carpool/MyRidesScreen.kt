@@ -99,8 +99,17 @@ fun MyRidesScreen(
 
                 // ── Success ───────────────────────────────────────────────────
                 is AllTripsUiState.Success -> {
+                    // Filter by trip type based on current route
+                    val typeFiltered = uiState.trips.filter {
+                        if (currentRoute == GyrRoutes.SHUTTLE_RIDES) {
+                            it.tripType.equals("SHUTTLE", ignoreCase = true)
+                        } else {
+                            it.tripType.equals("STUDENT_DRIVER", ignoreCase = true)
+                        }
+                    }
+
                     // Map TripResponse → RideCardData using our mapper
-                    val allCards = uiState.trips.map { it.toRideCardData() }
+                    val allCards = typeFiltered.map { it.toRideCardData() }
 
                     // Filter by selected tab
                     val filtered = allCards.filter {
