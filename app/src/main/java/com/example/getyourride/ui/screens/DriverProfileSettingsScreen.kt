@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -88,6 +89,8 @@ private val ProfileDeleteBg = Color(0xFFFEF2F2)
 private val ProfileSectionPurple = Color(0xFF6366F1)
 private val ProfileSectionGreen = Color(0xFF16A34A)
 private val ProfileSectionBlue = Color(0xFF2563EB)
+private val ProfileLogoutBg = Color(0xFFFFF0F0)
+private val ProfileLogoutText = Color(0xFFD32F2F)
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 @Immutable
@@ -122,6 +125,7 @@ fun DriverProfileSettingsScreen(
     onLogoutClick: () -> Unit = {},
     onUploadLicence: () -> Unit = {},
     onUploadRegistration: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
     statusMessage: String? = null,
     errorMessage: String? = null,
     onHomeClick: () -> Unit = {},
@@ -403,6 +407,35 @@ fun DriverProfileSettingsScreen(
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Logout Button ───────────────────────────────────────────
+            Button(
+                onClick = onLogoutClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ProfileLogoutBg,
+                    contentColor = ProfileLogoutText
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ExitToApp,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Log Out",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
