@@ -182,7 +182,7 @@ class DriverApplicationRepository(
     }
 
     /**
-     * Deactivate the driver profile. Backend reads driver_id from JWT.
+     * Permanently delete the driver profile. Backend reads driver_id from JWT.
      */
     suspend fun deleteDriverProfile(): DriverProfileDeleteResult {
         return try {
@@ -191,7 +191,7 @@ class DriverApplicationRepository(
                 DriverProfileDeleteResult.Success(response.body()!!.message)
             } else {
                 val errorMsg = extractMessage(response.errorBody()?.string())
-                    ?: "Could not deactivate profile (${response.code()})."
+                    ?: "Could not delete profile (${response.code()})."
                 DriverProfileDeleteResult.Error(errorMsg)
             }
         } catch (e: Exception) {
