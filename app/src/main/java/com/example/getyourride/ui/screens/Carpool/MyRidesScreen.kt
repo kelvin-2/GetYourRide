@@ -104,7 +104,7 @@ fun MyRidesScreen(
                         if (currentRoute == GyrRoutes.SHUTTLE_RIDES) {
                             it.tripType.equals("SHUTTLE", ignoreCase = true)
                         } else {
-                            it.tripType.equals("STUDENT_DRIVER", ignoreCase = true)
+                            it.tripType.equals("Carpool", ignoreCase = true)
                         }
                     }
 
