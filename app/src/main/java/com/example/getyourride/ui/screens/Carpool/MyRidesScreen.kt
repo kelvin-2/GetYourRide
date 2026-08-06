@@ -20,10 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.compose.rememberNavController
-import com.example.getyourride.data.mapper.toRideCardData  // ← correct import
+import com.example.getyourride.data.mapper.toRideCardData
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.RideCard
+import com.example.getyourride.ui.components.RideCardData
 import com.example.getyourride.ui.components.RideStatus
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.components.ShuttleLayout
@@ -47,6 +47,12 @@ fun MyRidesScreen(
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
+
+    // MyRidesScreen previously had no reload trigger — add one so it doesn't
+    // sit on Loading forever (per the ViewModel's own comment).
+    LaunchedEffect(Unit) {
+        viewModel.loadAllTrips()
+    }
 
     val content = @Composable {
         Column(
@@ -99,24 +105,32 @@ fun MyRidesScreen(
 
                 // ── Success ───────────────────────────────────────────────────
                 is AllTripsUiState.Success -> {
-                    // Filter by trip type based on current route
-                    val typeFiltered = uiState.trips.filter {
+                    // Filter by trip type based on current route.
+                    // uiState.bookings is List<TripBookingResponse>.
+                    val typeFiltered = uiState.bookings.filter { booking ->
                         if (currentRoute == GyrRoutes.SHUTTLE_RIDES) {
-                            it.tripType.equals("SHUTTLE", ignoreCase = true)
+                            booking.trip.tripType.equals("SHUTTLE", ignoreCase = true)
                         } else {
-                            it.tripType.equals("Carpool", ignoreCase = true)
+                            booking.trip.tripType.equals("Carpool", ignoreCase = true)
                         }
                     }
 
-                    // Map TripResponse → RideCardData using our mapper
-                    val allCards = typeFiltered.map { it.toRideCardData() }
+                    // Build (card, tripId) pairs instead of just cards. This is
+                    // the ONLY reason we're not calling typeFiltered.map { it.toRideCardData() }
+                    // directly — we need trip.tripId kept alongside each card so
+                    // cancel keeps using tripId, exactly like it did before
+                    // (mapper's RideCardData.id = bookingId.toString() now, which
+                    // would silently break cancel if used directly — see below).
+                    val cardsWithTripId: List<Pair<RideCardData, Long>> =
+                        typeFiltered.map { booking -> booking.toRideCardData() to booking.trip.tripId }
 
-                    // Filter by selected tab
-                    val filtered = allCards.filter {
+                    // Filter by selected tab (status comes from bookingStatus via
+                    // the mapper, so this logic is unchanged).
+                    val filtered = cardsWithTripId.filter { (card, _) ->
                         when (selectedTab) {
-                            RideTab.UPCOMING  -> it.status == RideStatus.ACTIVE || it.status == RideStatus.SCHEDULED
-                            RideTab.PAST      -> it.status == RideStatus.COMPLETED
-                            RideTab.CANCELLED -> it.status == RideStatus.CANCELLED
+                            RideTab.UPCOMING  -> card.status == RideStatus.ACTIVE || card.status == RideStatus.SCHEDULED
+                            RideTab.PAST      -> card.status == RideStatus.COMPLETED
+                            RideTab.CANCELLED -> card.status == RideStatus.CANCELLED
                         }
                     }
 
@@ -134,11 +148,16 @@ fun MyRidesScreen(
                             modifier            = Modifier.verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            filtered.forEach { ride ->
+                            filtered.forEach { (ride, tripId) ->
                                 RideCard(
                                     ride         = ride,
                                     onTrackRide  = { onTrackRide(ride.id) },
-                                    onCancelRide = { viewModel.cancelTrip(ride.id.toLong()) },
+                                    // Cancel still sends tripId, exactly as it did
+                                    // before (matches the working PATCH
+                                    // /api/trips/bookings/{tripId}/cancel call
+                                    // seen in logcat) — NOT ride.id, which is now
+                                    // bookingId under the TripBookingResponse mapper.
+                                    onCancelRide = { viewModel.cancelTrip(tripId) },
                                 )
                             }
                             Spacer(Modifier.height(20.dp))

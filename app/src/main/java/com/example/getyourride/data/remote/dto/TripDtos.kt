@@ -49,3 +49,10 @@ data class TripStopResponse(
     val studentId: Long?,
     val studentName: String?
 )
+
+data class TripBookingResponse(
+    val bookingId: Long,
+    val trip: TripResponse,
+    val bookingDate: String?,
+    val bookingStatus: String?   // "CONFIRMED", "CANCELLED", "PENDING"
+)

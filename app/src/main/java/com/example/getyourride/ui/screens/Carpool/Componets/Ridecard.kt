@@ -14,6 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Navigation
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,16 +37,25 @@ import com.example.getyourride.ui.theme.*
 
 enum class RideStatus { ACTIVE, SCHEDULED, COMPLETED, CANCELLED }
 
+data class RideStopInfo(
+    val stopName: String,
+    val stopOrder: Int,
+    val studentName: String?,
+)
+
 data class RideCardData(
-    val id             : String,
-    val driverName     : String,
-    val carDescription : String,
-    val plate          : String,
-    val status         : RideStatus,
-    val pickup         : String,
-    val dropoff        : String,
-    val dateLabel      : String,
-    val timeLabel      : String,
+    val id: String,
+    val driverName: String,
+    val carDescription: String,
+    val plate: String,
+    val status: RideStatus,
+    val pickup: String,
+    val dropoff: String,
+    val dateLabel: String,
+    val timeLabel: String,
+    val slotTime: String? = null,           // "06:45:00 - 07:30:00"
+    val vehicleCapacity: Int? = null,
+    val stops: List<RideStopInfo> = emptyList(),  // pickup stops list
 )
 
 @Composable
@@ -87,6 +99,73 @@ fun RideCard(
                 Column {
                     Text(ride.dateLabel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
                     Text(ride.timeLabel, fontSize = 12.sp, color = TextMuted)
+                }
+            }
+
+            // ── Slot time (shuttle trips) ─────────────────────────────────
+            if (!ride.slotTime.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Schedule, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("SLOT TIME", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = TextMuted)
+                        Text(ride.slotTime, fontSize = 13.sp, color = NavyPrimary)
+                    }
+                }
+            }
+
+            // ── Vehicle capacity ──────────────────────────────────────────
+            if (ride.vehicleCapacity != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Groups, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "${ride.vehicleCapacity} seats capacity",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                    )
+                }
+            }
+
+            // ── Pickup stops list ─────────────────────────────────────────
+            if (ride.stops.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("STOPS", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = TextMuted)
+                Spacer(Modifier.height(6.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceGrey, RoundedCornerShape(10.dp))
+                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ride.stops.sortedBy { it.stopOrder }.forEach { stop ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = NavyPrimary.copy(alpha = 0.1f),
+                                modifier = Modifier.size(20.dp),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = stop.stopOrder.toString(),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NavyPrimary,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stop.stopName, fontSize = 13.sp, color = NavyPrimary)
+                                if (!stop.studentName.isNullOrBlank()) {
+                                    Text(stop.studentName, fontSize = 11.sp, color = TextMuted)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -182,7 +261,11 @@ fun RideCardPreview() {
         pickup = "Engineering Bldg",
         dropoff = "City Tech Hub",
         dateLabel = "Today, 24 Oct",
-        timeLabel = "08:30 AM"
+        timeLabel = "08:30 AM",
+        vehicleCapacity = 4,
+        stops = listOf(
+            RideStopInfo(stopName = "Walmer, 6th Avenue", stopOrder = 1, studentName = "Kelvin Smith"),
+        ),
     )
 
     GetYourRideTheme {
