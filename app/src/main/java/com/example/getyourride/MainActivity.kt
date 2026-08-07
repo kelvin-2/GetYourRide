@@ -574,7 +574,9 @@ class MainActivity : ComponentActivity() {
                                     onShowTicket = { shuttle ->
                                         confirmedShuttle = BookingConfirmation(
                                             shuttleId = shuttle.tripId,
-                                            ticketId = "GYR-" + (1000..9999).random(),
+                                            // Stable per booking: derived from tripId, not random,
+                                            // so the QR code doesn't change every time this screen opens.
+                                            ticketId = "GYR-" + shuttle.tripId,
                                             pickupLocation = shuttle.from,
                                             dropoffLocation = shuttle.to,
                                             date = shuttle.date,
@@ -692,7 +694,9 @@ class MainActivity : ComponentActivity() {
                                 val trip = uiState.lastBookedTrip
                                 confirmedShuttle = BookingConfirmation(
                                     shuttleId = trip?.tripId?.toString() ?: "SH-102",
-                                    ticketId = "GYR-" + (1000..9999).random(),
+                                    // Stable per booking: derived from tripId, not random,
+                                    // so the QR code doesn't change every time this screen opens.
+                                    ticketId = "GYR-" + (trip?.tripId?.toString() ?: (1000..9999).random().toString()),
                                     pickupLocation = uiState.pickupLabel,
                                     dropoffLocation = uiState.destinationLabel,
                                     date = "Today",
