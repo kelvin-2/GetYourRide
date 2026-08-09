@@ -125,7 +125,6 @@ fun DriverProfileSettingsScreen(
     onLogoutClick: () -> Unit = {},
     onUploadLicence: () -> Unit = {},
     onUploadRegistration: () -> Unit = {},
-    onLogoutClick: () -> Unit = {},
     statusMessage: String? = null,
     errorMessage: String? = null,
     onHomeClick: () -> Unit = {},

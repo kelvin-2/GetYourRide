@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Added by code-review-graph
+.code-review-graph/

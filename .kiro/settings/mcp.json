@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "C:\\Users\\Dell\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ],
+      "cwd": "C:\\Users\\Dell\\Documents\\GetYourRideCode",
+      "type": "stdio"
+    }
+  }
+}
