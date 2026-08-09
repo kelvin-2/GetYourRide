@@ -149,22 +149,22 @@ fun ProfileScreen(
                                 modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
                             )
 
-                            val settingsItems = buildList {
-                                add(SettingsItem(Icons.Outlined.Edit, "Edit Profile", onEditProfile))
-                                add(SettingsItem(Icons.Outlined.DirectionsCar, "My Rides", {
-                                    navController.navigate(if (profile.isNsfasFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
-                                }))
-                                // Payment Methods only makes sense for students paying
-                                // out of pocket (carpool). NSFAS shuttle rides are
-                                // pre-funded, so this is hidden for those students.
-                                if (!profile.isNsfasFunded) {
-                                    add(SettingsItem(Icons.Outlined.CreditCard, "Payment Methods", onPaymentMethods))
-                                }
-                                add(SettingsItem(Icons.Outlined.Notifications, "Notifications", onNotifications))
-                                add(SettingsItem(Icons.Outlined.HelpOutline, "Help & Support", onHelpSupport))
-                            }
+//                            val settingsItems = buildList {
+//                                add(SettingsItem(Icons.Outlined.Edit, "Edit Profile", onEditProfile))
+//                                add(SettingsItem(Icons.Outlined.DirectionsCar, "My Rides", {
+//                                    navController.navigate(if (profile.isNsfasFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
+//                                }))
+//                                // Payment Methods only makes sense for students paying
+//                                // out of pocket (carpool). NSFAS shuttle rides are
+//                                // pre-funded, so this is hidden for those students.
+//                                if (!profile.isNsfasFunded) {
+//                                    add(SettingsItem(Icons.Outlined.CreditCard, "Payment Methods", onPaymentMethods))
+//                                }
+//                                add(SettingsItem(Icons.Outlined.Notifications, "Notifications", onNotifications))
+//                                add(SettingsItem(Icons.Outlined.HelpOutline, "Help & Support", onHelpSupport))
+//                            }
 
-                            SettingsListCard(items = settingsItems)
+//                            SettingsListCard(items = settingsItems)
 
                             Spacer(modifier = Modifier.height(20.dp))
 
