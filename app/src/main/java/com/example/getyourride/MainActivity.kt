@@ -842,8 +842,8 @@ class MainActivity : ComponentActivity() {
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
                             navController = navController,
-                            onTrackRide   = { rideId ->
-                                navController.navigate("track/$rideId")
+                            onTrackRide   = { tripId ->
+                                navController.navigate("track/$tripId")
                             },
                         )
                     }
@@ -871,14 +871,14 @@ class MainActivity : ComponentActivity() {
 
                     // Route for direct tracking from My Rides (with ID)
                     composable("track/{rideId}") { backStackEntry ->
-                        val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
+                        val tripId = backStackEntry.arguments?.getString("rideId") ?: ""
                         // This route always has a real trip id, so it uses the real STOMP socket.
                         // Was previously hardcoded to the mock ("useRealSocket = false") here too,
                         // which meant live tracking never actually connected to the backend.
                         val socket = remember { StompRideLocationSocket() }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
-                                rideId = rideId,
+                                rideId = tripId,
                                 socket = socket,
                                 tripApi = NetworkModule.tripApi
                             )

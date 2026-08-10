@@ -70,6 +70,17 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
+// Google Maps (Compose) — added for the default map, with osmdroid as fallback
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker as GoogleMarker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline as GooglePolyline
+import com.google.maps.android.compose.rememberCameraPositionState
+
 // Match these to your app's theme colors (Theme.kt) instead of hardcoding
 private val UniRideOrange = Color(0xFFFF7A1A)
 private val UniRideNavy = Color(0xFF141A33)
@@ -127,7 +138,7 @@ fun TrackingScreenContent(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
-            OsmMapSection(uiState = uiState)
+            MapSection(uiState = uiState)
         }
         uiState.tripInfo?.let { info ->
             DriverInfoCard(
@@ -156,49 +167,130 @@ fun TrackingScreenContent(
     }
 }
 
-// --- Preview -----------------------------------------------------------
 
-private val previewUiState = TrackingUiState(
-    driverLocation = GeoPoint(-33.9581, 25.6014),      // sample NMU South Campus-ish coords
-    destinationLocation = GeoPoint(-33.9615, 25.6089),
-    stops = listOf(
-        GeoPoint(-33.9590, 25.6030),
-        GeoPoint(-33.9600, 25.6050)
-    ),
-    currentStopIndex = 1,
-    isConnected = true,
-    error = null,
-    tripInfo = TripTrackingInfo(
-        driverName = "Marcus Thompson",
-        driverRating = 4.9,
-        status = RideStatus.ON_THE_WAY,
-        etaMinutes = 4,
-        carModel = "Toyota Corolla",
-        carColor = "White",
-        carYear = 2022,
-        plateNumber = "UNI-7842",
-        isPlateVerified = true,
-        destinationLabel = "Library North"
-    )
-)
+// --- Map selection: Google Maps default, osmdroid fallback -------------
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+/**
+ * Master switch for which map renderer this screen uses.
+ *
+ * Currently FALSE because the Maps SDK for Android requires a billing-enabled
+ * Google Cloud project. Without a billing account attached, every tile request
+ * fails with "Authorization failure" and the map renders blank — the renderer
+ * itself initializes fine, which is why this looked like a layout bug at first.
+ *
+ * osmdroid needs no API key and no billing, so it's the default. Flip this to
+ * true once billing is enabled on the Cloud project AND the release/debug
+ * SHA-1 fingerprints are allowlisted against the MAPS_API_KEY in
+ * local.properties.
+ */
+private const val USE_GOOGLE_MAPS = false
+
 @Composable
-private fun TrackingScreenPreview() {
-    TrackingScreenContent(uiState = previewUiState)
+private fun MapSection(uiState: TrackingUiState) {
+    val context = LocalContext.current
+
+    // Play Services still matters even when Google Maps is enabled — an
+    // unavailable/outdated GMS means the Maps SDK can't render at all.
+    val playServicesOk = remember {
+        GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
+    }
+
+    if (USE_GOOGLE_MAPS && playServicesOk) {
+        GoogleMapSection(uiState = uiState)
+    } else {
+        OsmMapSection(uiState = uiState)
+    }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 780, name = "Connecting state")
 @Composable
-private fun TrackingScreenConnectingPreview() {
-    TrackingScreenContent(
-        uiState = previewUiState.copy(
-            isConnected = false,
-            driverLocation = null,
-            tripInfo = previewUiState.tripInfo?.copy(etaMinutes = null)
+private fun GoogleMapSection(uiState: TrackingUiState) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        GoogleMapView(
+            driverLocation = uiState.driverLocation,
+            destinationLocation = uiState.destinationLocation,
+            stops = uiState.stops,
+            currentStopIndex = uiState.currentStopIndex,
+            modifier = Modifier.fillMaxSize()
         )
-    )
+
+        uiState.tripInfo?.destinationLabel?.let { label ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+                    .background(UniRideNavy, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(label, color = Color.White, fontSize = 13.sp)
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { /* TODO: recenter map on the student's current location */ },
+            containerColor = Color.White,
+            contentColor = UniRideOrange,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Filled.MyLocation, contentDescription = "Recenter")
+        }
+    }
 }
+
+@Composable
+private fun GoogleMapView(
+    driverLocation: GeoPoint?,
+    destinationLocation: GeoPoint?,
+    stops: List<GeoPoint> = emptyList(),
+    currentStopIndex: Int = 0,
+    modifier: Modifier = Modifier
+) {
+    fun GeoPoint.toLatLng() = LatLng(latitude, longitude)
+
+    val startTarget = driverLocation?.toLatLng() ?: LatLng(-33.9581, 25.6014)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(startTarget, 16f)
+    }
+
+    GoogleMap(
+        modifier = modifier.clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+        cameraPositionState = cameraPositionState
+    ) {
+        driverLocation?.let {
+            GoogleMarker(state = MarkerState(position = it.toLatLng()), title = "Driver")
+        }
+        destinationLocation?.let {
+            GoogleMarker(state = MarkerState(position = it.toLatLng()), title = "Destination")
+        }
+        stops.forEachIndexed { index, point ->
+            GoogleMarker(
+                state = MarkerState(position = point.toLatLng()),
+                title = when {
+                    index < currentStopIndex -> "Passed Stop"
+                    index == currentStopIndex -> "Next Stop"
+                    else -> "Upcoming Stop"
+                },
+                alpha = if (index < currentStopIndex) 0.4f else 1.0f
+            )
+        }
+
+        val remainingPoints = buildList {
+            driverLocation?.let { add(it.toLatLng()) }
+            for (i in currentStopIndex until stops.size) add(stops[i].toLatLng())
+            destinationLocation?.let { add(it.toLatLng()) }
+        }
+        if (remainingPoints.size >= 2) {
+            GooglePolyline(points = remainingPoints, color = UniRideNavy.copy(alpha = 0.6f))
+        }
+    }
+}
+
+// --- osmdroid fallback (unchanged) --------------------------------------
 
 @Composable
 private fun OsmMapSection(uiState: TrackingUiState) {
@@ -287,16 +379,16 @@ private fun OsmMapView(
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
         }
     }
-    
+
     // Intermediate stops markers
     val stopMarkers = remember { mutableListOf<Marker>() }
 
     val routeLineTraveled = remember { Polyline(mapView).apply { outlinePaint.color = UniRideOrange.toArgb() } }
-    val routeLineRemaining = remember { 
-        Polyline(mapView).apply { 
+    val routeLineRemaining = remember {
+        Polyline(mapView).apply {
             outlinePaint.color = UniRideNavy.copy(alpha = 0.6f).toArgb()
             outlinePaint.pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
-        } 
+        }
     }
 
     DisposableEffect(Unit) {
@@ -304,8 +396,8 @@ private fun OsmMapView(
         mapView.overlays.add(routeLineRemaining)
         mapView.overlays.add(destinationMarker)
         mapView.overlays.add(driverMarker)
-        onDispose { 
-            mapView.onDetach() 
+        onDispose {
+            mapView.onDetach()
             stopMarkers.forEach { mapView.overlays.remove(it) }
         }
     }
@@ -326,7 +418,7 @@ private fun OsmMapView(
                     val lat = start.latitude + (target.latitude - start.latitude) * progress
                     val lng = start.longitude + (target.longitude - start.longitude) * progress
                     driverMarker.position = GeoPoint(lat, lng)
-                    
+
                     // Update traveled route line to follow the marker
                     val traveledPoints = mutableListOf<GeoPoint>()
                     // Add all passed stops to the traveled line
@@ -335,7 +427,7 @@ private fun OsmMapView(
                     }
                     traveledPoints.add(driverMarker.position)
                     routeLineTraveled.setPoints(traveledPoints)
-                    
+
                     mapView.invalidate()
                     kotlinx.coroutines.delay(16) // ~60fps
                 }
@@ -350,18 +442,18 @@ private fun OsmMapView(
             destinationMarker.position = point
             destinationMarker.title = destinationLabel
         }
-        
+
         // Update Stop Markers
         // Clear old stop markers from overlays
         stopMarkers.forEach { mapView.overlays.remove(it) }
         stopMarkers.clear()
-        
+
         stops.forEachIndexed { index, point ->
             val marker = Marker(mapView).apply {
                 position = point
                 icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_stop_marker)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                
+
                 // Dim passed stops
                 if (index < currentStopIndex) {
                     alpha = 0.4f
@@ -377,7 +469,7 @@ private fun OsmMapView(
             stopMarkers.add(marker)
             mapView.overlays.add(marker)
         }
-        
+
         // Update remaining route line
         val remainingPoints = mutableListOf<GeoPoint>()
         driverLocation?.let { remainingPoints.add(it) }

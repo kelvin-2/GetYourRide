@@ -151,7 +151,7 @@ fun MyRidesScreen(
                             filtered.forEach { (ride, tripId) ->
                                 RideCard(
                                     ride         = ride,
-                                    onTrackRide  = { onTrackRide(ride.id) },
+                                    onTrackRide  = { onTrackRide(tripId.toString()) },
                                     // Cancel still sends tripId, exactly as it did
                                     // before (matches the working PATCH
                                     // /api/trips/bookings/{tripId}/cancel call
