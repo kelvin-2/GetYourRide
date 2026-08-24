@@ -297,22 +297,6 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            val driverText = buildAnnotatedString {
-                append("Want to earn while you drive? ")
-                withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline)) {
-                    append("Become a Driver")
-                }
-            }
-            Text(
-                text      = driverText,
-                fontSize  = 13.sp,
-                color     = TextMuted,
-                textAlign = TextAlign.Center,
-                modifier  = Modifier.fillMaxWidth().clickable { onBecomeDriverClick() },
-            )
-
-            Spacer(Modifier.height(12.dp))
-
             val loginText = buildAnnotatedString {
                 append("Already have an account? ")
                 withStyle(SpanStyle(color = OrangeAccent, fontWeight = FontWeight.SemiBold)) {

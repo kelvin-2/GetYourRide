@@ -194,6 +194,7 @@ class MainActivity : ComponentActivity() {
 
                         LoginScreen(
                             onCreateAccountClick = { navController.navigate("signup") },
+                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
                             onLoginClick         = { email, password ->
                                 authViewModel.login(email, password)
                             },

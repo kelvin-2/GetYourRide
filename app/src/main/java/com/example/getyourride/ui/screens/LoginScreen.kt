@@ -69,6 +69,7 @@ import com.example.getyourride.ui.theme.TextMuted
 fun LoginScreen(
     onLoginClick: (email: String, password: String) -> Unit = { _, _ -> },
     onCreateAccountClick: () -> Unit = {},
+    onBecomeDriverClick: () -> Unit = {},
     onForgotPasswordClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyClick: () -> Unit = {},
@@ -300,6 +301,30 @@ fun LoginScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val driverText = buildAnnotatedString {
+            append("Want to earn while you drive? ")
+            withStyle(
+                SpanStyle(
+                    color = NavyPrimary,
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = TextDecoration.Underline,
+                )
+            ) {
+                append("Become a Driver")
+            }
+        }
+        Text(
+            text = driverText,
+            fontSize = 14.sp,
+            color = TextMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onBecomeDriverClick() },
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
