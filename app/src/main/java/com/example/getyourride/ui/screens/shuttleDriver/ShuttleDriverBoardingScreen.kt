@@ -1,6 +1,8 @@
 package com.example.getyourride.ui.screens.shuttleDriver
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,6 +67,8 @@ import com.example.getyourride.ui.components.ShuttleDriverBottomBar
 import com.example.getyourride.ui.components.ShuttleDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.viewmodel.BoardingUiState
+import com.example.getyourride.viewmodel.STANDARD_TIME_SLOTS
+import com.example.getyourride.viewmodel.TimeSlot
 
 // ── Design tokens (matching profile screen) ─────────────────────────────────
 private val BoardingBackground = Color(0xFFF6F8FC)
@@ -93,6 +98,7 @@ fun ShuttleDriverBoardingScreen(
     markingBookingId: Long? = null,
     onLoadData: () -> Unit = {},
     onMarkAsBoarded: (Long) -> Unit = {},
+    onSelectTimeSlot: (TimeSlot) -> Unit = {},
     onScanQrCodeClick: () -> Unit = {},
     onBoardingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
@@ -264,8 +270,11 @@ fun ShuttleDriverBoardingScreen(
                 BoardingContent(
                     trip = uiState.trip,
                     students = uiState.students,
+                    timeSlots = uiState.timeSlots,
+                    selectedSlot = uiState.selectedSlot,
                     markingBookingId = markingBookingId,
                     onMarkAsBoarded = onMarkAsBoarded,
+                    onSelectTimeSlot = onSelectTimeSlot,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -282,8 +291,11 @@ fun ShuttleDriverBoardingScreen(
 private fun BoardingContent(
     trip: ShuttleDriverActiveTripResponse,
     students: List<BoardedStudentResponse>,
+    timeSlots: List<TimeSlot>,
+    selectedSlot: TimeSlot,
     markingBookingId: Long?,
     onMarkAsBoarded: (Long) -> Unit,
+    onSelectTimeSlot: (TimeSlot) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var searchText by rememberSaveable { mutableStateOf("") }
@@ -319,6 +331,13 @@ private fun BoardingContent(
                 fontSize = 14.sp
             )
         }
+
+        // ── Time Slot Filter ────────────────────────────────────────────
+        TimeSlotFilterRow(
+            timeSlots = timeSlots,
+            selectedSlot = selectedSlot,
+            onSelectSlot = onSelectTimeSlot
+        )
 
         // ── Trip Header Card (gradient like profile) ────────────────────
         TripHeaderCard(trip = trip, boardedCount = boardedCount)
@@ -405,6 +424,126 @@ private fun BoardingContent(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+
+// ── Time Slot Filter Row ────────────────────────────────────────────────────
+
+@Composable
+private fun TimeSlotFilterRow(
+    timeSlots: List<TimeSlot>,
+    selectedSlot: TimeSlot,
+    onSelectSlot: (TimeSlot) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = BoardingCardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = BoardingPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Trip Schedule",
+                    color = BoardingPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Morning slots
+            Text(
+                text = "Morning",
+                color = BoardingTextMuted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                timeSlots.filter { it.period == "Morning" }.forEach { slot ->
+                    TimeSlotChip(
+                        slot = slot,
+                        isSelected = slot.slotId == selectedSlot.slotId,
+                        onClick = { onSelectSlot(slot) }
+                    )
+                }
+            }
+
+            // Afternoon slots
+            Text(
+                text = "Afternoon",
+                color = BoardingTextMuted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                timeSlots.filter { it.period == "Afternoon" }.forEach { slot ->
+                    TimeSlotChip(
+                        slot = slot,
+                        isSelected = slot.slotId == selectedSlot.slotId,
+                        onClick = { onSelectSlot(slot) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeSlotChip(
+    slot: TimeSlot,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) BoardingPrimary else BoardingFieldBg
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = slot.label,
+                color = if (isSelected) Color.White else BoardingText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = slot.arrives.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                color = if (isSelected) Color.White.copy(alpha = 0.7f) else BoardingTextMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -827,7 +966,7 @@ private fun ShuttleDriverBoardingScreenPreview() {
         tripId = 24,
         departureStop = "North Campus",
         destinationStop = "South Campus",
-        departureTime = "12:30",
+        departureTime = "12:30 - 13:15",
         arrivalTime = "13:15",
         status = "IN_PROGRESS",
         capacity = 15,
@@ -846,7 +985,14 @@ private fun ShuttleDriverBoardingScreenPreview() {
 
     GetYourRideTheme(dynamicColor = false) {
         ShuttleDriverBoardingScreen(
-            uiState = BoardingUiState.Success(trip = sampleTrip, students = sampleStudents)
+            uiState = BoardingUiState.Success(
+                trip = sampleTrip,
+                students = sampleStudents,
+                timeSlots = STANDARD_TIME_SLOTS,
+                selectedSlot = STANDARD_TIME_SLOTS[4], // 12:30 slot
+                selectedDate = java.time.LocalDate.now(),
+                driverTrips = emptyList()
+            )
         )
     }
 }
