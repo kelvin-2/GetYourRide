@@ -194,6 +194,7 @@ class MainActivity : ComponentActivity() {
 
                         LoginScreen(
                             onCreateAccountClick = { navController.navigate("signup") },
+                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
                             onLoginClick         = { email, password ->
                                 authViewModel.login(email, password)
                             },
@@ -894,7 +895,8 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_driver_boarding") {
                         val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
                             factory = ShuttleDriverBoardingViewModelFactory(
-                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi),
+                                NetworkModule.tripApi
                             )
                         )
 
@@ -904,6 +906,9 @@ class MainActivity : ComponentActivity() {
                             onLoadData = { boardingViewModel.loadBoardingData() },
                             onMarkAsBoarded = { bookingId ->
                                 boardingViewModel.markStudentAsBoarded(bookingId)
+                            },
+                            onSelectTimeSlot = { slot ->
+                                boardingViewModel.selectTimeSlot(slot)
                             },
                             onScanQrCodeClick = {
                                 navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
