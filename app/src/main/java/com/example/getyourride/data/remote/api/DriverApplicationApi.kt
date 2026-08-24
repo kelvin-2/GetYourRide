@@ -80,8 +80,8 @@ interface DriverApplicationApi {
     suspend fun getDriverProfile(): Response<DriverProfileResponse>
 
     /**
-     * Deactivate (soft-delete) the driver profile.
-     * Backend reads the driver_id from the JWT token.
+     * Permanently delete the driver profile.
+     * Backend reads the driver_id from the JWT token and removes all associated data.
      */
     @DELETE("api/driver-profile")
     suspend fun deleteDriverProfile(): Response<DriverProfileDeleteResponse>
@@ -92,7 +92,7 @@ interface DriverApplicationApi {
  */
 data class DriverApplicationStatusResponse(
     val applicationId: String,
-    val status: String,  // "PENDING", "APPROVED", "REJECTED"
+    val status: String,  // "PENDING_REVIEW", "APPROVED", "REJECTED"
     val message: String? = null
 )
 
@@ -123,6 +123,7 @@ data class DriverProfileResponse(
 
 /**
  * Response from DELETE /api/driver-profile.
+ * Returned after the driver profile and all associated data are permanently deleted.
  */
 data class DriverProfileDeleteResponse(
     val message: String

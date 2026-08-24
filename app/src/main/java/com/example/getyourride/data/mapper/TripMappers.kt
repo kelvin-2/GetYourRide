@@ -2,21 +2,24 @@
 // TripMapper.kt
 // Package: com.example.getyourride.data.mapper
 //
-// PURPOSE — Converts TripResponse (raw API data) into UI models.
+// PURPOSE — Converts TripResponse / TripBookingResponse (raw API data) into UI models.
 //
-// Three mappers live here:
-//   toCarpoolRide()       → CarpoolRide       used by CarpoolHomeScreen available rides
+// Four mappers live here:
+//   toCarpoolRide()        → CarpoolRide       used by CarpoolHomeScreen available rides
 //   toRideRequestDetails() → RideRequestDetails used by RequestRideScreen booking flow
-//   toRideCardData()      → RideCardData      used by MyRidesScreen booked rides
+//   toRideCardData()       → RideCardData      (TripResponse variant) used by driver "my trips"
+//   toRideCardData()       → RideCardData      (TripBookingResponse variant) used by MyRidesScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.data.mapper
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.ui.components.RideCardData
 import com.example.getyourride.ui.components.RideStatus
+import com.example.getyourride.ui.components.RideStopInfo
 import com.example.getyourride.ui.screens.Carpool.components.CarpoolRide
 import com.example.getyourride.ui.screens.Rides.RideRequestDetails
 import java.time.LocalDateTime
@@ -92,11 +95,10 @@ fun TripResponse.toRideRequestDetails(): RideRequestDetails {
     )
 }
 
-// ─── 3. TripResponse → RideCardData (booked rides on MyRidesScreen) ──────────
+// ─── 3. TripResponse → RideCardData (driver's posted trips) ──────────────────
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun TripResponse.toRideCardData(): RideCardData {
-    // Parse the ISO datetime once — used for both date and time labels
     val dateTime = try {
         LocalDateTime.parse(departureTime)
     } catch (e: DateTimeParseException) {
@@ -105,19 +107,11 @@ fun TripResponse.toRideCardData(): RideCardData {
 
     return RideCardData(
         id = tripId.toString(),
-
         driverName = driverName ?: "Unknown Driver",
-
-        // Combine colour + model → "Black Ford Fiesta"
-        // Falls back gracefully if either field is null
         carDescription = listOfNotNull(vehicleColour, vehicleModel)
             .joinToString(" ")
             .ifBlank { "Unknown Vehicle" },
-
         plate = registrationNumber ?: "—",
-
-        // Map backend status string → RideStatus enum
-        // Backend sends: "Scheduled", "Active", "Completed", "Cancelled"
         status = when (status.lowercase()) {
             "scheduled" -> RideStatus.SCHEDULED
             "active"    -> RideStatus.ACTIVE
@@ -125,14 +119,60 @@ fun TripResponse.toRideCardData(): RideCardData {
             "cancelled" -> RideStatus.CANCELLED
             else        -> RideStatus.SCHEDULED
         },
-
         pickup  = departureStop,
         dropoff = destinationStop,
-
-        // "2026-07-02T07:00:00" → "02 Jul 2026"
         dateLabel = dateTime?.format(dateFormatter) ?: departureTime.take(10),
-
-        // "2026-07-02T07:00:00" → "07:00 AM"
         timeLabel = dateTime?.format(timeFormatter) ?: departureTime.takeLast(8),
+        slotTime = slotTime,
+        vehicleCapacity = vehicleCapacity,
+        stops = stops.map {
+            RideStopInfo(
+                stopName = it.stopName,
+                stopOrder = it.stopOrder,
+                studentName = it.studentName,
+            )
+        },
+    )
+}
+
+// ─── 4. TripBookingResponse → RideCardData (booked rides on MyRidesScreen) ───
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun TripBookingResponse.toRideCardData(): RideCardData {
+    val trip = this.trip
+
+    val dateTime = try {
+        LocalDateTime.parse(trip.departureTime)
+    } catch (e: DateTimeParseException) {
+        null
+    }
+
+    return RideCardData(
+        id = bookingId.toString(),
+        driverName = trip.driverName ?: "Unknown Driver",
+        carDescription = listOfNotNull(trip.vehicleColour, trip.vehicleModel)
+            .joinToString(" ")
+            .ifBlank { "Unknown Vehicle" },
+        plate = trip.registrationNumber ?: "—",
+        status = when (bookingStatus?.lowercase()) {
+            "confirmed" -> RideStatus.ACTIVE
+            "pending"   -> RideStatus.SCHEDULED
+            "cancelled" -> RideStatus.CANCELLED
+            "completed" -> RideStatus.COMPLETED
+            else        -> RideStatus.SCHEDULED
+        },
+        pickup  = trip.departureStop,
+        dropoff = trip.destinationStop,
+        dateLabel = dateTime?.format(dateFormatter) ?: trip.departureTime.take(10),
+        timeLabel = dateTime?.format(timeFormatter) ?: trip.departureTime.takeLast(8),
+        slotTime = trip.slotTime,
+        vehicleCapacity = trip.vehicleCapacity,
+        stops = trip.stops.map {
+            RideStopInfo(
+                stopName = it.stopName,
+                stopOrder = it.stopOrder,
+                studentName = it.studentName,
+            )
+        },
     )
 }

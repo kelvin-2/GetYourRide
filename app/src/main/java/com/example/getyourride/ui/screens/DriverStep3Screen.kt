@@ -6,11 +6,15 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,17 +26,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,32 +57,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.ui.theme.GetYourRideTheme
 
-private val DriverBackground = Color(0xFFFBF8FD)
-private val DriverPrimary = Color(0xFF011844)
-private val DriverTopBar = Color(0xFF1A2E5A)
-private val DriverAccent = Color(0xFFFC820C)
-private val DriverCardBackground = Color(0xFFFFFFFF)
-private val DriverCardBorder = Color(0xFFC5C6D0)
-private val DriverFieldBackground = Color(0xFFE3E2E6)
-private val DriverText = Color(0xFF1B1B1F)
-private val DriverTextMuted = Color(0xFF44464F)
-private val DriverOutline = Color(0xFF757780)
-private val DriverInactiveProgress = Color(0xFFE3E2E6)
-private val DriverPendingBackground = Color(0xFFFFF3CD)
-private val DriverPendingText = Color(0xFF8A5A00)
-private val DriverPrimaryFixed = Color(0xFFDAE2FF)
-private val DriverError = Color(0xFFC62828)
-private val DriverSuccess = Color(0xFF2E7D32)
+// ─── Color Palette ───────────────────────────────────────────────────────────
+private val StepBackground = Color(0xFFF4F6FB)
+private val StepPrimary = Color(0xFF1A2E5A)
+private val StepPrimaryLight = Color(0xFF2E4A82)
+private val StepTopBar = Color(0xFF1A2E5A)
+private val StepAccent = Color(0xFFFC820C)
+private val StepCardBackground = Color(0xFFFFFFFF)
+private val StepText = Color(0xFF1B1B1F)
+private val StepTextMuted = Color(0xFF5E6278)
+private val StepBorder = Color(0xFFE5E7EB)
+private val StepInactiveProgress = Color(0xFFE5E7EB)
+private val StepError = Color(0xFFDC2626)
+private val StepSuccess = Color(0xFF16A34A)
+private val StepSectionBlue = Color(0xFF2563EB)
+private val StepPendingBg = Color(0xFFFEF3C7)
+private val StepPendingText = Color(0xFF92400E)
+private val StepUploadedBg = Color(0xFFDCFCE7)
+private val StepUploadedText = Color(0xFF16A34A)
 
 data class DriverStep3Data(
     val driversLicenceFileName: String,
@@ -94,21 +104,10 @@ fun DriverStep3Screen(
 ) {
     val context = LocalContext.current
 
-    var driversLicenceFileName by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    var driversLicenceUri by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    var vehicleRegistrationFileName by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    var vehicleRegistrationUri by rememberSaveable {
-        mutableStateOf("")
-    }
+    var driversLicenceFileName by rememberSaveable { mutableStateOf("") }
+    var driversLicenceUri by rememberSaveable { mutableStateOf("") }
+    var vehicleRegistrationFileName by rememberSaveable { mutableStateOf("") }
+    var vehicleRegistrationUri by rememberSaveable { mutableStateOf("") }
 
     val driversLicencePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -134,17 +133,25 @@ fun DriverStep3Screen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "GetYourRide",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DirectionsCar,
+                            contentDescription = null,
+                            tint = Color.White
+                        )
+                        Text(
+                            text = "GetYourRide",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 },
                 navigationIcon = {
-                    IconButton(
-                        onClick = onBackClick
-                    ) {
+                    IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.Outlined.ArrowBack,
                             contentDescription = "Back",
@@ -152,18 +159,7 @@ fun DriverStep3Screen(
                         )
                     }
                 },
-                actions = {
-                    Text(
-                        text = "STEP 3 OF 3",
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DriverTopBar
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = StepTopBar)
             )
         },
         bottomBar = {
@@ -178,321 +174,465 @@ fun DriverStep3Screen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    content = {
-                        OutlinedButton(
-                            onClick = onBackClick,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, DriverOutline),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = DriverPrimary
-                            )
-                        ) {
-                            Text(
-                                text = "Back",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                onSubmitClick(
-                                    DriverStep3Data(
-                                        driversLicenceFileName = driversLicenceFileName,
-                                        driversLicenceUri = driversLicenceUri,
-                                        vehicleRegistrationFileName = vehicleRegistrationFileName,
-                                        vehicleRegistrationUri = vehicleRegistrationUri
-                                    )
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(2f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = DriverAccent
-                            ),
-                            contentPadding = PaddingValues(horizontal = 16.dp)
-                        ) {
-                            Text(
-                                text = "Submit Profile",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, StepBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = StepPrimary
+                        )
+                    ) {
+                        Text(
+                            text = "Back",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
-                )
+
+                    Button(
+                        onClick = {
+                            onSubmitClick(
+                                DriverStep3Data(
+                                    driversLicenceFileName = driversLicenceFileName,
+                                    driversLicenceUri = driversLicenceUri,
+                                    vehicleRegistrationFileName = vehicleRegistrationFileName,
+                                    vehicleRegistrationUri = vehicleRegistrationUri
+                                )
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(2f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = StepAccent),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Submit Profile",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         },
-        containerColor = DriverBackground
+        containerColor = StepBackground
     ) { innerPadding ->
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(DriverBackground)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            content = {
-                DriverStep3ProgressIndicator(
-                    currentStep = 3,
-                    totalSteps = 3
-                )
-
-                Spacer(
-                    modifier = Modifier.height(32.dp)
-                )
-
-                Text(
-                    text = "Upload Documents",
-                    color = DriverPrimary,
-                    fontSize = 32.sp,
-                    lineHeight = 38.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(
-                    modifier = Modifier.height(4.dp)
-                )
-
-                Text(
-                    text = "Upload your documents now or skip and upload them later from your profile.",
-                    color = DriverTextMuted,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(32.dp)
-                )
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    content = {
-                        DriverDocumentCard(
-                            title = "Driver's Licence",
-                            fileName = driversLicenceFileName,
-                            emptyText = "No driver's licence image selected",
-                            icon = Icons.Outlined.Badge,
-                            onChooseFileClick = {
-                                driversLicencePicker.launch(
-                                    arrayOf("image/*")
-                                )
-                            }
+        ) {
+            // ─── Gradient Hero Header ────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(StepTopBar, StepPrimaryLight),
+                            start = Offset(0f, 0f),
+                            end = Offset(Float.POSITIVE_INFINITY, 400f)
                         )
-
-                        DriverDocumentCard(
-                            title = "Vehicle Registration",
-                            fileName = vehicleRegistrationFileName,
-                            emptyText = "No vehicle registration image selected",
-                            icon = Icons.Outlined.Description,
-                            onChooseFileClick = {
-                                vehicleRegistrationPicker.launch(
-                                    arrayOf("image/*")
-                                )
-                            }
+                    )
+                    .padding(horizontal = 20.dp, vertical = 28.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Step icon
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.UploadFile,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
                         )
-
-                        if (!errorMessage.isNullOrBlank()) {
-                            DriverStep3MessageText(
-                                text = errorMessage,
-                                color = DriverError
-                            )
-                        }
-
-                        if (!statusMessage.isNullOrBlank()) {
-                            DriverStep3MessageText(
-                                text = statusMessage,
-                                color = DriverSuccess
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "Upload Documents",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 28.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Upload now or skip and do it later.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        // Step badge
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = StepAccent
+                        ) {
+                            Text(
+                                text = "Step 3 of 3",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                             )
                         }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Progress Indicator ──────────────────────────────────────────
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                repeat(3) { index ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                if (index < 3) StepAccent else StepInactiveProgress
+                            )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ─── Documents Card ──────────────────────────────────────────────
+            Step3SectionCard(
+                title = "Required Documents",
+                icon = Icons.Outlined.Description,
+                iconTint = StepSectionBlue
+            ) {
+                Step3DocumentUploadRow(
+                    title = "Driver's Licence",
+                    subtitle = "Upload a clear image of your licence",
+                    fileName = driversLicenceFileName,
+                    icon = Icons.Outlined.Badge,
+                    onChooseFileClick = {
+                        driversLicencePicker.launch(arrayOf("image/*"))
+                    }
                 )
 
-                Spacer(
-                    modifier = Modifier.height(24.dp)
+                // Thin divider between documents
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(StepBorder)
+                )
+
+                Step3DocumentUploadRow(
+                    title = "Vehicle Registration",
+                    subtitle = "Upload a clear image of your registration",
+                    fileName = vehicleRegistrationFileName,
+                    icon = Icons.Outlined.Description,
+                    onChooseFileClick = {
+                        vehicleRegistrationPicker.launch(arrayOf("image/*"))
+                    }
                 )
             }
-        )
+
+            // ─── Status Message ──────────────────────────────────────────────
+            AnimatedVisibility(
+                visible = !statusMessage.isNullOrBlank(),
+                enter = fadeIn() + slideInVertically()
+            ) {
+                if (!statusMessage.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = Color(0xFFDCFCE7),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = StepSuccess,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = statusMessage,
+                                color = StepSuccess,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ─── Error Message ───────────────────────────────────────────────
+            AnimatedVisibility(
+                visible = !errorMessage.isNullOrBlank(),
+                enter = fadeIn() + slideInVertically()
+            ) {
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = Color(0xFFFEE2E2),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ErrorOutline,
+                                contentDescription = null,
+                                tint = StepError,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = errorMessage,
+                                color = StepError,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 }
 
+// ─── Section Card ────────────────────────────────────────────────────────────
 @Composable
-private fun DriverStep3MessageText(
-    text: String,
-    color: Color
+private fun Step3SectionCard(
+    title: String,
+    icon: ImageVector,
+    iconTint: Color,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Text(
-        text = text,
-        color = color,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 4.dp)
-    )
-}
-
-@Composable
-private fun DriverStep3ProgressIndicator(
-    currentStep: Int,
-    totalSteps: Int
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-        content = {
-            repeat(totalSteps) { index ->
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        color = StepCardBackground,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 4.dp,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Section header with icon badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(
-                            if (index + 1 == currentStep) {
-                                DriverAccent
-                            } else {
-                                DriverInactiveProgress
-                            }
-                        )
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(iconTint.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = title,
+                    color = StepPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
+
+            // Thin divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(StepBorder)
+            )
+
+            content()
         }
-    )
+    }
 }
 
+// ─── Document Upload Row ─────────────────────────────────────────────────────
 @Composable
-private fun DriverDocumentCard(
+private fun Step3DocumentUploadRow(
     title: String,
+    subtitle: String,
     fileName: String,
-    emptyText: String,
     icon: ImageVector,
-    onChooseFileClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onChooseFileClick: () -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = DriverCardBackground
-        ),
-        border = BorderStroke(1.dp, DriverCardBorder),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        )
+    val isUploaded = fileName.isNotBlank()
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF9FAFB),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            content = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                    content = {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(DriverPrimaryFixed),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = DriverPrimary,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-
-                        DriverPendingBadge()
-                    }
-                )
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    content = {
-                        Text(
-                            text = title,
-                            color = DriverText,
-                            fontSize = 20.sp,
-                            lineHeight = 28.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                        Text(
-                            text = if (fileName.isBlank()) emptyText else fileName,
-                            color = DriverOutline,
-                            fontSize = 14.sp,
-                            lineHeight = 21.sp,
-                            fontStyle = FontStyle.Italic
-                        )
-                    }
-                )
-
-                Button(
-                    onClick = onChooseFileClick,
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Icon badge
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DriverFieldBackground,
-                        contentColor = DriverTextMuted
-                    )
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isUploaded) StepUploadedBg else StepPendingBg
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.UploadFile,
+                        imageVector = icon,
                         contentDescription = null,
-                        tint = DriverTextMuted
-                    )
-
-                    Spacer(
-                        modifier = Modifier.width(8.dp)
-                    )
-
-                    Text(
-                        text = if (fileName.isBlank()) "Choose Image" else "Change Image",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = DriverTextMuted
+                        tint = if (isUploaded) StepUploadedText else StepPendingText,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        color = StepText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = subtitle,
+                        color = StepTextMuted,
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Status badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isUploaded) StepUploadedBg else StepPendingBg
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isUploaded) Icons.Outlined.CheckCircle else Icons.Outlined.Schedule,
+                            contentDescription = null,
+                            tint = if (isUploaded) StepUploadedText else StepPendingText,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = if (isUploaded) "Selected" else "Pending",
+                            color = if (isUploaded) StepUploadedText else StepPendingText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
-        )
+
+            // File name display
+            if (isUploaded) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = StepUploadedBg.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Description,
+                            contentDescription = null,
+                            tint = StepUploadedText,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = fileName,
+                            color = StepUploadedText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Upload button
+            Button(
+                onClick = onChooseFileClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isUploaded) StepPrimary.copy(alpha = 0.08f) else StepAccent.copy(alpha = 0.1f),
+                    contentColor = if (isUploaded) StepPrimary else StepAccent
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.UploadFile,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isUploaded) "Change Image" else "Choose Image",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 
-@Composable
-private fun DriverPendingBadge() {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(DriverPendingBackground)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = "Pending",
-            color = DriverPendingText,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp
-        )
-    }
-}
-
-private fun persistReadPermission(
-    context: Context,
-    uri: Uri
-) {
+private fun persistReadPermission(context: Context, uri: Uri) {
     runCatching {
         context.contentResolver.takePersistableUriPermission(
             uri,
@@ -501,31 +641,17 @@ private fun persistReadPermission(
     }
 }
 
-private fun getFileNameFromUri(
-    context: Context,
-    uri: Uri
-): String {
+private fun getFileNameFromUri(context: Context, uri: Uri): String {
     var fileName: String? = null
-
     if (uri.scheme == "content") {
-        context.contentResolver.query(
-            uri,
-            null,
-            null,
-            null,
-            null
-        )?.use { cursor ->
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-
             if (nameIndex >= 0 && cursor.moveToFirst()) {
                 fileName = cursor.getString(nameIndex)
             }
         }
     }
-
-    return fileName
-        ?: uri.lastPathSegment
-        ?: "selected_image"
+    return fileName ?: uri.lastPathSegment ?: "selected_image"
 }
 
 @Preview(showBackground = true, showSystemUi = true)

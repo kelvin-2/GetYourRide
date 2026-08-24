@@ -1,6 +1,7 @@
 package com.example.getyourride.data.remote.api
 
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
+import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
@@ -23,6 +24,13 @@ interface TripApi {
     @GET("api/trips/status/{status}")
     suspend fun getTripsByStatus(@Path("status") status: String): Response<List<TripResponse>>
 
+    @GET("api/trips/my-bookings" +
+            "")
+    suspend fun getMyBookings(
+        @Query("status") status: String? = null
+    ): Response<List<TripBookingResponse>>
+
+
     // GET /api/trips/search?depLat=...&depLng=...&destLat=...&destLng=...
     @GET("api/trips/search")
     suspend fun searchTrips(
@@ -35,8 +43,11 @@ interface TripApi {
     @GET("api/trips/{id}")
     suspend fun getTripById(@Path("id") tripId: Long): Response<TripResponse>
 
-    @PATCH("api/trips/{id}/cancel")
-    suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
+    //student to cancle thier trip booking
+    @PATCH("api/trips/bookings/{bookingId}/cancel")
+    suspend fun cancelBooking(@Path("bookingId") bookingId: Long): Response<TripResponse>
+
+
 
     /**
      * GET /api/trips/my-trips — Fetch all trips posted by the logged-in driver.
@@ -107,7 +118,7 @@ data class OfferRideResponse(
  * price is sent as a string to preserve precision when mapped to BigDecimal server-side.
  */
 data class CreateTripRequest(
-    val tripType: String,              // "SHUTTLE" or "STUDENT_DRIVER"
+    val tripType: String,              // "SHUTTLE" or "Carpool"
     val departureStop: String,
     val destinationStop: String,
     val departureLat: Double? = null,

@@ -1,9 +1,11 @@
 package com.example.getyourride.data.repository
 
 import com.example.getyourride.data.remote.api.TripApi
+
 import com.example.getyourride.data.remote.dto.TripResponse
-import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
+import com.example.getyourride.data.remote.dto.TripBookingResponse
+
 class TripRepository(private val api: TripApi) {
 
     suspend fun getAvailableTrips(): Result<List<TripResponse>> {
@@ -52,7 +54,7 @@ class TripRepository(private val api: TripApi) {
 
     suspend fun cancelTrip(tripId: Long): Result<TripResponse> {
         return try {
-            val response = api.cancelTrip(tripId)
+            val response = api.cancelBooking(tripId)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -87,6 +89,27 @@ class TripRepository(private val api: TripApi) {
                 Result.success(response.body() ?: emptyList())
             } else {
                 Result.failure(Exception("Failed to load your trips: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetch the student's bookings filtered by booking_status.
+     *
+     * Usage:
+     *   getMyBookings("CONFIRMED") → active/oncoming trips only
+     *   getMyBookings("CANCELLED") → cancelled trips (history page)
+     *   getMyBookings()            → all bookings regardless of status
+     */
+    suspend fun getMyBookings(status: String? = null): Result<List<TripBookingResponse>> {
+        return try {
+            val response = api.getMyBookings(status)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to load bookings: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

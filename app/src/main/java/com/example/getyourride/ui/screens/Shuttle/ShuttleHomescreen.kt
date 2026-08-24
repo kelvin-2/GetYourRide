@@ -108,21 +108,21 @@ fun ShuttleHomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-            item {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "Recent Trips",
-                    color = NavyPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(12.dp))
-            }
+//            item {
+//                Spacer(Modifier.height(10.dp))
+//                Text(
+//                    text = "Recent Trips",
+//                    color = NavyPrimary,
+//                    fontSize = 18.sp,
+//                    fontWeight = FontWeight.Bold
+//                )
+//                Spacer(Modifier.height(12.dp))
+//            }
 
-            items(recentTrips) { trip ->
-                RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
-                Spacer(Modifier.height(12.dp))
-            }
+//            items(recentTrips) { trip ->
+//                RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
+//                Spacer(Modifier.height(12.dp))
+//            }
         }
     }
 }
@@ -329,58 +329,58 @@ private fun RouteRow(label: String, place: String, dotColor: Color) {
 
 // ---------- Recent trip item ----------
 
-@Composable
-private fun RecentTripItem(trip: RecentTrip, onClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF0F1F6)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.History,
-                    contentDescription = null,
-                    tint = NavyPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${trip.from} → ${trip.to}",
-                    color = NavyPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${trip.date} • ${trip.time}",
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
-            }
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = Color.Gray
-            )
-        }
-    }
-}
+//@Composable
+//private fun RecentTripItem(trip: RecentTrip, onClick: () -> Unit) {
+//    Card(
+//        shape = RoundedCornerShape(14.dp),
+//        colors = CardDefaults.cardColors(containerColor = Color.White),
+//        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .clickable { onClick() }
+//    ) {
+//        Row(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(14.dp),
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            Box(
+//                modifier = Modifier
+//                    .size(38.dp)
+//                    .clip(CircleShape)
+//                    .background(Color(0xFFF0F1F6)),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Filled.History,
+//                    contentDescription = null,
+//                    tint = NavyPrimary,
+//                    modifier = Modifier.size(18.dp)
+//                )
+//            }
+//            Spacer(Modifier.width(12.dp))
+////            Column(modifier = Modifier.weight(1f)) {
+////                Text(
+////                    text = "${trip.from} → ${trip.to}",
+////                    color = NavyPrimary,
+////                    fontSize = 14.sp,
+////                    fontWeight = FontWeight.Bold
+////                )
+////                Text(
+////                    text = "${trip.date} • ${trip.time}",
+////                    color = Color.Gray,
+////                    fontSize = 12.sp
+////                )
+////            }
+////            Icon(
+////                imageVector = Icons.Filled.ChevronRight,
+////                contentDescription = null,
+////                tint = Color.Gray
+////            )
+//        }
+//    }
+//}
 
 // ---------- Preview ----------
 
