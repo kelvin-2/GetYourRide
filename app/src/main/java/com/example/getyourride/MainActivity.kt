@@ -896,7 +896,8 @@ class MainActivity : ComponentActivity() {
                         val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
                             factory = ShuttleDriverBoardingViewModelFactory(
                                 ShuttleDriverRepository(NetworkModule.shuttleDriverApi),
-                                NetworkModule.tripApi
+                                NetworkModule.tripApi,
+                                NetworkModule.shuttleApi
                             )
                         )
 
