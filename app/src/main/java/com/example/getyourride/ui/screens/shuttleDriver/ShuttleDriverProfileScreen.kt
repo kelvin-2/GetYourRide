@@ -23,11 +23,11 @@ import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.LocalShipping
+
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Route
-import androidx.compose.material.icons.outlined.Speed
+
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,7 +55,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.data.remote.dto.ShuttleDriverProfileResponse
-import com.example.getyourride.data.remote.dto.ShuttleDriverTripSummaryResponse
 import com.example.getyourride.data.remote.dto.ShuttleDriverVehicleResponse
 import com.example.getyourride.ui.components.ShuttleDriverBottomBar
 import com.example.getyourride.ui.components.ShuttleDriverBottomBarItem
@@ -269,88 +268,6 @@ private fun ProfileContent(
                 InfoRow(label = "Colour", value = vehicle.colour ?: "Not set")
                 ProfileDividerLine()
                 InfoRow(label = "Capacity", value = "${vehicle.capacity} seats")
-            }
-        }
-
-        // ── Trip Statistics ─────────────────────────────────────────────
-        profile.tripSummary?.let { summary ->
-            SectionCard(
-                title = "Trip Statistics",
-                icon = Icons.Outlined.Speed
-            ) {
-                // Current trip info
-                if (summary.currentTripRoute != null) {
-                    CurrentTripBanner(
-                        route = summary.currentTripRoute,
-                        status = summary.currentTripStatus ?: "Unknown"
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                // Stats grid
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatCard(
-                        label = "Scheduled",
-                        value = summary.scheduledTrips.toString(),
-                        color = ProfileInfoText,
-                        bgColor = ProfileInfoBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        label = "In Progress",
-                        value = summary.inProgressTrips.toString(),
-                        color = ProfileWarningText,
-                        bgColor = ProfileWarningBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatCard(
-                        label = "Completed",
-                        value = summary.completedTrips.toString(),
-                        color = ProfileSuccessText,
-                        bgColor = ProfileSuccessBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        label = "Cancelled",
-                        value = summary.cancelledTrips.toString(),
-                        color = ProfileErrorText,
-                        bgColor = ProfileErrorBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatCard(
-                        label = "Booked Today",
-                        value = summary.studentsBookedToday.toString(),
-                        color = ProfilePrimary,
-                        bgColor = ProfileIconBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        label = "Boarded Today",
-                        value = summary.studentsBoardedToday.toString(),
-                        color = ProfileSuccessText,
-                        bgColor = ProfileSuccessBg,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
         }
 
@@ -615,77 +532,7 @@ private fun InfoRow(
     }
 }
 
-// ── Current Trip Banner ─────────────────────────────────────────────────────
 
-@Composable
-private fun CurrentTripBanner(route: String, status: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = ProfileWarningBg,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.LocalShipping,
-                contentDescription = null,
-                tint = ProfileWarningText,
-                modifier = Modifier.size(20.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = route,
-                    color = ProfileWarningText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = status,
-                    color = ProfileWarningText.copy(alpha = 0.8f),
-                    fontSize = 12.sp
-                )
-            }
-        }
-    }
-}
-
-// ── Stat Card ───────────────────────────────────────────────────────────────
-
-@Composable
-private fun StatCard(
-    label: String,
-    value: String,
-    color: Color,
-    bgColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = bgColor,
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = value,
-                color = color,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = label,
-                color = color.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
 
 // ── Divider ─────────────────────────────────────────────────────────────────
 
@@ -735,16 +582,7 @@ private fun ShuttleDriverProfileScreenPreview() {
             colour = "White",
             capacity = 15
         ),
-        tripSummary = ShuttleDriverTripSummaryResponse(
-            currentTripRoute = "North Campus \u2192 South Campus",
-            currentTripStatus = "In Progress",
-            scheduledTrips = 3,
-            inProgressTrips = 1,
-            completedTrips = 138,
-            cancelledTrips = 0,
-            studentsBookedToday = 18,
-            studentsBoardedToday = 12
-        )
+        tripSummary = null
     )
 
     GetYourRideTheme(dynamicColor = false) {
