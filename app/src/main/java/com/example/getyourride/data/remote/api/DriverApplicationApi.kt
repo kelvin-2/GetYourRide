@@ -80,6 +80,18 @@ interface DriverApplicationApi {
     suspend fun getDriverProfile(): Response<DriverProfileResponse>
 
     /**
+     * Upload a document directly from the profile screen.
+     * Backend uses the JWT token to find the driver's application and attach the document.
+     * This is for students who skipped document upload during Step 3.
+     */
+    @Multipart
+    @POST("api/driver-profile/upload-document")
+    suspend fun uploadDocumentFromProfile(
+        @Part("documentType") documentType: RequestBody,
+        @Part file: MultipartBody.Part
+    ): Response<Unit>
+
+    /**
      * Permanently delete the driver profile.
      * Backend reads the driver_id from the JWT token and removes all associated data.
      */
