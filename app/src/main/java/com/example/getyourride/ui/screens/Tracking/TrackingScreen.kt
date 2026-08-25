@@ -316,7 +316,9 @@ private fun OsmMapView(
             val start = driverMarker.position
             if (start == null || (start.latitude == 0.0 && start.longitude == 0.0)) {
                 driverMarker.position = target
+                mapView.controller.setCenter(target)
                 mapView.controller.animateTo(target)
+
             } else {
                 // Animate over 1.5s (slightly less than the 2s update interval)
                 val duration = 1500L
