@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -87,6 +88,10 @@ private val StepPendingText = Color(0xFF92400E)
 private val StepUploadedBg = Color(0xFFDCFCE7)
 private val StepUploadedText = Color(0xFF16A34A)
 
+/** Maximum allowed file size: 5 MB */
+private const val MAX_FILE_SIZE_BYTES = 5L * 1024L * 1024L
+private const val MAX_FILE_SIZE_LABEL = "5 MB"
+
 data class DriverStep3Data(
     val driversLicenceFileName: String,
     val driversLicenceUri: String,
@@ -100,7 +105,8 @@ fun DriverStep3Screen(
     onBackClick: () -> Unit = {},
     onSubmitClick: (DriverStep3Data) -> Unit = {},
     errorMessage: String? = null,
-    statusMessage: String? = null
+    statusMessage: String? = null,
+    isLoading: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -108,12 +114,23 @@ fun DriverStep3Screen(
     var driversLicenceUri by rememberSaveable { mutableStateOf("") }
     var vehicleRegistrationFileName by rememberSaveable { mutableStateOf("") }
     var vehicleRegistrationUri by rememberSaveable { mutableStateOf("") }
+    var fileValidationError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val driversLicencePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            persistReadPermission(context, uri)
+            val permissionGranted = persistReadPermission(context, uri)
+            if (!permissionGranted) {
+                fileValidationError = "Could not get access to the file. Please try again."
+                return@rememberLauncherForActivityResult
+            }
+            val fileSize = getFileSizeFromUri(context, uri)
+            if (fileSize > MAX_FILE_SIZE_BYTES) {
+                fileValidationError = "Driver's licence image is too large. Maximum size is $MAX_FILE_SIZE_LABEL."
+                return@rememberLauncherForActivityResult
+            }
+            fileValidationError = null
             driversLicenceUri = uri.toString()
             driversLicenceFileName = getFileNameFromUri(context, uri)
         }
@@ -123,7 +140,17 @@ fun DriverStep3Screen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            persistReadPermission(context, uri)
+            val permissionGranted = persistReadPermission(context, uri)
+            if (!permissionGranted) {
+                fileValidationError = "Could not get access to the file. Please try again."
+                return@rememberLauncherForActivityResult
+            }
+            val fileSize = getFileSizeFromUri(context, uri)
+            if (fileSize > MAX_FILE_SIZE_BYTES) {
+                fileValidationError = "Vehicle registration image is too large. Maximum size is $MAX_FILE_SIZE_LABEL."
+                return@rememberLauncherForActivityResult
+            }
+            fileValidationError = null
             vehicleRegistrationUri = uri.toString()
             vehicleRegistrationFileName = getFileNameFromUri(context, uri)
         }
@@ -185,7 +212,8 @@ fun DriverStep3Screen(
                         border = BorderStroke(1.dp, StepBorder),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = StepPrimary
-                        )
+                        ),
+                        enabled = !isLoading
                     ) {
                         Text(
                             text = "Back",
@@ -210,14 +238,30 @@ fun DriverStep3Screen(
                             .height(56.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = StepAccent),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        enabled = !isLoading
                     ) {
-                        Text(
-                            text = "Submit Profile",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Submitting...",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        } else {
+                            Text(
+                                text = "Submit Profile",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
@@ -323,6 +367,14 @@ fun DriverStep3Screen(
                 icon = Icons.Outlined.Description,
                 iconTint = StepSectionBlue
             ) {
+                // File size info
+                Text(
+                    text = "Accepted: images only (JPG, PNG). Max size: $MAX_FILE_SIZE_LABEL per file.",
+                    color = StepTextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+
                 Step3DocumentUploadRow(
                     title = "Driver's Licence",
                     subtitle = "Upload a clear image of your licence",
@@ -330,7 +382,8 @@ fun DriverStep3Screen(
                     icon = Icons.Outlined.Badge,
                     onChooseFileClick = {
                         driversLicencePicker.launch(arrayOf("image/*"))
-                    }
+                    },
+                    enabled = !isLoading
                 )
 
                 // Thin divider between documents
@@ -348,8 +401,44 @@ fun DriverStep3Screen(
                     icon = Icons.Outlined.Description,
                     onChooseFileClick = {
                         vehicleRegistrationPicker.launch(arrayOf("image/*"))
-                    }
+                    },
+                    enabled = !isLoading
                 )
+            }
+
+            // ─── File Validation Error ───────────────────────────────────────
+            AnimatedVisibility(
+                visible = !fileValidationError.isNullOrBlank(),
+                enter = fadeIn() + slideInVertically()
+            ) {
+                if (!fileValidationError.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = Color(0xFFFEE2E2),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ErrorOutline,
+                                contentDescription = null,
+                                tint = StepError,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = fileValidationError!!,
+                                color = StepError,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
             }
 
             // ─── Status Message ──────────────────────────────────────────────
@@ -418,6 +507,38 @@ fun DriverStep3Screen(
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                    }
+                }
+            }
+
+            // ─── Loading Overlay Info ────────────────────────────────────────
+            AnimatedVisibility(
+                visible = isLoading,
+                enter = fadeIn() + slideInVertically()
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    color = Color(0xFFEFF6FF),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = StepSectionBlue,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Submitting your application and uploading documents...",
+                            color = StepSectionBlue,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -496,7 +617,8 @@ private fun Step3DocumentUploadRow(
     subtitle: String,
     fileName: String,
     icon: ImageVector,
-    onChooseFileClick: () -> Unit
+    onChooseFileClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     val isUploaded = fileName.isNotBlank()
 
@@ -614,7 +736,8 @@ private fun Step3DocumentUploadRow(
                     containerColor = if (isUploaded) StepPrimary.copy(alpha = 0.08f) else StepAccent.copy(alpha = 0.1f),
                     contentColor = if (isUploaded) StepPrimary else StepAccent
                 ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                enabled = enabled
             ) {
                 Icon(
                     imageVector = Icons.Outlined.UploadFile,
@@ -632,12 +755,42 @@ private fun Step3DocumentUploadRow(
     }
 }
 
-private fun persistReadPermission(context: Context, uri: Uri) {
-    runCatching {
+/**
+ * Attempts to persist read permission for the URI.
+ * Returns true if permission was granted, false if it failed.
+ */
+private fun persistReadPermission(context: Context, uri: Uri): Boolean {
+    return try {
         context.contentResolver.takePersistableUriPermission(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
+        true
+    } catch (e: SecurityException) {
+        // Permission denied — the URI might still be readable for this session
+        // but won't survive a process restart. We still allow it for immediate use.
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+
+/**
+ * Gets the file size in bytes from a content URI.
+ * Returns 0 if size cannot be determined.
+ */
+private fun getFileSizeFromUri(context: Context, uri: Uri): Long {
+    return try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (sizeIndex >= 0 && cursor.moveToFirst()) {
+                cursor.getLong(sizeIndex)
+            } else {
+                0L
+            }
+        } ?: 0L
+    } catch (e: Exception) {
+        0L
     }
 }
 
