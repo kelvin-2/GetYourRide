@@ -57,6 +57,7 @@ import com.example.getyourride.viewmodel.DriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverProfileViewModelFactory
 import com.example.getyourride.viewmodel.DriverProfileUiState
 import com.example.getyourride.viewmodel.DriverDeleteUiState
+import com.example.getyourride.viewmodel.DocumentUploadUiState
 import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
@@ -290,7 +291,8 @@ class MainActivity : ComponentActivity() {
                                 driverApplicationViewModel.submitApplication(step3Data, context.contentResolver)
                             },
                             errorMessage  = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message
+                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message,
+                            isLoading     = driverApplicationViewModel.isSubmitting
                         )
                     }
 
@@ -381,10 +383,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "DriversLicence",
-                                    fileName = uri.lastPathSegment ?: "licence.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -394,10 +401,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "VehicleRegistration",
-                                    fileName = uri.lastPathSegment ?: "registration.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -458,13 +470,19 @@ class MainActivity : ComponentActivity() {
                                     onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
                                     onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },
-                                    statusMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Loading -> "Deleting driver profile..."
-                                        is DriverDeleteUiState.Success -> deleteState.message
+                                    statusMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Success ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Success).message
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Uploading ->
+                                            "Uploading document..."
+                                        deleteState is DriverDeleteUiState.Loading -> "Deleting driver profile..."
+                                        deleteState is DriverDeleteUiState.Success -> (deleteState as DriverDeleteUiState.Success).message
                                         else -> null
                                     },
-                                    errorMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Error -> deleteState.message
+                                    errorMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Error ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Error).message
+                                        deleteState is DriverDeleteUiState.Error -> (deleteState as DriverDeleteUiState.Error).message
                                         else -> null
                                     },
                                     onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
@@ -896,7 +914,8 @@ class MainActivity : ComponentActivity() {
                         val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
                             factory = ShuttleDriverBoardingViewModelFactory(
                                 ShuttleDriverRepository(NetworkModule.shuttleDriverApi),
-                                NetworkModule.tripApi
+                                NetworkModule.tripApi,
+                                NetworkModule.shuttleApi
                             )
                         )
 

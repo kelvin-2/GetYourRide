@@ -67,7 +67,6 @@ import com.example.getyourride.ui.components.ShuttleDriverBottomBar
 import com.example.getyourride.ui.components.ShuttleDriverBottomBarItem
 import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.viewmodel.BoardingUiState
-import com.example.getyourride.viewmodel.STANDARD_TIME_SLOTS
 import com.example.getyourride.viewmodel.TimeSlot
 
 // ── Design tokens (matching profile screen) ─────────────────────────────────
@@ -216,51 +215,135 @@ fun ShuttleDriverBoardingScreen(
             }
 
             is BoardingUiState.NoTrip -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
+                // If we have time slot data, show a version with the slot filter visible
+                if (uiState.timeSlots != null && uiState.selectedSlot != null) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(32.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = BoardingInfoBg,
-                            modifier = Modifier.size(72.dp)
+                        // Page Header
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Boarding",
+                                color = BoardingPrimary,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Manage student boarding for your active trip.",
+                                color = BoardingTextMuted,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        // Time Slot Filter — still visible so driver can switch slots
+                        TimeSlotFilterRow(
+                            timeSlots = uiState.timeSlots,
+                            selectedSlot = uiState.selectedSlot,
+                            onSelectSlot = onSelectTimeSlot
+                        )
+
+                        // No trip message for this slot
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Outlined.EventBusy,
-                                    contentDescription = null,
-                                    tint = BoardingInfoText,
-                                    modifier = Modifier.size(36.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = BoardingInfoBg,
+                                    modifier = Modifier.size(72.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.EventBusy,
+                                            contentDescription = null,
+                                            tint = BoardingInfoText,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "No Active Trip",
+                                    color = BoardingPrimary,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
+                                Text(
+                                    text = uiState.message,
+                                    color = BoardingTextMuted,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Button(
+                                    onClick = onLoadData,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = BoardingPrimary
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Refresh", fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
-                        Text(
-                            text = "No Active Trip",
-                            color = BoardingPrimary,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = uiState.message,
-                            color = BoardingTextMuted,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Button(
-                            onClick = onLoadData,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BoardingPrimary
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                    }
+                } else {
+                    // No slot data at all — simple centered message (no trips for this driver)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(32.dp)
                         ) {
-                            Text("Refresh", fontWeight = FontWeight.SemiBold)
+                            Surface(
+                                shape = CircleShape,
+                                color = BoardingInfoBg,
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.EventBusy,
+                                        contentDescription = null,
+                                        tint = BoardingInfoText,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "No Active Trip",
+                                color = BoardingPrimary,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = uiState.message,
+                                color = BoardingTextMuted,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Button(
+                                onClick = onLoadData,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = BoardingPrimary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Refresh", fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
@@ -410,7 +493,11 @@ private fun BoardingContent(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            if (filteredStudents.isEmpty()) {
+            if (students.isEmpty()) {
+                // No one has booked this shuttle at all
+                NoBookingsState()
+            } else if (filteredStudents.isEmpty()) {
+                // Students exist but search didn't match
                 EmptySearchState()
             } else {
                 filteredStudents.forEach { student ->
@@ -956,6 +1043,40 @@ private fun EmptySearchState() {
     }
 }
 
+@Composable
+private fun NoBookingsState() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = BoardingInfoBg,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Groups,
+                contentDescription = null,
+                tint = BoardingInfoText,
+                modifier = Modifier.size(32.dp)
+            )
+            Text(
+                text = "No bookings yet",
+                color = BoardingInfoText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "No students have booked this shuttle yet.",
+                color = BoardingInfoText.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
@@ -983,13 +1104,24 @@ private fun ShuttleDriverBoardingScreenPreview() {
         BoardedStudentResponse(5, 105, "Pedro", "Neto", "209865642", "Confirmed", null)
     )
 
+    val previewTimeSlots = listOf(
+        TimeSlot(1, "Morning", java.time.LocalTime.of(6, 45), java.time.LocalTime.of(7, 30)),
+        TimeSlot(2, "Morning", java.time.LocalTime.of(7, 45), java.time.LocalTime.of(8, 30)),
+        TimeSlot(3, "Morning", java.time.LocalTime.of(8, 45), java.time.LocalTime.of(9, 30)),
+        TimeSlot(4, "Morning", java.time.LocalTime.of(9, 45), java.time.LocalTime.of(10, 30)),
+        TimeSlot(5, "Afternoon", java.time.LocalTime.of(12, 30), java.time.LocalTime.of(13, 15)),
+        TimeSlot(6, "Afternoon", java.time.LocalTime.of(14, 30), java.time.LocalTime.of(15, 15)),
+        TimeSlot(7, "Afternoon", java.time.LocalTime.of(16, 0), java.time.LocalTime.of(16, 45)),
+        TimeSlot(8, "Afternoon", java.time.LocalTime.of(17, 30), java.time.LocalTime.of(18, 15)),
+    )
+
     GetYourRideTheme(dynamicColor = false) {
         ShuttleDriverBoardingScreen(
             uiState = BoardingUiState.Success(
                 trip = sampleTrip,
                 students = sampleStudents,
-                timeSlots = STANDARD_TIME_SLOTS,
-                selectedSlot = STANDARD_TIME_SLOTS[4], // 12:30 slot
+                timeSlots = previewTimeSlots,
+                selectedSlot = previewTimeSlots[4], // 12:30 slot
                 selectedDate = java.time.LocalDate.now(),
                 driverTrips = emptyList()
             )

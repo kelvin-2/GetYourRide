@@ -7,11 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.UserSession
+import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.BoardedStudentResponse
 import com.example.getyourride.data.remote.dto.ShuttleDriverActiveTripResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.repository.ShuttleDriverRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -20,7 +23,7 @@ import java.time.format.DateTimeFormatter
 // ── Time Slot Model ─────────────────────────────────────────────────────────
 
 /**
- * Represents one of the 8 standard shuttle time slots from the database.
+ * Represents one shuttle time slot, loaded from the shuttle_time_slot table via API.
  */
 data class TimeSlot(
     val slotId: Int,
@@ -37,20 +40,6 @@ data class TimeSlot(
 }
 
 /**
- * The 8 standard time slots as defined in the shuttle_time_slot database table.
- */
-val STANDARD_TIME_SLOTS = listOf(
-    TimeSlot(1, "Morning", LocalTime.of(6, 45), LocalTime.of(7, 30)),
-    TimeSlot(2, "Morning", LocalTime.of(7, 45), LocalTime.of(8, 30)),
-    TimeSlot(3, "Morning", LocalTime.of(8, 45), LocalTime.of(9, 30)),
-    TimeSlot(4, "Morning", LocalTime.of(9, 45), LocalTime.of(10, 30)),
-    TimeSlot(5, "Afternoon", LocalTime.of(12, 30), LocalTime.of(13, 15)),
-    TimeSlot(6, "Afternoon", LocalTime.of(14, 30), LocalTime.of(15, 15)),
-    TimeSlot(7, "Afternoon", LocalTime.of(16, 0), LocalTime.of(16, 45)),
-    TimeSlot(8, "Afternoon", LocalTime.of(17, 30), LocalTime.of(18, 15)),
-)
-
-/**
  * UI state for the boarding screen.
  */
 sealed interface BoardingUiState {
@@ -65,7 +54,13 @@ sealed interface BoardingUiState {
         val driverTrips: List<TripResponse>   // All trips for this driver on selected date
     ) : BoardingUiState
 
-    data class NoTrip(val message: String) : BoardingUiState
+    data class NoTrip(
+        val message: String,
+        val timeSlots: List<TimeSlot>? = null,
+        val selectedSlot: TimeSlot? = null,
+        val selectedDate: LocalDate? = null,
+        val driverTrips: List<TripResponse>? = null
+    ) : BoardingUiState
     data class Error(val message: String) : BoardingUiState
 }
 
@@ -77,7 +72,8 @@ sealed interface BoardingUiState {
  */
 class ShuttleDriverBoardingViewModel(
     private val repository: ShuttleDriverRepository,
-    private val tripApi: TripApi
+    private val tripApi: TripApi,
+    private val shuttleApi: ShuttleApi
 ) : ViewModel() {
 
     var uiState: BoardingUiState by mutableStateOf(BoardingUiState.Loading)
@@ -90,6 +86,12 @@ class ShuttleDriverBoardingViewModel(
     // Internal state: all trips for this driver today
     private var allDriverTrips: List<TripResponse> = emptyList()
     private var currentDate: LocalDate = LocalDate.now()
+
+    // Time slots loaded from the database via API
+    private var loadedTimeSlots: List<TimeSlot> = emptyList()
+
+    // Auto-advance timer job — moves to next trip after drop-off (30 min after departure)
+    private var autoAdvanceJob: Job? = null
 
     /**
      * Load boarding data: fetches all trips, filters for this driver and today,
@@ -107,6 +109,22 @@ class ShuttleDriverBoardingViewModel(
 
         viewModelScope.launch {
             try {
+                // Fetch time slots from the database via API
+                val slotsResponse = shuttleApi.getAllTimeSlots()
+                loadedTimeSlots = slotsResponse.map { slot ->
+                    TimeSlot(
+                        slotId = slot.slotId,
+                        period = slot.period,
+                        departs = LocalTime.parse(slot.departs, DateTimeFormatter.ofPattern("HH:mm:ss")),
+                        arrives = LocalTime.parse(slot.arrives, DateTimeFormatter.ofPattern("HH:mm:ss"))
+                    )
+                }.sortedBy { it.departs }
+
+                if (loadedTimeSlots.isEmpty()) {
+                    uiState = BoardingUiState.Error("No time slots configured in the system.")
+                    return@launch
+                }
+
                 // Fetch all trips from backend
                 val response = tripApi.getAllTrips()
                 if (!response.isSuccessful) {
@@ -115,12 +133,26 @@ class ShuttleDriverBoardingViewModel(
 
                 val allTrips = response.body() ?: emptyList()
 
+                // DEBUG: Log what we received and what we're filtering
+                android.util.Log.d("BoardingVM", "Total trips from API: ${allTrips.size}")
+                android.util.Log.d("BoardingVM", "Driver ID from session: $driverId")
+                android.util.Log.d("BoardingVM", "Current date (phone): $currentDate")
+
+                val shuttleTripsForDriver = allTrips.filter { trip ->
+                    trip.driverId == driverId && trip.tripType == "SHUTTLE"
+                }
+                android.util.Log.d("BoardingVM", "Shuttle trips for this driver (all dates): ${shuttleTripsForDriver.size}")
+                shuttleTripsForDriver.take(10).forEach { trip ->
+                    android.util.Log.d("BoardingVM", "  Trip ${trip.tripId}: type=${trip.tripType}, dept='${trip.departureTime}', ${trip.departureStop}->${trip.destinationStop}")
+                }
+
                 // Filter: only SHUTTLE trips for this driver on today's date
                 val todaysTrips = allTrips.filter { trip ->
                     trip.driverId == driverId &&
                             trip.tripType == "SHUTTLE" &&
                             isTripOnDate(trip.departureTime, currentDate)
                 }
+                android.util.Log.d("BoardingVM", "Today's trips after date filter: ${todaysTrips.size}")
 
                 if (todaysTrips.isNotEmpty()) {
                     allDriverTrips = todaysTrips
@@ -160,15 +192,24 @@ class ShuttleDriverBoardingViewModel(
                     loadTripForSlot(activeSlot, driverId)
                 } else {
                     // Find the most recent past slot that has a trip (fall back to last trip)
-                    val lastSlotWithTrip = STANDARD_TIME_SLOTS
+                    val lastSlotWithTrip = loadedTimeSlots
                         .lastOrNull { slot -> allDriverTrips.any { tripMatchesSlot(it, slot) } }
 
                     if (lastSlotWithTrip != null) {
                         loadTripForSlot(lastSlotWithTrip, driverId)
                     } else {
-                        uiState = BoardingUiState.NoTrip("No trips found for your schedule today.")
+                        uiState = BoardingUiState.NoTrip(
+                            message = "No trips found for your schedule today.",
+                            timeSlots = loadedTimeSlots,
+                            selectedSlot = activeSlot,
+                            selectedDate = currentDate,
+                            driverTrips = allDriverTrips
+                        )
                     }
                 }
+
+                // Start the auto-advance timer
+                startAutoAdvanceTimer(driverId)
             } catch (e: Exception) {
                 val msg = e.message ?: "Failed to load boarding data"
                 uiState = BoardingUiState.Error(msg)
@@ -186,7 +227,13 @@ class ShuttleDriverBoardingViewModel(
             try {
                 loadTripForSlot(slot, driverId)
             } catch (e: Exception) {
-                uiState = BoardingUiState.NoTrip("No trip found for ${slot.fullLabel}")
+                uiState = BoardingUiState.NoTrip(
+                    message = "No trip found for ${slot.fullLabel}",
+                    timeSlots = loadedTimeSlots,
+                    selectedSlot = slot,
+                    selectedDate = currentDate,
+                    driverTrips = allDriverTrips
+                )
             }
         }
     }
@@ -201,7 +248,13 @@ class ShuttleDriverBoardingViewModel(
         }
 
         if (tripsForSlot.isEmpty()) {
-            uiState = BoardingUiState.NoTrip("No trip assigned at ${slot.fullLabel}")
+            uiState = BoardingUiState.NoTrip(
+                message = "No trip assigned at ${slot.fullLabel}",
+                timeSlots = loadedTimeSlots,
+                selectedSlot = slot,
+                selectedDate = currentDate,
+                driverTrips = allDriverTrips
+            )
             return
         }
 
@@ -232,7 +285,7 @@ class ShuttleDriverBoardingViewModel(
         uiState = BoardingUiState.Success(
             trip = activeTripResponse,
             students = students,
-            timeSlots = STANDARD_TIME_SLOTS,
+            timeSlots = loadedTimeSlots,
             selectedSlot = slot,
             selectedDate = currentDate,
             driverTrips = allDriverTrips
@@ -242,25 +295,25 @@ class ShuttleDriverBoardingViewModel(
     /**
      * Determine which time slot should be "active" based on the current real time.
      *
-     * Logic: The active slot is the next upcoming slot whose departure time
-     * hasn't passed by more than 5 minutes. After departure + 5 min, move to next slot.
+     * Logic: A slot remains active until 30 minutes after its departure time
+     * (approximating drop-off completion). After that, move to the next slot.
      *
-     * Examples:
-     * - At 14:54, active slot = 16:00 (slot 7) because 14:30+5min = 14:35 has passed
-     * - At 16:04, active slot = 16:00 (slot 7) still (within 5 min grace)
-     * - At 16:06, active slot = 17:30 (slot 8)
-     * - At 06:30, active slot = 06:45 (slot 1)
+     * Examples (with slots 06:45, 07:45, 08:45, ...):
+     * - At 06:50 → active = 06:45 (still within 30 min of departure)
+     * - At 07:14 → active = 06:45 (06:45 + 30min = 07:15 not reached yet)
+     * - At 07:16 → active = 07:45 (06:45 + 30min = 07:15 has passed)
+     * - At 08:14 → active = 07:45 (07:45 + 30min = 08:15 not reached yet)
      */
     private fun determineActiveSlot(now: LocalTime): TimeSlot {
-        // Find the first slot where now < departs + 5 minutes
-        for (slot in STANDARD_TIME_SLOTS) {
-            val cutoff = slot.departs.plusMinutes(5)
-            if (now.isBefore(cutoff)) {
+        // Find the first slot where now < departs + 30 minutes (drop-off window)
+        for (slot in loadedTimeSlots) {
+            val dropOffCutoff = slot.departs.plusMinutes(30)
+            if (now.isBefore(dropOffCutoff)) {
                 return slot
             }
         }
-        // If past all slots, return the last one
-        return STANDARD_TIME_SLOTS.last()
+        // If past all slots' drop-off times, return the last one
+        return loadedTimeSlots.last()
     }
 
     /**
@@ -275,8 +328,14 @@ class ShuttleDriverBoardingViewModel(
                 .substringAfter(" ")
                 .take(5) // "06:45"
             val tripTime = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"))
-            tripTime == slot.departs
+            val matches = tripTime == slot.departs
+            if (!matches && slot.slotId <= 2) {
+                // Log only first 2 slots to avoid spam
+                android.util.Log.d("BoardingVM", "  tripMatchesSlot MISS: trip ${trip.tripId} time='$timeStr' parsed=$tripTime vs slot ${slot.slotId} departs=${slot.departs}")
+            }
+            matches
         } catch (e: Exception) {
+            android.util.Log.e("BoardingVM", "  tripMatchesSlot ERROR: trip ${trip.tripId} departureTime='${trip.departureTime}' exception=${e.message}")
             false
         }
     }
@@ -304,6 +363,51 @@ class ShuttleDriverBoardingViewModel(
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * Starts a coroutine that checks every 60 seconds whether the current trip's
+     * drop-off window (30 min after departure) has passed. If so, automatically
+     * advances to the next time slot.
+     */
+    private fun startAutoAdvanceTimer(driverId: Long) {
+        autoAdvanceJob?.cancel()
+        autoAdvanceJob = viewModelScope.launch {
+            while (true) {
+                delay(60_000L) // Check every 60 seconds
+
+                val currentState = uiState
+                val currentSlot = when (currentState) {
+                    is BoardingUiState.Success -> currentState.selectedSlot
+                    is BoardingUiState.NoTrip -> currentState.selectedSlot
+                    else -> null
+                }
+
+                val newActiveSlot = determineActiveSlot(LocalTime.now())
+
+                // Only auto-advance if the slot has actually changed
+                if (currentSlot != null && newActiveSlot.slotId != currentSlot.slotId) {
+                    // Check if there's a trip for the new active slot
+                    val hasTrip = allDriverTrips.any { tripMatchesSlot(it, newActiveSlot) }
+                    if (hasTrip) {
+                        loadTripForSlot(newActiveSlot, driverId)
+                    } else {
+                        uiState = BoardingUiState.NoTrip(
+                            message = "No trip assigned at ${newActiveSlot.fullLabel}",
+                            timeSlots = loadedTimeSlots,
+                            selectedSlot = newActiveSlot,
+                            selectedDate = currentDate,
+                            driverTrips = allDriverTrips
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        autoAdvanceJob?.cancel()
     }
 
     /**
@@ -344,10 +448,11 @@ class ShuttleDriverBoardingViewModel(
 
 class ShuttleDriverBoardingViewModelFactory(
     private val repository: ShuttleDriverRepository,
-    private val tripApi: TripApi
+    private val tripApi: TripApi,
+    private val shuttleApi: ShuttleApi
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         @Suppress("UNCHECKED_CAST")
-        return ShuttleDriverBoardingViewModel(repository, tripApi) as T
+        return ShuttleDriverBoardingViewModel(repository, tripApi, shuttleApi) as T
     }
 }
