@@ -4,8 +4,14 @@ import kotlinx.coroutines.*
 import kotlin.random.Random
 
 /**
- * A mock implementation of RideLocationSocket for UI testing.
- * Simulates a driver moving towards a destination.
+ * A mock implementation of RideLocationSocket for UI testing and manual demos.
+ *
+ * NOT WIRED INTO THE APP. The tracking routes in MainActivity both use
+ * [StompRideLocationSocket]; this class is intentionally left unreferenced so no runtime
+ * path can show simulated driver movement. It used to back the Track bottom-nav tab, which
+ * is why that screen always animated a fake driver even with no active rides.
+ *
+ * If you wire it up again, do so from an explicitly debug-only entry point.
  */
 class MockRideLocationSocket : RideLocationSocket {
     private var job: Job? = null

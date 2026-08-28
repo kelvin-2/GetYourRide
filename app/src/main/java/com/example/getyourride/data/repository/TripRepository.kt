@@ -34,6 +34,44 @@ class TripRepository(private val api: TripApi) {
         }
     }
 
+    /**
+     * Fetch a single trip by id. Used by the tracking screen to hydrate driver/vehicle/stop
+     * details for the trip it is following.
+     */
+    suspend fun getTripById(tripId: Long): Result<TripResponse> {
+        return try {
+            val response = api.getTripById(tripId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Failed to load trip $tripId: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Resolve the trip the logged-in student should currently be tracking, or `null` when
+     * there is nothing to track.
+     *
+     * "Trackable" means a CONFIRMED booking whose trip is still SCHEDULED or IN_PROGRESS —
+     * a COMPLETED or CANCELLED trip has no live position to follow. When several qualify,
+     * the soonest departure wins.
+     *
+     * `Result.success(null)` is a legitimate outcome (no active rides) and must NOT be
+     * treated as an error or substituted with sample data by callers.
+     */
+    suspend fun getActiveTrackableTrip(): Result<TripResponse?> {
+        return getMyBookings(BOOKING_STATUS_CONFIRMED).map { bookings ->
+            bookings
+                .map { it.trip }
+                .filter { it.status.uppercase() in TRACKABLE_TRIP_STATUSES }
+                .minByOrNull { it.departureTime }
+        }
+    }
+
     suspend fun searchTrips(
         pickupLat: Double,
         pickupLng: Double,
@@ -114,5 +152,12 @@ class TripRepository(private val api: TripApi) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private companion object {
+        const val BOOKING_STATUS_CONFIRMED = "CONFIRMED"
+
+        /** Trip statuses that still have a live position worth following on the map. */
+        val TRACKABLE_TRIP_STATUSES = setOf("SCHEDULED", "IN_PROGRESS", "ARRIVED")
     }
 }
