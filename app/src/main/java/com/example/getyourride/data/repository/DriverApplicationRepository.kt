@@ -8,6 +8,11 @@
 //   Phase 2: Upload documents (licence, registration)
 //   Phase 3: Finalize → backend returns AuthResponse (auto-login)
 //
+// Documents are uploaded with the CORRECT content type (detected from the URI)
+// so the backend can store the file in a format that admin can access directly
+// via a URL link. The backend stores/serves the files so the admin panel can
+// display them when reviewing applications.
+//
 // This is the ONLY place that touches DriverApplicationApi directly.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -25,6 +30,9 @@ import com.example.getyourride.data.remote.dto.DriverApplicationSubmitResponse
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+
+/** Maximum allowed file size: 5 MB */
+private const val MAX_FILE_SIZE_BYTES = 5L * 1024L * 1024L
 
 /**
  * Result type for the full driver application flow.
@@ -66,8 +74,12 @@ class DriverApplicationRepository(
     /**
      * Full submission flow:
      * 1. Submit application data → get applicationId
-     * 2. Upload each document
+     * 2. Upload each document (with correct MIME type for admin retrieval)
      * 3. Finalize → get AuthResponse (JWT + role=DRIVER_PENDING)
+     *
+     * Documents are uploaded with the actual content type detected from the URI
+     * so the backend can store them correctly and serve them back to admin via
+     * a direct URL link.
      */
     suspend fun submitFullApplication(
         request: DriverApplicationSubmitRequest,
@@ -112,6 +124,14 @@ class DriverApplicationRepository(
 
     /**
      * Upload a single document. Returns null on success, or an error message.
+     *
+     * Key improvements:
+     * - Detects the REAL content type from the URI (e.g. image/jpeg, image/png)
+     *   so the backend stores the file with the correct extension/format.
+     * - Validates file size before uploading to prevent OOM and server rejections.
+     * - Includes the original filename so admin can see a meaningful name.
+     * - The backend should store the file and generate a permanent URL that
+     *   admin can use to view the document when reviewing applications.
      */
     private suspend fun uploadDocument(
         applicationId: String,
@@ -119,13 +139,36 @@ class DriverApplicationRepository(
         contentResolver: ContentResolver
     ): String? {
         val uri = Uri.parse(doc.uriString)
+
+        // Detect the actual MIME type from the content resolver
+        val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+
+        // Validate that it's an image type
+        if (!mimeType.startsWith("image/")) {
+            return "Only image files are accepted for ${doc.fileName}. Got: $mimeType"
+        }
+
+        // Read file bytes with size validation
         val bytes = try {
-            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                val data = inputStream.readBytes()
+                if (data.size > MAX_FILE_SIZE_BYTES) {
+                    return "File ${doc.fileName} is too large (${data.size / 1024 / 1024}MB). Maximum is 5MB."
+                }
+                data
+            }
+        } catch (e: SecurityException) {
+            return "Permission denied: cannot read ${doc.fileName}. Please select the file again."
+        } catch (e: OutOfMemoryError) {
+            return "File ${doc.fileName} is too large to process. Please use a smaller image."
         } catch (e: Exception) {
             return "Failed to read file: ${doc.fileName}"
         } ?: return "Failed to read file: ${doc.fileName}"
 
-        val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+        // Build the multipart request with the CORRECT content type
+        // This ensures the backend knows the exact file format and can store
+        // it in a way that produces a working URL for admin to view.
+        val requestFile = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData(
             "file", doc.fileName, requestFile
         )
@@ -136,7 +179,9 @@ class DriverApplicationRepository(
         return if (response.isSuccessful) {
             null // success
         } else {
-            "Failed to upload ${doc.fileName} (${response.code()})."
+            val errorBody = response.errorBody()?.string()
+            val errorMsg = extractMessage(errorBody)
+            errorMsg ?: "Failed to upload ${doc.fileName} (${response.code()})."
         }
     }
 
@@ -182,7 +227,7 @@ class DriverApplicationRepository(
     }
 
     /**
-     * Deactivate the driver profile. Backend reads driver_id from JWT.
+     * Permanently delete the driver profile. Backend reads driver_id from JWT.
      */
     suspend fun deleteDriverProfile(): DriverProfileDeleteResult {
         return try {
@@ -191,7 +236,7 @@ class DriverApplicationRepository(
                 DriverProfileDeleteResult.Success(response.body()!!.message)
             } else {
                 val errorMsg = extractMessage(response.errorBody()?.string())
-                    ?: "Could not deactivate profile (${response.code()})."
+                    ?: "Could not delete profile (${response.code()})."
                 DriverProfileDeleteResult.Error(errorMsg)
             }
         } catch (e: Exception) {
@@ -202,8 +247,10 @@ class DriverApplicationRepository(
     }
 
     /**
-     * Upload a document from the profile screen.
-     * Gets the applicationId from the status endpoint, then uploads.
+     * Upload a document from the profile screen (after initial application).
+     * Uses the dedicated profile upload endpoint that gets the applicationId
+     * from the JWT token on the backend side — no need to look it up ourselves.
+     * Sends the correct MIME type so admin can view the document via Cloudinary URL.
      * Returns null on success, or an error message.
      */
     suspend fun uploadDocumentFromProfile(
@@ -213,24 +260,36 @@ class DriverApplicationRepository(
         contentResolver: ContentResolver
     ): String? {
         return try {
-            // First get the application ID
-            val statusResponse = api.getApplicationStatus()
-            if (!statusResponse.isSuccessful || statusResponse.body() == null) {
-                return "Could not find your application."
-            }
-            val applicationId = statusResponse.body()!!.applicationId
-
-            // Upload the document
             val uri = Uri.parse(uriString)
-            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: return "Failed to read file."
 
-            val requestFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+            // Detect real MIME type
+            val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+
+            if (!mimeType.startsWith("image/")) {
+                return "Only image files are accepted. Got: $mimeType"
+            }
+
+            // Read and validate size
+            val bytes = contentResolver.openInputStream(uri)?.use { inputStream ->
+                val data = inputStream.readBytes()
+                if (data.size > MAX_FILE_SIZE_BYTES) {
+                    return "File is too large (${data.size / 1024 / 1024}MB). Maximum is 5MB."
+                }
+                data
+            } ?: return "Failed to read file."
+
+            // Upload with correct content type for admin accessibility
+            val requestFile = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
             val filePart = MultipartBody.Part.createFormData("file", fileName, requestFile)
             val typePart = documentType.toRequestBody("text/plain".toMediaTypeOrNull())
 
-            val response = api.uploadDocument(applicationId, typePart, filePart)
+            // Use the profile-specific upload endpoint (backend finds applicationId from JWT)
+            val response = api.uploadDocumentFromProfile(typePart, filePart)
             if (response.isSuccessful) null else "Upload failed (${response.code()})."
+        } catch (e: SecurityException) {
+            "Permission denied. Please select the file again."
+        } catch (e: OutOfMemoryError) {
+            "File is too large to process. Please use a smaller image."
         } catch (e: Exception) {
             e.message ?: "Network error."
         }

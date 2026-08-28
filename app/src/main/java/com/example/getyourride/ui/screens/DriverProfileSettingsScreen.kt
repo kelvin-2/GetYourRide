@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -87,6 +89,8 @@ private val ProfileDeleteBg = Color(0xFFFEF2F2)
 private val ProfileSectionPurple = Color(0xFF6366F1)
 private val ProfileSectionGreen = Color(0xFF16A34A)
 private val ProfileSectionBlue = Color(0xFF2563EB)
+private val ProfileLogoutBg = Color(0xFFFFF0F0)
+private val ProfileLogoutText = Color(0xFFD32F2F)
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 @Immutable
@@ -118,6 +122,7 @@ fun DriverProfileSettingsScreen(
     profileDetails: DriverProfileDetails,
     onBackClick: () -> Unit = {},
     onConfirmDeleteClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
     onUploadLicence: () -> Unit = {},
     onUploadRegistration: () -> Unit = {},
     statusMessage: String? = null,
@@ -405,6 +410,35 @@ fun DriverProfileSettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // ─── Logout Button ───────────────────────────────────────────
+            Button(
+                onClick = onLogoutClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ProfileLogoutBg,
+                    contentColor = ProfileLogoutText
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ExitToApp,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Log Out",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // ─── Delete Profile Section ──────────────────────────────────────
             Surface(
                 modifier = Modifier
@@ -444,13 +478,14 @@ fun DriverProfileSettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Permanently deactivate your driver profile",
+                                text = "Permanently delete your driver profile",
                                 color = ProfileError.copy(alpha = 0.7f),
                                 fontSize = 12.sp
                             )
                         }
                     }
 
+                    // ── Delete Button ────────────────────────────────────────
                     OutlinedButton(
                         onClick = { showDeleteDialog = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -513,7 +548,7 @@ fun DriverProfileSettingsScreen(
             },
             text = {
                 Text(
-                    text = "This will permanently deactivate your student driver profile. You will no longer be able to offer rides.",
+                    text = "This will permanently delete your student driver profile and all associated data. You will no longer be able to offer rides.",
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )

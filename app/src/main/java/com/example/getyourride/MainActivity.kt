@@ -57,6 +57,7 @@ import com.example.getyourride.viewmodel.DriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverProfileViewModelFactory
 import com.example.getyourride.viewmodel.DriverProfileUiState
 import com.example.getyourride.viewmodel.DriverDeleteUiState
+import com.example.getyourride.viewmodel.DocumentUploadUiState
 import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
@@ -193,6 +194,7 @@ class MainActivity : ComponentActivity() {
 
                         LoginScreen(
                             onCreateAccountClick = { navController.navigate("signup") },
+                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
                             onLoginClick         = { email, password ->
                                 authViewModel.login(email, password)
                             },
@@ -288,7 +290,8 @@ class MainActivity : ComponentActivity() {
                                 driverApplicationViewModel.submitApplication(step3Data, context.contentResolver)
                             },
                             errorMessage  = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message
+                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message,
+                            isLoading     = driverApplicationViewModel.isSubmitting
                         )
                     }
 
@@ -379,10 +382,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "DriversLicence",
-                                    fileName = uri.lastPathSegment ?: "licence.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -392,10 +400,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "VehicleRegistration",
-                                    fileName = uri.lastPathSegment ?: "registration.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -453,21 +466,33 @@ class MainActivity : ComponentActivity() {
                                         driversLicenceStatus      = profile.driversLicenceStatus,
                                         vehicleRegistrationStatus = profile.vehicleRegistrationStatus
                                     ),
-                                    onConfirmDeleteClick = { driverProfileViewModel.deactivateProfile() },
+                                    onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
                                     onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },
-                                    statusMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Loading -> "Deactivating driver profile..."
-                                        is DriverDeleteUiState.Success -> deleteState.message
+                                    statusMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Success ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Success).message
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Uploading ->
+                                            "Uploading document..."
+                                        deleteState is DriverDeleteUiState.Loading -> "Deleting driver profile..."
+                                        deleteState is DriverDeleteUiState.Success -> (deleteState as DriverDeleteUiState.Success).message
                                         else -> null
                                     },
-                                    errorMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Error -> deleteState.message
+                                    errorMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Error ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Error).message
+                                        deleteState is DriverDeleteUiState.Error -> (deleteState as DriverDeleteUiState.Error).message
                                         else -> null
                                     },
                                     onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
                                     onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
-                                    onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } }
+                                    onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } },
+                                    onLogoutClick    = {
+                                        UserSession.clear()
+                                        navController.navigate("login") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -560,7 +585,9 @@ class MainActivity : ComponentActivity() {
                                     onShowTicket = { shuttle ->
                                         confirmedShuttle = BookingConfirmation(
                                             shuttleId = shuttle.tripId,
-                                            ticketId = "GYR-" + (1000..9999).random(),
+                                            // Stable per booking: derived from tripId, not random,
+                                            // so the QR code doesn't change every time this screen opens.
+                                            ticketId = "GYR-" + shuttle.tripId,
                                             pickupLocation = shuttle.from,
                                             dropoffLocation = shuttle.to,
                                             date = shuttle.date,
@@ -678,7 +705,9 @@ class MainActivity : ComponentActivity() {
                                 val trip = uiState.lastBookedTrip
                                 confirmedShuttle = BookingConfirmation(
                                     shuttleId = trip?.tripId?.toString() ?: "SH-102",
-                                    ticketId = "GYR-" + (1000..9999).random(),
+                                    // Stable per booking: derived from tripId, not random,
+                                    // so the QR code doesn't change every time this screen opens.
+                                    ticketId = "GYR-" + (trip?.tripId?.toString() ?: (1000..9999).random().toString()),
                                     pickupLocation = uiState.pickupLabel,
                                     dropoffLocation = uiState.destinationLabel,
                                     date = "Today",
@@ -885,7 +914,9 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_driver_boarding") {
                         val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
                             factory = ShuttleDriverBoardingViewModelFactory(
-                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi),
+                                NetworkModule.tripApi,
+                                NetworkModule.shuttleApi
                             )
                         )
 
@@ -895,6 +926,9 @@ class MainActivity : ComponentActivity() {
                             onLoadData = { boardingViewModel.loadBoardingData() },
                             onMarkAsBoarded = { bookingId ->
                                 boardingViewModel.markStudentAsBoarded(bookingId)
+                            },
+                            onSelectTimeSlot = { slot ->
+                                boardingViewModel.selectTimeSlot(slot)
                             },
                             onScanQrCodeClick = {
                                 navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
