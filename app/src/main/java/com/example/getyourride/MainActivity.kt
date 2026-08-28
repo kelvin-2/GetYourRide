@@ -61,7 +61,6 @@ import com.example.getyourride.viewmodel.DocumentUploadUiState
 import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
-import com.example.getyourride.viewmodel.MockRideLocationSocket
 import com.example.getyourride.viewmodel.StompRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
 import com.example.getyourride.viewmodel.TrackingViewModelFactory
@@ -870,15 +869,17 @@ class MainActivity : ComponentActivity() {
                     // ── TRACK RIDE ─────────────────────────────────────────────
                     // Route for the bottom nav tab (no ID)
                     composable(GyrRoutes.TRACK) {
-                        // Stays on the mock: rideId is hardcoded to "0" below (no real trip to
-                        // track from this entry point), so a real socket would just fail trying
-                        // to subscribe to a trip that doesn't exist.
-                        val socket = remember { MockRideLocationSocket() }
+                        // No trip id from this entry point, so pass null and let the ViewModel
+                        // resolve the student's active booking from the backend. It shows the
+                        // "no rides to track" empty state when there isn't one — previously this
+                        // route hardcoded rideId "0" + MockRideLocationSocket, which is why the
+                        // tab always displayed fake driver/vehicle data.
+                        val socket = remember { StompRideLocationSocket() }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
-                                rideId = "0", // Default state
+                                rideId = null,
                                 socket = socket,
-                                tripApi = NetworkModule.tripApi
+                                tripRepository = TripRepository(NetworkModule.tripApi)
                             )
                         )
                         TrackingScreen(
@@ -890,7 +891,7 @@ class MainActivity : ComponentActivity() {
 
                     // Route for direct tracking from My Rides (with ID)
                     composable("track/{rideId}") { backStackEntry ->
-                        val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
+                        val rideId = backStackEntry.arguments?.getString("rideId")
                         // This route always has a real trip id, so it uses the real STOMP socket.
                         // Was previously hardcoded to the mock ("useRealSocket = false") here too,
                         // which meant live tracking never actually connected to the backend.
@@ -899,7 +900,7 @@ class MainActivity : ComponentActivity() {
                             factory = TrackingViewModelFactory(
                                 rideId = rideId,
                                 socket = socket,
-                                tripApi = NetworkModule.tripApi
+                                tripRepository = TripRepository(NetworkModule.tripApi)
                             )
                         )
                         TrackingScreen(
