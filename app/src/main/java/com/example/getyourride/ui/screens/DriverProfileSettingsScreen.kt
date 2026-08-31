@@ -112,6 +112,9 @@ data class DriverProfileDetails(
 
 private data class StatusStyle(
     val backgroundColor: Color,
+
+
+
     val textColor: Color,
     val icon: ImageVector
 )

@@ -161,10 +161,10 @@ fun AddStopScreen(
                         val selected = fieldState.selected
                         when {
                             selected != null -> onStopChosen(
-                                StopResult(selected.displayName, selected.lat, selected.lon)
+                                StopResult(selected.displayName, selected.latitude, selected.longitude)
                             )
                             resolvedCurrent != null -> onStopChosen(
-                                StopResult(resolvedCurrent.displayName, resolvedCurrent.lat, resolvedCurrent.lon, isCurrentLocation = true)
+                                StopResult(resolvedCurrent.displayName, resolvedCurrent.latitude, resolvedCurrent.longitude, isCurrentLocation = true)
                             )
                             fieldState.text.isNotBlank() -> {
                                 // Nothing was tapped from suggestions (likely because
@@ -173,7 +173,7 @@ fun AddStopScreen(
                                 // endpoint, same one resolveRecentLocation() uses.
                                 viewModel.resolveTypedAddress(fieldState.text) { resolved ->
                                     if (resolved != null) {
-                                        onStopChosen(StopResult(resolved.displayName, resolved.lat, resolved.lon))
+                                        onStopChosen(StopResult(resolved.displayName, resolved.latitude, resolved.longitude))
                                     }
                                     // If this also fails, the student stays on the
                                     // screen — see note below about surfacing that.
@@ -216,7 +216,7 @@ fun AddStopScreen(
                             label = suggestion.displayName,
                             onClick = {
                                 viewModel.onSuggestionSelected(suggestion)
-                                onStopChosen(StopResult(suggestion.displayName, suggestion.lat, suggestion.lon))
+                                onStopChosen(StopResult(suggestion.displayName, suggestion.latitude, suggestion.longitude))
                             }
                         )
                     }
@@ -229,7 +229,7 @@ fun AddStopScreen(
                             onClick = {
                                 viewModel.resolveRecentLocation(label) { resolved ->
                                     if (resolved != null) {
-                                        onStopChosen(StopResult(resolved.displayName, resolved.lat, resolved.lon))
+                                        onStopChosen(StopResult(resolved.displayName, resolved.latitude, resolved.longitude))
                                     }
                                     // If resolution fails, we simply don't navigate - the
                                     // student stays on this screen and can try search instead.
