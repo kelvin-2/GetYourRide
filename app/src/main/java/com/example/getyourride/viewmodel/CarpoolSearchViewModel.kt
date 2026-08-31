@@ -128,10 +128,10 @@ class CarpoolSearchViewModel(
 
     private suspend fun resolveTypedAddress(text: String): AddressSuggestion? {
         return geocodingRepository.geocode(text).getOrNull()?.let { result ->
-            val lat = result.lat ?: return null
-            val lon = result.lon ?: return null
+            val lat = result.latitude ?: return null
+            val lon = result.longitude ?: return null
             val displayName = result.matchedAddress ?: text
-            AddressSuggestion(displayName = displayName, lat = lat, lon = lon)
+            AddressSuggestion(displayName = displayName, latitude = lat, longitude = lon)
         }
     }
 }

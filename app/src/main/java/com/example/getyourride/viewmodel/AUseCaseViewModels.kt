@@ -119,10 +119,10 @@ class OfferRideViewModel(
             rideTime = request.rideTime,
             availableSeats = request.availableSeats,
             farePerSeat = request.farePerSeat,
-            pickupLat = _pickup.value.selected?.lat,
-            pickupLng = _pickup.value.selected?.lon,
-            destinationLat = _destination.value.selected?.lat,
-            destinationLng = _destination.value.selected?.lon
+            pickupLat = _pickup.value.selected?.latitude,
+            pickupLng = _pickup.value.selected?.longitude,
+            destinationLat = _destination.value.selected?.latitude,
+            destinationLng = _destination.value.selected?.longitude
         )
 
         viewModelScope.launch {
