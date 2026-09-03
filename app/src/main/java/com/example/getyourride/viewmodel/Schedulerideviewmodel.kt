@@ -81,11 +81,17 @@ class ScheduleRideViewModel(
                 val trip = repository.findAvailableTrip(state.pickupLabel, slot)
                     ?: throw Exception("No shuttle available for this stop and time — try another slot")
 
-                repository.bookShuttle(trip.tripId)
+                // bookShuttle() returns the real trip_booking.booking_id in bookingConfirmation —
+                // this is what the shuttle boarding QR ticket needs. `trip` itself was fetched
+                // before the booking existed, so it has no bookingId of its own; attach the
+                // real one here instead of leaving it null (which used to force MainActivity
+                // to fabricate a fake ticket id).
+                val summary = repository.bookShuttle(trip.tripId)
+                val bookedTrip = trip.copy(bookingId = summary.bookingConfirmation.bookingId)
 
                 // Store the real trip (driver, plate, vehicle, times) for the confirmation screen,
                 // instead of leaving the caller to invent placeholder data.
-                _uiState.update { it.copy(isConfirming = false, lastBookedTrip = trip) }
+                _uiState.update { it.copy(isConfirming = false, lastBookedTrip = bookedTrip) }
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.update {

@@ -583,21 +583,34 @@ class MainActivity : ComponentActivity() {
                                     },
 
                                     onShowTicket = { shuttle ->
-                                        confirmedShuttle = BookingConfirmation(
-                                            shuttleId = shuttle.tripId,
-                                            // Stable per booking: derived from tripId, not random,
-                                            // so the QR code doesn't change every time this screen opens.
-                                            ticketId = "GYR-" + shuttle.tripId,
-                                            pickupLocation = shuttle.from,
-                                            dropoffLocation = shuttle.to,
-                                            date = shuttle.date,
-                                            departureTime = shuttle.time,
-                                            driverName = shuttle.driverName ?: "S. Mokoena",
-                                            plateNumber = shuttle.plateNumber ?: "BS 42 GP",
-                                            vehicleModel = shuttle.vehicleModel ?: "Mercedes Sprinter",
-                                            status = shuttle.status
-                                        )
-                                        navController.navigate("shuttle_booking_confirmed")
+                                        // No real booking id means there's no ticket to show —
+                                        // fabricating one ("GYR-" + tripId) used to let a driver
+                                        // scan a QR that could never match a real trip_booking row.
+                                        val bookingId = shuttle.bookingId
+                                        if (bookingId == null) {
+                                            Toast.makeText(
+                                                context,
+                                                "This trip doesn't have a booking on file yet.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            confirmedShuttle = BookingConfirmation(
+                                                bookingId = bookingId,
+                                                shuttleId = shuttle.tripId,
+                                                studentFirstName = UserSession.firstName ?: "",
+                                                studentLastName = UserSession.lastName ?: "",
+                                                studentNumber = UserSession.studentNumber ?: "",
+                                                pickupLocation = shuttle.from,
+                                                dropoffLocation = shuttle.to,
+                                                date = shuttle.date,
+                                                departureTime = shuttle.time,
+                                                driverName = shuttle.driverName ?: "S. Mokoena",
+                                                plateNumber = shuttle.plateNumber ?: "BS 42 GP",
+                                                vehicleModel = shuttle.vehicleModel ?: "Mercedes Sprinter",
+                                                status = shuttle.status
+                                            )
+                                            navController.navigate("shuttle_booking_confirmed")
+                                        }
                                     },
                                     onTripClick = { trip ->
                                         Toast.makeText(context, "Trip details: ${trip.from} → ${trip.to} — screen coming soon", Toast.LENGTH_SHORT).show()
@@ -703,21 +716,37 @@ class MainActivity : ComponentActivity() {
                             onBookingConfirmed = {
                                 val uiState = shuttleViewModel.uiState.value
                                 val trip = uiState.lastBookedTrip
-                                confirmedShuttle = BookingConfirmation(
-                                    shuttleId = trip?.tripId?.toString() ?: "SH-102",
-                                    // Stable per booking: derived from tripId, not random,
-                                    // so the QR code doesn't change every time this screen opens.
-                                    ticketId = "GYR-" + (trip?.tripId?.toString() ?: (1000..9999).random().toString()),
-                                    pickupLocation = uiState.pickupLabel,
-                                    dropoffLocation = uiState.destinationLabel,
-                                    date = "Today",
-                                    departureTime = uiState.selectedTime ?: "08:30",
-                                    driverName = trip?.driverName ?: "S. Mokoena",
-                                    plateNumber = trip?.registrationNumber ?: "BS 42 GP",
-                                    vehicleModel = trip?.vehicleModel ?: "Mercedes Sprinter"
-                                )
-                                navController.navigate("shuttle_booking_confirmed") {
-                                    popUpTo("shuttle_home")
+                                val bookingId = trip?.bookingId
+                                if (bookingId == null) {
+                                    // The booking call succeeded server-side (trip_booking row exists),
+                                    // but we don't have its id here — showing a ticket with a made-up
+                                    // id would produce a QR the driver's scanner can never validate.
+                                    Toast.makeText(
+                                        context,
+                                        "Booked, but couldn't load your ticket. Check My Rides.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    navController.navigate("shuttle_home") {
+                                        popUpTo("shuttle_home") { inclusive = true }
+                                    }
+                                } else {
+                                    confirmedShuttle = BookingConfirmation(
+                                        bookingId = bookingId,
+                                        shuttleId = trip.tripId.toString(),
+                                        studentFirstName = UserSession.firstName ?: "",
+                                        studentLastName = UserSession.lastName ?: "",
+                                        studentNumber = UserSession.studentNumber ?: "",
+                                        pickupLocation = uiState.pickupLabel,
+                                        dropoffLocation = uiState.destinationLabel,
+                                        date = "Today",
+                                        departureTime = uiState.selectedTime ?: "08:30",
+                                        driverName = trip.driverName ?: "S. Mokoena",
+                                        plateNumber = trip.registrationNumber ?: "BS 42 GP",
+                                        vehicleModel = trip.vehicleModel ?: "Mercedes Sprinter"
+                                    )
+                                    navController.navigate("shuttle_booking_confirmed") {
+                                        popUpTo("shuttle_home")
+                                    }
                                 }
                             }
                         )
