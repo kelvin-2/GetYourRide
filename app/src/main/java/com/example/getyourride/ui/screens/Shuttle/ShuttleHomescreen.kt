@@ -45,7 +45,10 @@ data class UpcomingShuttle(
     val seat: String,
     val driverName: String? = null,
     val plateNumber: String? = null,
-    val vehicleModel: String? = null
+    val vehicleModel: String? = null,
+    // Real trip_booking.booking_id from the backend — null only if this trip has no
+    // booking row yet. Used to build the shuttle boarding QR ticket.
+    val bookingId: Long? = null
 )
 
 data class RecentTrip(
