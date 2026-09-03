@@ -73,7 +73,8 @@ class ShuttleRepository(
             seat = "Any", // Backend doesn't return specific seat numbers yet
             driverName = driverName,
             plateNumber = registrationNumber,
-            vehicleModel = vehicleModel
+            vehicleModel = vehicleModel,
+            bookingId = bookingId
         )
     }
 
