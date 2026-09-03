@@ -28,7 +28,12 @@ data class TripResponse(
     val vehicleModel: String?,
     val vehicleColour: String?,
     val vehicleCapacity: Int?,
-    val stops: List<TripStopResponse> = emptyList()
+    val stops: List<TripStopResponse> = emptyList(),
+    // NEW — backend TripResponse.bookingId/bookingStatus (Phase 4 — booking wiring) were already
+    // being sent on /my-trips but this DTO never declared them, so Gson silently dropped them.
+    // Needed so the shuttle QR ticket can reference a real trip_booking.booking_id.
+    val bookingId: Long? = null,
+    val bookingStatus: String? = null
 )
 
 /**
