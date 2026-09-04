@@ -151,7 +151,12 @@ fun MyRidesScreen(
                             filtered.forEach { (ride, tripId) ->
                                 RideCard(
                                     ride         = ride,
-                                    onTrackRide  = { onTrackRide(ride.id) },
+                                    // Track by tripId, NOT ride.id. Under the TripBookingResponse
+                                    // mapper ride.id is the bookingId, so passing it made the
+                                    // tracking screen call GET /api/trips/{bookingId} and get a 404
+                                    // ("Trip not found with id: 10"). tripId is the real trip and
+                                    // is what the tracking endpoint expects — same value cancel uses.
+                                    onTrackRide  = { onTrackRide(tripId.toString()) },
                                     // Cancel still sends tripId, exactly as it did
                                     // before (matches the working PATCH
                                     // /api/trips/bookings/{tripId}/cancel call

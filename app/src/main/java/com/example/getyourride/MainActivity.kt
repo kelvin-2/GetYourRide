@@ -362,7 +362,11 @@ class MainActivity : ComponentActivity() {
                             onProfileClick     = { navController.navigate("driver_profile_settings") },
                             onCancelRide       = { tripId ->
                                 driverHomeViewModel.cancelRide(tripId)
-                            }
+                            },
+                            onStartRide          = { tripId -> driverHomeViewModel.startRide(tripId) },
+                            startingTripId       = driverHomeViewModel.startingTripId,
+                            actionMessage        = driverHomeViewModel.actionMessage,
+                            onActionMessageShown = { driverHomeViewModel.consumeActionMessage() }
                         )
                     }
 

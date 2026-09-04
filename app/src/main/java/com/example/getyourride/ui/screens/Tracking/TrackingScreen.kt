@@ -238,17 +238,35 @@ private fun OsmMapSection(data: TrackingData) {
             Text(data.tripInfo.destinationLabel, color = Color.White, fontSize = 13.sp)
         }
 
-        if (!data.isConnected) {
-            Text(
-                text = "Connecting to live updates…",
-                color = Color.White,
-                fontSize = 12.sp,
+        // Live indicator, top-right over the map. Three states so the student can see at a glance
+        // whether the trip is actually updating:
+        //  - a network hiccup on a poll (connectionError set) -> "Reconnecting…"
+        //  - waiting for the driver to start / first position   -> "Waiting for driver…"
+        //  - a position is flowing in                           -> green "● LIVE"
+        val (indicatorText, dotColor, bgColor) = when {
+            data.connectionError != null ->
+                Triple("Reconnecting…", Color(0xFFFFC107), UniRideNavy.copy(alpha = 0.85f))
+            data.driverLocation == null ->
+                Triple("Waiting for driver…", Color(0xFFFFC107), UniRideNavy.copy(alpha = 0.85f))
+            else ->
+                Triple("LIVE", Color(0xFF39D98A), UniRideNavy.copy(alpha = 0.85f))
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .background(bgColor, RoundedCornerShape(20.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .background(UniRideNavy.copy(alpha = 0.8f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
             )
+            Spacer(Modifier.width(6.dp))
+            Text(text = indicatorText, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

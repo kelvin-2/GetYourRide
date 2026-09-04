@@ -9,6 +9,7 @@ import com.example.getyourride.domain.model.RideStatus
 import com.example.getyourride.domain.model.TripTrackingInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -141,76 +142,46 @@ class TrackingViewModel(
 
             trackedTripId = resolved.tripId
             _uiState.value = TrackingUiState.Active(resolved.toTrackingData())
-            connectSocket(resolved.tripId.toString())
+            startPolling(resolved.tripId)
         }
-    }
-
-    private fun connectSocket(tripId: String) {
-        socket.connect(
-            rideId = tripId,
-            onUpdate = { update ->
-                updateActive {
-                    it.copy(
-                        driverLocation = GeoPoint(update.latitude, update.longitude),
-                        isConnected = true,
-                        connectionError = null
-                    )
-                }
-            },
-            onStopUpdate = { stopId ->
-                updateActive { data ->
-                    // Backend STOP_EVENTs carry trip_stop.id, so translate it into a
-                    // position in `stops`. Unknown ids leave the index untouched rather
-                    // than corrupting the route rendering.
-                    val index = data.stopIds.indexOf(stopId)
-                    if (index >= 0) data.copy(currentStopIndex = index) else data
-                }
-            },
-            onError = { message ->
-                updateActive { it.copy(isConnected = false, connectionError = message) }
-                startPollingIfDisconnected()
-            }
-        )
     }
 
     /**
-     * Socket is down — fall back to periodically re-reading the trip over REST so the
-     * card stays accurate. This refreshes real trip data only; it never invents a position.
+     * Follow the trip by polling the backend on a timer.
+     *
+     * This is the whole live-tracking mechanism on the app — there is no WebSocket. The backend
+     * simulation moves the vehicle and writes its position onto the trip; each poll of
+     * GET /api/trips/{id} reads the fresh position and the screen animates the marker between the
+     * old and new points. The poll interval matches the backend's tick, so the marker advances
+     * roughly once per interval.
+     *
+     * Polling stops when the trip reaches a terminal status (COMPLETED or CANCELLED), so it does
+     * not run forever, and when the ViewModel is cleared.
      */
-    private fun startPollingIfDisconnected() {
-        if (pollingJob?.isActive == true) return
-        val tripId = trackedTripId ?: return
-
+    private fun startPolling(tripId: Long) {
+        pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
-            while (!isSocketConnected()) {
-                refreshTripDetails(tripId)
+            while (isActive) {
+                tripRepository.getTripById(tripId).fold(
+                    onSuccess = { trip ->
+                        updateActive { trip.toTrackingData() }
+                        if (trip.status.equals("COMPLETED", ignoreCase = true) ||
+                            trip.status.equals("CANCELLED", ignoreCase = true)
+                        ) {
+                            return@launch // trip is over; stop polling
+                        }
+                    },
+                    onFailure = { e ->
+                        // A transient network blip should not blank the screen or stop tracking.
+                        // Keep the last known position and note the hiccup; the next poll recovers.
+                        updateActive {
+                            it.copy(connectionError = "Reconnecting… (${e.message ?: "network issue"})")
+                        }
+                    }
+                )
                 delay(POLL_INTERVAL_MS)
             }
         }
-    }
-
-    private fun isSocketConnected(): Boolean =
-        (_uiState.value as? TrackingUiState.Active)?.data?.isConnected == true
-
-    private suspend fun refreshTripDetails(tripId: Long) {
-        tripRepository.getTripById(tripId).fold(
-            onSuccess = { trip ->
-                updateActive { current ->
-                    trip.toTrackingData().copy(
-                        // Keep whatever live values the socket already delivered.
-                        driverLocation = current.driverLocation,
-                        currentStopIndex = current.currentStopIndex,
-                        isConnected = current.isConnected,
-                        connectionError = current.connectionError
-                    )
-                }
-            },
-            onFailure = { e ->
-                updateActive {
-                    it.copy(connectionError = "Failed to refresh trip details: ${e.message}")
-                }
-            }
-        )
     }
 
     /** Applies [transform] only while a real trip is being tracked. */
@@ -246,25 +217,41 @@ class TrackingViewModel(
     }
 
     private companion object {
-        const val POLL_INTERVAL_MS = 10_000L
+        // Matches the backend simulation tick (getyourride.tracking.simulation.tick-interval-ms,
+        // default 4000ms), so the marker advances about once per poll.
+        const val POLL_INTERVAL_MS = 4_000L
     }
 }
 
 /** Maps the trip DTO onto the tracking payload. Single place where trip data enters the screen. */
 private fun TripResponse.toTrackingData(): TrackingData = TrackingData(
     tripId = tripId,
+    // The vehicle's live position, written by the backend simulation. Null before the trip starts,
+    // in which case the marker simply isn't drawn until the first moving poll arrives.
+    driverLocation = if (currentLat != null && currentLng != null) {
+        GeoPoint(currentLat, currentLng)
+    } else null,
     destinationLocation = if (destinationLat != null && destinationLng != null) {
         GeoPoint(destinationLat, destinationLng)
     } else null,
     stops = stops.map { GeoPoint(it.latitude, it.longitude) },
     stopIds = stops.map { it.id },
+    // Seed how many stops are already behind the vehicle from each stop's own status, so a student
+    // who opens the screen mid-trip sees passed stops as visited rather than all still ahead.
+    currentStopIndex = stops.count { it.status.equals("ARRIVED", ignoreCase = true) },
+    // With polling there is no persistent socket, but a successful poll means we are "connected"
+    // for UI purposes; a failed poll sets connectionError without flipping this.
+    isConnected = true,
     tripInfo = TripTrackingInfo(
         driverName = driverName ?: "Unknown Driver",
         driverRating = 4.8,
+        // Mapped to the backend's actual status vocabulary (a closed DB enum). The backend never
+        // emits "ARRIVED" — arrival at the destination shows up as COMPLETED — so a completed trip
+        // is what turns the marker into the arrived state.
         status = when (status.uppercase()) {
-            "SCHEDULED" -> RideStatus.ON_THE_WAY
+            "SCHEDULED", "CONFIRMED" -> RideStatus.ON_THE_WAY
             "IN_PROGRESS" -> RideStatus.IN_TRANSIT
-            "ARRIVED" -> RideStatus.ARRIVED
+            "COMPLETED" -> RideStatus.ARRIVED
             "CANCELLED" -> RideStatus.CANCELLED
             else -> RideStatus.ON_THE_WAY
         },

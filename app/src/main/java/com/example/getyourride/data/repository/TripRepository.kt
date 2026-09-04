@@ -68,7 +68,15 @@ class TripRepository(private val api: TripApi) {
             bookings
                 .map { it.trip }
                 .filter { it.status.uppercase() in TRACKABLE_TRIP_STATUSES }
-                .minByOrNull { it.departureTime }
+                // A trip that is actually moving wins over one that is merely scheduled, regardless
+                // of departure time — otherwise tapping "Track" could open an older SCHEDULED trip
+                // while the one the student is sitting in is IN_PROGRESS. Among trips of equal
+                // priority the soonest departure wins; departureTime is ISO-8601, which sorts
+                // correctly as a string.
+                .minWithOrNull(
+                    compareBy<TripResponse> { if (it.status.equals("IN_PROGRESS", ignoreCase = true)) 0 else 1 }
+                        .thenBy { it.departureTime }
+                )
         }
     }
 
@@ -88,6 +96,34 @@ class TripRepository(private val api: TripApi) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * Start a trip (driver action). Precomputes the route if needed, sets it IN_PROGRESS and
+     * begins the backend simulation. The returned trip already carries the seeded live position.
+     *
+     * Error messages are written for a human reader rather than exposing an HTTP code, because
+     * this result is surfaced directly to the driver on screen.
+     */
+    suspend fun startTrip(tripId: Long): Result<TripResponse> {
+        return try {
+            val response = api.startTrip(tripId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(startTripErrorMessage(response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Couldn't reach the server to start the trip. Check your connection and try again."))
+        }
+    }
+
+    private fun startTripErrorMessage(code: Int): String = when (code) {
+        400 -> "This trip can't be started. It may have no route, or it's already completed or cancelled."
+        401, 403 -> "You're not allowed to start this trip. Please sign in again."
+        404 -> "This trip no longer exists."
+        else -> "Couldn't start the trip (error $code). Please try again."
     }
 
     suspend fun cancelTrip(tripId: Long): Result<TripResponse> {
@@ -157,7 +193,11 @@ class TripRepository(private val api: TripApi) {
     private companion object {
         const val BOOKING_STATUS_CONFIRMED = "CONFIRMED"
 
-        /** Trip statuses that still have a live position worth following on the map. */
-        val TRACKABLE_TRIP_STATUSES = setOf("SCHEDULED", "IN_PROGRESS", "ARRIVED")
+        /**
+         * Trip statuses that still have a live position worth following on the map.
+         * "ARRIVED" is not a backend trip status (the backend never emits it — arrival at the
+         * destination shows up as COMPLETED), so it was removed to stop it matching nothing.
+         */
+        val TRACKABLE_TRIP_STATUSES = setOf("SCHEDULED", "IN_PROGRESS")
     }
 }
