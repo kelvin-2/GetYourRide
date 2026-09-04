@@ -224,46 +224,60 @@ class TrackingViewModel(
 }
 
 /** Maps the trip DTO onto the tracking payload. Single place where trip data enters the screen. */
-private fun TripResponse.toTrackingData(): TrackingData = TrackingData(
-    tripId = tripId,
-    // The vehicle's live position, written by the backend simulation. Null before the trip starts,
-    // in which case the marker simply isn't drawn until the first moving poll arrives.
-    driverLocation = if (currentLat != null && currentLng != null) {
-        GeoPoint(currentLat, currentLng)
-    } else null,
-    destinationLocation = if (destinationLat != null && destinationLng != null) {
-        GeoPoint(destinationLat, destinationLng)
-    } else null,
-    stops = stops.map { GeoPoint(it.latitude, it.longitude) },
-    stopIds = stops.map { it.id },
-    // Seed how many stops are already behind the vehicle from each stop's own status, so a student
-    // who opens the screen mid-trip sees passed stops as visited rather than all still ahead.
-    currentStopIndex = stops.count { it.status.equals("ARRIVED", ignoreCase = true) },
-    // With polling there is no persistent socket, but a successful poll means we are "connected"
-    // for UI purposes; a failed poll sets connectionError without flipping this.
-    isConnected = true,
-    tripInfo = TripTrackingInfo(
-        driverName = driverName ?: "Unknown Driver",
-        driverRating = 4.8,
-        // Mapped to the backend's actual status vocabulary (a closed DB enum). The backend never
-        // emits "ARRIVED" — arrival at the destination shows up as COMPLETED — so a completed trip
-        // is what turns the marker into the arrived state.
-        status = when (status.uppercase()) {
-            "SCHEDULED", "CONFIRMED" -> RideStatus.ON_THE_WAY
-            "IN_PROGRESS" -> RideStatus.IN_TRANSIT
-            "COMPLETED" -> RideStatus.ARRIVED
-            "CANCELLED" -> RideStatus.CANCELLED
-            else -> RideStatus.ON_THE_WAY
-        },
-        etaMinutes = null,
-        carModel = vehicleModel ?: "Unknown Car",
-        carColor = vehicleColour ?: "Unknown Color",
-        carYear = 0,
-        plateNumber = registrationNumber ?: "Unknown",
-        isPlateVerified = registrationNumber != null,
-        destinationLabel = destinationStop
+private fun TripResponse.toTrackingData(): TrackingData {
+    val normalisedStatus = status.uppercase()
+    val isMoving = normalisedStatus == "IN_PROGRESS"
+    val isFinished = normalisedStatus == "COMPLETED"
+
+    return TrackingData(
+        tripId = tripId,
+        // Only draw the vehicle when the trip is actually under way, or finished.
+        //
+        // trip.current_lat/lng persist after a trip ends, so a completed trip that was rescheduled
+        // still carries the coordinates of its final point. Trusting those unconditionally drew a
+        // stationary car at the destination and reported it as "LIVE" on a trip that had never
+        // started — which is exactly what made tracking look broken.
+        driverLocation = if ((isMoving || isFinished) && currentLat != null && currentLng != null) {
+            GeoPoint(currentLat, currentLng)
+        } else null,
+        destinationLocation = if (destinationLat != null && destinationLng != null) {
+            GeoPoint(destinationLat, destinationLng)
+        } else null,
+        stops = stops.map { GeoPoint(it.latitude, it.longitude) },
+        stopIds = stops.map { it.id },
+        // How many stops are already behind the vehicle, taken from each stop's own status so a
+        // student opening the screen mid-trip sees passed stops as visited. Only meaningful once
+        // the trip is running; a rescheduled trip can still hold ARRIVED stops from a previous run.
+        currentStopIndex = if (isMoving || isFinished) {
+            stops.count { it.status.equals("ARRIVED", ignoreCase = true) }
+        } else 0,
+        // With polling there is no persistent socket, but a successful poll means we are
+        // "connected" for UI purposes; a failed poll sets connectionError without flipping this.
+        isConnected = true,
+        tripInfo = TripTrackingInfo(
+            driverName = driverName ?: "Unknown Driver",
+            driverRating = 4.8,
+            // Mapped to the backend's real status vocabulary (a closed DB enum). The backend never
+            // emits "ARRIVED" — arrival at the destination shows up as COMPLETED. SCHEDULED and
+            // CONFIRMED map to WAITING rather than ON_THE_WAY, because nothing is moving yet and
+            // telling the student "ON THE WAY" was misleading.
+            status = when (normalisedStatus) {
+                "SCHEDULED", "CONFIRMED" -> RideStatus.WAITING
+                "IN_PROGRESS" -> RideStatus.IN_TRANSIT
+                "COMPLETED" -> RideStatus.ARRIVED
+                "CANCELLED" -> RideStatus.CANCELLED
+                else -> RideStatus.WAITING
+            },
+            etaMinutes = null,
+            carModel = vehicleModel ?: "Unknown Car",
+            carColor = vehicleColour ?: "Unknown Color",
+            carYear = 0,
+            plateNumber = registrationNumber ?: "Unknown",
+            isPlateVerified = registrationNumber != null,
+            destinationLabel = destinationStop
+        )
     )
-)
+}
 
 class TrackingViewModelFactory(
     private val rideId: String?,

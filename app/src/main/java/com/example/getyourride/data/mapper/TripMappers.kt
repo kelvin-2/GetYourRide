@@ -112,12 +112,16 @@ fun TripResponse.toRideCardData(): RideCardData {
             .joinToString(" ")
             .ifBlank { "Unknown Vehicle" },
         plate = registrationNumber ?: "—",
+        // Matches the backend's actual trip statuses (a closed DB enum):
+        // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED.
+        // "active" was never one of them, so a trip that was really running fell through to the
+        // else branch and displayed as SCHEDULED. IN_PROGRESS is the moving state.
         status = when (status.lowercase()) {
-            "scheduled" -> RideStatus.SCHEDULED
-            "active"    -> RideStatus.ACTIVE
-            "completed" -> RideStatus.COMPLETED
-            "cancelled" -> RideStatus.CANCELLED
-            else        -> RideStatus.SCHEDULED
+            "scheduled", "confirmed" -> RideStatus.SCHEDULED
+            "in_progress"            -> RideStatus.ACTIVE
+            "completed"              -> RideStatus.COMPLETED
+            "cancelled"              -> RideStatus.CANCELLED
+            else                     -> RideStatus.SCHEDULED
         },
         pickup  = departureStop,
         dropoff = destinationStop,
@@ -154,12 +158,23 @@ fun TripBookingResponse.toRideCardData(): RideCardData {
             .joinToString(" ")
             .ifBlank { "Unknown Vehicle" },
         plate = trip.registrationNumber ?: "—",
-        status = when (bookingStatus?.lowercase()) {
-            "confirmed" -> RideStatus.ACTIVE
-            "pending"   -> RideStatus.SCHEDULED
-            "cancelled" -> RideStatus.CANCELLED
-            "completed" -> RideStatus.COMPLETED
-            else        -> RideStatus.SCHEDULED
+        // The TRIP's lifecycle wins over the booking's.
+        //
+        // This used to read bookingStatus alone, where "confirmed" -> ACTIVE. A booking stays
+        // CONFIRMED after the trip finishes, so a ride that had already arrived kept showing as
+        // ACTIVE in the student's "Upcoming" tab and never moved to "Past". Trip status is what
+        // says whether the journey is over; the booking only says whether the seat is still held.
+        //
+        // Order matters: check the terminal trip states first, then fall back to the booking for
+        // trips that have not started yet (a cancelled booking on an upcoming trip is CANCELLED).
+        status = when {
+            trip.status.equals("COMPLETED", ignoreCase = true)   -> RideStatus.COMPLETED
+            trip.status.equals("CANCELLED", ignoreCase = true)   -> RideStatus.CANCELLED
+            bookingStatus.equals("CANCELLED", ignoreCase = true) -> RideStatus.CANCELLED
+            trip.status.equals("IN_PROGRESS", ignoreCase = true) -> RideStatus.ACTIVE
+            bookingStatus.equals("CONFIRMED", ignoreCase = true) -> RideStatus.ACTIVE
+            bookingStatus.equals("PENDING", ignoreCase = true)   -> RideStatus.SCHEDULED
+            else                                                 -> RideStatus.SCHEDULED
         },
         pickup  = trip.departureStop,
         dropoff = trip.destinationStop,
