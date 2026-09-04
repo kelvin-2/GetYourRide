@@ -29,6 +29,46 @@ class DriverHomeViewModel(
     var uiState by mutableStateOf<DriverHomeUiState>(DriverHomeUiState.Loading)
         private set
 
+    /**
+     * One-shot, user-facing message for the outcome of an action (e.g. starting a trip), shown as
+     * a snackbar. Null when there is nothing to show. The screen calls [consumeActionMessage] once
+     * it has displayed it so the same message does not reappear on recomposition.
+     */
+    var actionMessage by mutableStateOf<String?>(null)
+        private set
+
+    /** The trip currently being started, so its card can show a spinner and disable the button. */
+    var startingTripId by mutableStateOf<Long?>(null)
+        private set
+
+    fun consumeActionMessage() {
+        actionMessage = null
+    }
+
+    /**
+     * Start a trip the driver has posted: sets it IN_PROGRESS on the backend and kicks off the
+     * live simulation. On success the trip list is reloaded so the card reflects the new status;
+     * on failure the driver sees why and the trip is left untouched.
+     *
+     * Additive: this does not alter [loadMyTrips] or [cancelRide].
+     */
+    fun startRide(tripId: Long) {
+        if (startingTripId != null) return // ignore double-taps while a start is in flight
+        startingTripId = tripId
+        viewModelScope.launch {
+            tripRepository.startTrip(tripId)
+                .onSuccess {
+                    startingTripId = null
+                    actionMessage = "Trip started — it's now live for passengers to track."
+                    loadMyTrips()
+                }
+                .onFailure { error ->
+                    startingTripId = null
+                    actionMessage = error.message ?: "Couldn't start the trip. Please try again."
+                }
+        }
+    }
+
     fun loadMyTrips() {
         uiState = DriverHomeUiState.Loading
         viewModelScope.launch {

@@ -28,6 +28,13 @@ data class TripResponse(
     val vehicleModel: String?,
     val vehicleColour: String?,
     val vehicleCapacity: Int?,
+    // Live tracking position, written by the backend simulation engine on every tick and returned
+    // by GET /api/trips/{id}. Null until a driver starts the trip. The tracking screen polls this
+    // endpoint and redraws the marker from these fields (there is no WebSocket on the app).
+    // Defaulted so existing constructor calls (previews, tests) keep compiling.
+    val currentLat: Double? = null,
+    val currentLng: Double? = null,
+    val currentLegIndex: Int? = null,
     val stops: List<TripStopResponse> = emptyList()
 )
 
@@ -46,6 +53,10 @@ data class TripStopResponse(
     val latitude: Double,
     val longitude: Double,
     val stopOrder: Int,
+    // "PENDING" until the simulated vehicle reaches this stop, then "ARRIVED". Lets the tracking
+    // screen show passed stops as visited even for a student who opened the screen mid-trip.
+    // Defaulted so existing constructor calls keep compiling.
+    val status: String = "PENDING",
     val studentId: Long?,
     val studentName: String?
 )

@@ -87,9 +87,26 @@ fun StudentDriverHomeScreen(
     onOfferRideClick: () -> Unit = {},
     onHomeClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onCancelRide: (Long) -> Unit = {}
+    onCancelRide: (Long) -> Unit = {},
+    // Tracking-simulation additions. Defaulted so existing callers and previews are unaffected.
+    onStartRide: (Long) -> Unit = {},
+    startingTripId: Long? = null,
+    actionMessage: String? = null,
+    onActionMessageShown: () -> Unit = {}
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Surface the outcome of starting a trip as a snackbar, then clear it so it shows only once.
+    LaunchedEffect(actionMessage) {
+        val message = actionMessage
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            onActionMessageShown()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -160,7 +177,9 @@ fun StudentDriverHomeScreen(
                         ActiveRidesSection(
                             activeRides = homeUiState.activeRides,
                             onOfferRideClick = onOfferRideClick,
-                            onCancelRide = onCancelRide
+                            onCancelRide = onCancelRide,
+                            onStartRide = onStartRide,
+                            startingTripId = startingTripId
                         )
                         // Past rides section
                         PastRidesSection(pastRides = homeUiState.pastRides)
@@ -418,7 +437,9 @@ private fun ErrorCard(message: String, onRetry: () -> Unit) {
 private fun ActiveRidesSection(
     activeRides: List<TripResponse>,
     onOfferRideClick: () -> Unit,
-    onCancelRide: (Long) -> Unit
+    onCancelRide: (Long) -> Unit,
+    onStartRide: (Long) -> Unit,
+    startingTripId: Long?
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -471,7 +492,12 @@ private fun ActiveRidesSection(
             NoActiveRidesCard(onOfferRideClick = onOfferRideClick)
         } else {
             activeRides.forEach { trip ->
-                ActiveRideCard(trip = trip, onCancelRide = onCancelRide)
+                ActiveRideCard(
+                    trip = trip,
+                    onCancelRide = onCancelRide,
+                    onStartRide = onStartRide,
+                    isStarting = startingTripId == trip.tripId
+                )
             }
         }
     }
@@ -556,9 +582,17 @@ private fun NoActiveRidesCard(onOfferRideClick: () -> Unit) {
 
 // ── Active Ride Card (Uber-style: shows waiting status, passengers, route) ──
 @Composable
-private fun ActiveRideCard(trip: TripResponse, onCancelRide: (Long) -> Unit) {
+private fun ActiveRideCard(
+    trip: TripResponse,
+    onCancelRide: (Long) -> Unit,
+    onStartRide: (Long) -> Unit = {},
+    isStarting: Boolean = false
+) {
     val bookedPassengers = trip.stops.filter { it.studentId != null }
     val seatsRemaining = trip.availableSeats - bookedPassengers.size
+    val isScheduled = trip.status.equals("SCHEDULED", ignoreCase = true) ||
+            trip.status.equals("CONFIRMED", ignoreCase = true)
+    val isLive = trip.status.equals("IN_PROGRESS", ignoreCase = true)
 
     Surface(
         modifier = Modifier.fillMaxWidth().animateContentSize(),
@@ -653,6 +687,56 @@ private fun ActiveRideCard(trip: TripResponse, onCancelRide: (Long) -> Unit) {
                 }
                 bookedPassengers.forEach { stop ->
                     PassengerRow(name = stop.studentName ?: "Student", pickup = stop.stopName)
+                }
+            }
+
+            // Start Trip button — only for a trip that hasn't started yet. Tapping it puts the
+            // trip IN_PROGRESS on the backend and begins the live simulation passengers can track.
+            if (isScheduled) {
+                Button(
+                    onClick = { onStartRide(trip.tripId) },
+                    enabled = !isStarting,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DriverSuccessText)
+                ) {
+                    if (isStarting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Starting…", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    } else {
+                        Icon(Icons.Outlined.PlayArrow, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Start Trip", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+
+            // Live indicator — visible confirmation to the driver that the trip is now moving and
+            // trackable, without needing to open the passenger view.
+            if (isLive) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = DriverActiveBg,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(DriverSuccessText))
+                        Text(
+                            "Live — passengers can track this trip now.",
+                            color = DriverActiveText,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
@@ -895,7 +979,7 @@ fun StudentDriverHomeScreenPreview() {
                         vehicleColour = "White",
                         vehicleCapacity = 4,
                         stops = listOf(
-                            TripStopResponse(1, "Library Stop", -33.99, 25.67, 1, 5L, "Lanele Maqina")
+                            TripStopResponse(1, "Library Stop", -33.99, 25.67, 1, studentId = 5L, studentName = "Lanele Maqina")
                         )
                     )
                 ),
