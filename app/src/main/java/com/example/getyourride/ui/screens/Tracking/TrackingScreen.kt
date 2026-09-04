@@ -67,6 +67,7 @@ import com.example.getyourride.viewmodel.TrackingViewModel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.BoundingBox
+import org.osmdroid.util.MapTileIndex
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -283,24 +284,45 @@ private fun OsmMapView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val cartoDbPositron = remember {
-        XYTileSource(
-            "CartoDB Positron",
-            1, 19, 256, ".png",
-            arrayOf(
-                "https://a.basemaps.cartocdn.com/light_all/",
-                "https://b.basemaps.cartocdn.com/light_all/",
-                "https://c.basemaps.cartocdn.com/light_all/",
-                "https://d.basemaps.cartocdn.com/light_all/"
-            ),
-            "© OpenStreetMap contributors, © CARTO"
-        )
+    /**
+     * Esri World Street Map raster tiles — keyless, and permitted for application use.
+     *
+     * Two earlier providers were tried and both failed, for different reasons:
+     *
+     *  - **CARTO Positron** returns a 1884-byte placeholder stamped "API KEY REQUIRED" for every
+     *    request. Verified byte-identical (same MD5) with a valid key, with no key, and with a
+     *    deliberately invalid key — the `api_key` parameter is ignored on their raster endpoints.
+     *    A CARTO Basemaps key only authorises their **vector** GL styles
+     *    (`/gl/positron-gl-style/style.json`), which osmdroid cannot render because it is a raster
+     *    tile renderer. So no CARTO key can work here.
+     *
+     *  - **OpenStreetMap's own tile servers** answered with a 403 "Access blocked — App is not
+     *    following the tile usage policy" tile. Those are volunteer-run and explicitly disallow
+     *    app/bulk consumption; a map screen pulls dozens of tiles at once, which trips it.
+     *
+     * Esri serves tiles as `{z}/{y}/{x}` — row before column, the reverse of the usual
+     * `{z}/{x}/{y}` — so [XYTileSource]'s default URL builder cannot be used as-is and
+     * `getTileURLString` is overridden below. Attribution is required and is set here.
+     */
+    val esriStreetTiles = remember {
+        object : XYTileSource(
+            "Esri World Street Map",
+            1, 19, 256, "",
+            arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/"),
+            "© Esri, © OpenStreetMap contributors"
+        ) {
+            override fun getTileURLString(pMapTileIndex: Long): String =
+                baseUrl +
+                    MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                    MapTileIndex.getY(pMapTileIndex) + "/" +
+                    MapTileIndex.getX(pMapTileIndex)
+        }
     }
 
     val mapView = remember {
         configureOsmdroid(context)
         MapView(context).apply {
-            setTileSource(cartoDbPositron)
+            setTileSource(esriStreetTiles)
             setMultiTouchControls(true)
             setUseDataConnection(true)
             // Seed a real centre + zoom before the first draw. Without this osmdroid sits at
@@ -513,7 +535,9 @@ private fun OsmMapView(
 private fun configureOsmdroid(context: Context) {
     Configuration.getInstance().apply {
         load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-        userAgentValue = context.packageName // CARTO/OSM tile servers reject blank user agents
+        // Tile servers reject blank user agents, and several block generic or placeholder ones.
+        // A descriptive value identifying the app is what their usage policies ask for.
+        userAgentValue = "GetYourRide/1.0 (${context.packageName})"
         osmdroidBasePath = File(context.cacheDir, "osmdroid").apply { mkdirs() }
         osmdroidTileCache = File(osmdroidBasePath, "tiles").apply { mkdirs() }
     }
