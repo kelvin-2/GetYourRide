@@ -513,6 +513,14 @@ class MainActivity : ComponentActivity() {
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
                             onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
+                            onSearchRides = { pickup, destination ->
+                                rideViewModel.searchTrips(
+                                    pickupLat       = pickup.latitude,
+                                    pickupLng       = pickup.longitude,
+                                    destinationLat  = destination.latitude,
+                                    destinationLng  = destination.longitude,
+                                )
+                            },
                             onNotifications = { /* TODO: notifications screen */ },
                             navController = navController,
                         )
