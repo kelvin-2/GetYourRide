@@ -183,6 +183,8 @@ fun StudentDriverHomeScreen(
                         )
                         // Past rides section
                         PastRidesSection(pastRides = homeUiState.pastRides)
+                        // Cancelled rides section
+                        CancelledRidesSection(cancelledRides = homeUiState.cancelledRides)
                     }
                 }
             }
@@ -880,6 +882,68 @@ private fun PastRidesSection(pastRides: List<TripResponse>) {
     }
 }
 
+// ── Cancelled Rides Section ─────────────────────────────────────────────────
+@Composable
+private fun CancelledRidesSection(cancelledRides: List<TripResponse>) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DriverCancelledText.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Outlined.Cancel,
+                    null,
+                    tint = DriverCancelledText,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                "Cancelled Rides",
+                color = DriverPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (cancelledRides.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFF9FAFB),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.Info,
+                        null,
+                        tint = DriverTextMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        "You haven't cancelled any rides.",
+                        color = DriverTextMuted,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        } else {
+            cancelledRides.take(10).forEach { trip ->
+                PastRideCard(trip = trip)
+            }
+        }
+    }
+}
+
 @Composable
 private fun PastRideCard(trip: TripResponse) {
     val (statusBg, statusColor, statusIcon) = when {
@@ -991,6 +1055,17 @@ fun StudentDriverHomeScreenPreview() {
                         destinationStop = "Summerstrand", destinationLat = null, destinationLng = null,
                         departureTime = "2026-07-28 17:00", arrivalTime = "2026-07-28 17:30",
                         availableSeats = 3, price = BigDecimal("25.00"), status = "COMPLETED",
+                        vehicleModel = "Toyota Corolla", vehicleColour = "White", vehicleCapacity = 4
+                    )
+                ),
+                cancelledRides = listOf(
+                    TripResponse(
+                        tripId = 3L, driverId = 10L, driverName = "Ayabulela",
+                        registrationNumber = "ABC 123 EC", tripType = "Carpool",
+                        departureStop = "North End", departureLat = null, departureLng = null,
+                        destinationStop = "Central", destinationLat = null, destinationLng = null,
+                        departureTime = "2026-07-27 09:00", arrivalTime = null,
+                        availableSeats = 3, price = BigDecimal("18.00"), status = "CANCELLED",
                         vehicleModel = "Toyota Corolla", vehicleColour = "White", vehicleCapacity = 4
                     )
                 )

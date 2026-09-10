@@ -128,7 +128,10 @@ class TripRepository(private val api: TripApi) {
 
     suspend fun cancelTrip(tripId: Long): Result<TripResponse> {
         return try {
-            val response = api.cancelBooking(tripId)
+            // Driver cancels their OWN posted trip (PATCH /api/trips/{id}/cancel).
+            // Previously this wrongly called cancelBooking (the student seat-cancel
+            // endpoint), so the driver's trip never actually got cancelled server-side.
+            val response = api.cancelTrip(tripId)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {

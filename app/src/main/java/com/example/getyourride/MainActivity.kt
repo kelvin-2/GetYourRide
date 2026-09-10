@@ -301,6 +301,18 @@ class MainActivity : ComponentActivity() {
                         val pickupState by offerRideViewModel.pickup.collectAsState()
                         val destinationState by offerRideViewModel.destination.collectAsState()
 
+                        // Load the driver's profile so we know their vehicle's seating
+                        // capacity — a driver can't offer more seats than they registered.
+                        val offerProfileViewModel: DriverProfileViewModel = viewModel(
+                            factory = DriverProfileViewModelFactory(driverApplicationRepository)
+                        )
+                        LaunchedEffect(Unit) {
+                            offerProfileViewModel.loadProfile()
+                        }
+                        val driverMaxSeats =
+                            (offerProfileViewModel.profileState as? DriverProfileUiState.Success)
+                                ?.profile?.seatingCapacity ?: 7
+
                         // Navigate to home after successful ride posting
                         LaunchedEffect(submitStatus) {
                             if (submitStatus is UseCaseSubmitStatus.Success) {
@@ -309,11 +321,15 @@ class MainActivity : ComponentActivity() {
                                     popUpTo("offer_ride") { inclusive = true }
                                     launchSingleTop = true
                                 }
+                                // Clear the form + reset status so re-entering Offer a Ride
+                                // shows a fresh screen and doesn't auto-redirect home again.
+                                offerRideViewModel.resetForm()
                             }
                         }
 
                         OfferRideScreen(
                             isDriverVerified = UserSession.canPerformDriverActions,
+                            maxSeats = driverMaxSeats,
                             pickupState = pickupState,
                             destinationState = destinationState,
                             onPickupTextChanged = { text -> offerRideViewModel.onPickupTextChanged(text) },
