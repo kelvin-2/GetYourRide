@@ -16,8 +16,9 @@ import kotlinx.coroutines.launch
 sealed class DriverHomeUiState {
     data object Loading : DriverHomeUiState()
     data class Success(
-        val activeRides: List<TripResponse>,   // SCHEDULED or IN_PROGRESS
-        val pastRides: List<TripResponse>      // COMPLETED or CANCELLED
+        val activeRides: List<TripResponse>,     // SCHEDULED or IN_PROGRESS
+        val pastRides: List<TripResponse>,       // COMPLETED only
+        val cancelledRides: List<TripResponse> = emptyList()  // CANCELLED only
     ) : DriverHomeUiState()
     data class Error(val message: String) : DriverHomeUiState()
 }
@@ -81,13 +82,17 @@ class DriverHomeViewModel(
                 }.sortedByDescending { it.departureTime }
 
                 val past = trips.filter { trip ->
-                    trip.status.equals("COMPLETED", ignoreCase = true) ||
+                    trip.status.equals("COMPLETED", ignoreCase = true)
+                }.sortedByDescending { it.departureTime }
+
+                val cancelled = trips.filter { trip ->
                     trip.status.equals("CANCELLED", ignoreCase = true)
                 }.sortedByDescending { it.departureTime }
 
                 uiState = DriverHomeUiState.Success(
                     activeRides = active,
-                    pastRides = past
+                    pastRides = past,
+                    cancelledRides = cancelled
                 )
             }.onFailure { error ->
                 uiState = DriverHomeUiState.Error(
@@ -104,18 +109,19 @@ class DriverHomeViewModel(
      */
     fun cancelRide(tripId: Long) {
         viewModelScope.launch {
-            // Optimistic UI update: move trip to past rides immediately
+            // Optimistic UI update: move trip into the Cancelled list immediately
             val currentState = uiState
             if (currentState is DriverHomeUiState.Success) {
                 val cancelledTrip = currentState.activeRides.find { it.tripId == tripId }
                 if (cancelledTrip != null) {
                     val updatedActive = currentState.activeRides.filter { it.tripId != tripId }
-                    val updatedPast = listOf(
+                    val updatedCancelled = listOf(
                         cancelledTrip.copy(status = "CANCELLED")
-                    ) + currentState.pastRides
+                    ) + currentState.cancelledRides
                     uiState = DriverHomeUiState.Success(
                         activeRides = updatedActive,
-                        pastRides = updatedPast
+                        pastRides = currentState.pastRides,
+                        cancelledRides = updatedCancelled
                     )
                 }
             }
