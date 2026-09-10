@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.getyourride.NotificationBadgeState
 import com.example.getyourride.UserSession
 import com.example.getyourride.ui.theme.*
 
@@ -118,10 +119,34 @@ fun GyrBottomNav(
                     if (!isActive) onNavigate(tab.route)
                 },
                 icon = {
-                    Icon(
-                        imageVector        = if (isActive) tab.activeIcon else tab.inactiveIcon,
-                        contentDescription = tab.label,
-                    )
+                    // Show an unread-notification count on the Rides tab only.
+                    val ridesUnread = NotificationBadgeState.unreadCount
+                    val isRidesTab = tab.route == GyrRoutes.RIDES || tab.route == GyrRoutes.SHUTTLE_RIDES
+                    if (isRidesTab && ridesUnread > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = OrangeAccent,
+                                    contentColor = Color.White,
+                                ) {
+                                    Text(
+                                        text = if (ridesUnread > 9) "9+" else ridesUnread.toString(),
+                                        fontSize = 9.sp,
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector        = if (isActive) tab.activeIcon else tab.inactiveIcon,
+                                contentDescription = tab.label,
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector        = if (isActive) tab.activeIcon else tab.inactiveIcon,
+                            contentDescription = tab.label,
+                        )
+                    }
                 },
                 label = {
                     Text(

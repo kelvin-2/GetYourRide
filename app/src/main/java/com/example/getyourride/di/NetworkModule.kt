@@ -3,6 +3,7 @@ package com.example.getyourride.di
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.GeocodingApi
+import com.example.getyourride.data.remote.api.NotificationApi
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.ShuttleDriverApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
@@ -64,6 +65,11 @@ object NetworkModule {
     //trip api
     val tripApi: TripApi by lazy {
         retrofit.create(TripApi::class.java)
+    }
+
+    // Notifications API — student in-app notifications (e.g. ride cancelled)
+    val notificationApi: NotificationApi by lazy {
+        retrofit.create(NotificationApi::class.java)
     }
 
     // Geocoding API — powers pickup/destination address autocomplete
