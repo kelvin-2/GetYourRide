@@ -103,6 +103,15 @@ fun DriverStep2Screen(
     var vehicleColour by rememberSaveable { mutableStateOf("") }
     var seatingCapacity by rememberSaveable { mutableStateOf(4) }
 
+    // Errors only appear once the student taps "Next"; each clears as its field becomes valid.
+    var showErrors by rememberSaveable { mutableStateOf(false) }
+
+    val registrationError: String? =
+        if (vehicleRegistrationNumber.isBlank()) "Registration number is required" else null
+    val makeError: String? = if (vehicleMake.isBlank()) "Vehicle make is required" else null
+    val modelError: String? = if (vehicleModel.isBlank()) "Vehicle model is required" else null
+    val colourError: String? = if (vehicleColour.isBlank()) "Vehicle colour is required" else null
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -170,6 +179,7 @@ fun DriverStep2Screen(
 
                     Button(
                         onClick = {
+                            showErrors = true
                             onNextClick(
                                 DriverStep2Data(
                                     vehicleRegistrationNumber = vehicleRegistrationNumber,
@@ -310,7 +320,8 @@ fun DriverStep2Screen(
                     placeholder = "Example: ABC 1234",
                     onValueChange = { vehicleRegistrationNumber = it },
                     icon = Icons.Outlined.Badge,
-                    capitalization = KeyboardCapitalization.Characters
+                    capitalization = KeyboardCapitalization.Characters,
+                    errorText = registrationError.takeIf { showErrors }
                 )
 
                 Step2FormField(
@@ -319,7 +330,8 @@ fun DriverStep2Screen(
                     placeholder = "Example: Toyota",
                     onValueChange = { vehicleMake = it },
                     icon = Icons.Outlined.DirectionsCar,
-                    capitalization = KeyboardCapitalization.Words
+                    capitalization = KeyboardCapitalization.Words,
+                    errorText = makeError.takeIf { showErrors }
                 )
 
                 Step2FormField(
@@ -328,7 +340,8 @@ fun DriverStep2Screen(
                     placeholder = "Example: Corolla",
                     onValueChange = { vehicleModel = it },
                     icon = Icons.Outlined.DirectionsCar,
-                    capitalization = KeyboardCapitalization.Words
+                    capitalization = KeyboardCapitalization.Words,
+                    errorText = modelError.takeIf { showErrors }
                 )
 
                 Step2FormField(
@@ -337,7 +350,8 @@ fun DriverStep2Screen(
                     placeholder = "Example: Silver Metallic",
                     onValueChange = { vehicleColour = it },
                     icon = Icons.Outlined.Palette,
-                    capitalization = KeyboardCapitalization.Words
+                    capitalization = KeyboardCapitalization.Words,
+                    errorText = colourError.takeIf { showErrors }
                 )
 
                 // ─── Seating Capacity ────────────────────────────────────
@@ -464,7 +478,8 @@ private fun Step2FormField(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
-    capitalization: KeyboardCapitalization = KeyboardCapitalization.None
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+    errorText: String? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -486,6 +501,7 @@ private fun Step2FormField(
                 Text(text = placeholder, color = StepOutline)
             },
             singleLine = true,
+            isError = errorText != null,
             leadingIcon = {
                 Box(
                     modifier = Modifier
@@ -517,9 +533,23 @@ private fun Step2FormField(
                 focusedBorderColor = StepPrimary,
                 unfocusedBorderColor = StepBorder,
                 focusedContainerColor = StepFieldBackground,
-                unfocusedContainerColor = StepFieldBackground
+                unfocusedContainerColor = StepFieldBackground,
+                errorBorderColor = StepError,
+                errorCursorColor = StepError,
+                errorLeadingIconColor = StepError
             )
         )
+
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                color = StepError,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
     }
 }
 

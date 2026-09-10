@@ -108,6 +108,49 @@ fun DriverStep1Screen(
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
+    // Errors only appear once the student taps "Next Step"; each one then clears
+    // as soon as its field becomes valid.
+    var showErrors by rememberSaveable { mutableStateOf(false) }
+
+    // The email auto-fills from the student number until the student edits it by
+    // hand — after that we stop overwriting so their change isn't clobbered.
+    var emailEditedByUser by rememberSaveable { mutableStateOf(false) }
+
+    // Keeps the university email in sync with the student number until manually edited.
+    fun applyStudentNumber(newValue: String) {
+        // Digits only, capped at 9 (a student number is exactly 9 digits).
+        val digits = newValue.filter { it.isDigit() }.take(9)
+        studentNumber = digits
+        if (!emailEditedByUser) {
+            universityEmail = if (digits.isBlank()) "" else "s$digits@mandela.ac.za"
+        }
+    }
+
+    // ─── Per-field validation ────────────────────────────────────────────────
+    val surnameError: String? = if (surname.isBlank()) "Surname is required" else null
+    val firstNameError: String? = if (firstName.isBlank()) "First name is required" else null
+    val studentNumberError: String? = when {
+        studentNumber.isBlank() -> "Student number is required"
+        studentNumber.length != 9 -> "Student number must be exactly 9 digits"
+        else -> null
+    }
+    val contactNumberError: String? = when {
+        contactNumber.isBlank() -> "Contact number is required"
+        !contactNumber.all { it.isDigit() } -> "Contact number must contain digits only"
+        else -> null
+    }
+    val emailError: String? = when {
+        universityEmail.isBlank() -> "University email is required"
+        !universityEmail.endsWith("@mandela.ac.za", ignoreCase = true) ->
+            "Use your NMU email ending with @mandela.ac.za"
+        else -> null
+    }
+    val passwordError: String? = when {
+        password.isBlank() -> "Password is required"
+        password.length < 8 -> "Password must be at least 8 characters"
+        else -> null
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -151,6 +194,7 @@ fun DriverStep1Screen(
             ) {
                 Button(
                     onClick = {
+                        showErrors = true
                         onNextClick(
                             DriverStep1Data(
                                 surname = surname,
@@ -291,7 +335,8 @@ fun DriverStep1Screen(
                     value = surname,
                     placeholder = "Example: Alexander",
                     onValueChange = { surname = it },
-                    icon = Icons.Outlined.Person
+                    icon = Icons.Outlined.Person,
+                    errorText = surnameError.takeIf { showErrors }
                 )
 
                 Step1FormField(
@@ -299,34 +344,41 @@ fun DriverStep1Screen(
                     value = firstName,
                     placeholder = "Example: Julian",
                     onValueChange = { firstName = it },
-                    icon = Icons.Outlined.Person
+                    icon = Icons.Outlined.Person,
+                    errorText = firstNameError.takeIf { showErrors }
                 )
 
                 Step1FormField(
                     label = "Student Number",
                     value = studentNumber,
-                    placeholder = "Example: 214 968 951",
-                    onValueChange = { studentNumber = it },
+                    placeholder = "Example: 214968951",
+                    onValueChange = { applyStudentNumber(it) },
                     icon = Icons.Outlined.Badge,
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number,
+                    errorText = studentNumberError.takeIf { showErrors }
                 )
 
                 Step1FormField(
                     label = "Contact Number",
                     value = contactNumber,
-                    placeholder = "Example: +27 12 345 6789",
-                    onValueChange = { contactNumber = it },
+                    placeholder = "Example: 0123456789",
+                    onValueChange = { new -> contactNumber = new.filter { it.isDigit() } },
                     icon = Icons.Outlined.Phone,
-                    keyboardType = KeyboardType.Phone
+                    keyboardType = KeyboardType.Phone,
+                    errorText = contactNumberError.takeIf { showErrors }
                 )
 
                 Step1FormField(
                     label = "University Email",
                     value = universityEmail,
                     placeholder = "Example: s245987147@mandela.ac.za",
-                    onValueChange = { universityEmail = it },
+                    onValueChange = {
+                        emailEditedByUser = true
+                        universityEmail = it
+                    },
                     icon = Icons.Outlined.Email,
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    errorText = emailError.takeIf { showErrors }
                 )
 
                 Step1FormField(
@@ -336,6 +388,7 @@ fun DriverStep1Screen(
                     onValueChange = { password = it },
                     icon = Icons.Outlined.Lock,
                     keyboardType = KeyboardType.Password,
+                    errorText = passwordError.takeIf { showErrors },
                     visualTransformation = if (passwordVisible) {
                         VisualTransformation.None
                     } else {
@@ -470,7 +523,8 @@ private fun Step1FormField(
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailingIcon: @Composable (() -> Unit)? = null
+    trailingIcon: @Composable (() -> Unit)? = null,
+    errorText: String? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -492,6 +546,7 @@ private fun Step1FormField(
                 Text(text = placeholder, color = StepOutline)
             },
             singleLine = true,
+            isError = errorText != null,
             leadingIcon = {
                 Box(
                     modifier = Modifier
@@ -522,9 +577,23 @@ private fun Step1FormField(
                 focusedBorderColor = StepPrimary,
                 unfocusedBorderColor = StepBorder,
                 focusedContainerColor = StepFieldBackground,
-                unfocusedContainerColor = StepFieldBackground
+                unfocusedContainerColor = StepFieldBackground,
+                errorBorderColor = StepError,
+                errorCursorColor = StepError,
+                errorLeadingIconColor = StepError
             )
         )
+
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                color = StepError,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
     }
 }
 
