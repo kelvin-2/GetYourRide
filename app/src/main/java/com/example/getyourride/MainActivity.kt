@@ -305,6 +305,10 @@ class MainActivity : ComponentActivity() {
                                     UserSession.save(authResponse)
                                 }
 
+                                // Brief pause so the student actually sees the success
+                                // message on Step 3 before we auto-login to Driver Home.
+                                kotlinx.coroutines.delay(1200)
+
                                 // Navigate to Driver Home — no second login needed
                                 navController.navigate("student_driver_home") {
                                     popUpTo("login") { inclusive = true }

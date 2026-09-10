@@ -168,7 +168,7 @@ class DriverApplicationViewModel(
                 is DriverApplicationResult.Success -> {
                     step3ErrorMessage = null
                     submitStatus = DriverApplicationSubmitStatus.Success(
-                        message = "Application submitted successfully. You are now logged in.",
+                        message = "Application submitted! Your details are saved and pending review. Signing you in...",
                         authResponse = result.authResponse
                     )
                 }
@@ -195,7 +195,13 @@ class DriverApplicationViewModel(
             info.surname.isBlank() -> DriverApplicationValidationResult(false, "Enter your surname.")
             info.firstName.isBlank() -> DriverApplicationValidationResult(false, "Enter your first name.")
             info.studentNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your student number.")
+            !info.studentNumber.all { it.isDigit() } ->
+                DriverApplicationValidationResult(false, "Student number must contain digits only.")
+            info.studentNumber.length != 9 ->
+                DriverApplicationValidationResult(false, "Student number must be exactly 9 digits.")
             info.contactNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your contact number.")
+            !info.contactNumber.all { it.isDigit() } ->
+                DriverApplicationValidationResult(false, "Contact number must contain digits only.")
             info.universityEmail.isBlank() -> DriverApplicationValidationResult(false, "Enter your university email.")
             !info.universityEmail.endsWith("@mandela.ac.za", true) ->
                 DriverApplicationValidationResult(false, "Use your NMU email ending with @mandela.ac.za.")
