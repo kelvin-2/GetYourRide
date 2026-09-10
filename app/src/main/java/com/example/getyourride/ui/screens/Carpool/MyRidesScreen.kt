@@ -6,9 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,7 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import com.example.getyourride.data.mapper.toRideCardData
+import com.example.getyourride.data.remote.dto.NotificationResponse
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.RideCard
 import com.example.getyourride.ui.components.RideCardData
@@ -44,6 +48,10 @@ fun MyRidesScreen(
     onTrackRide   : (String) -> Unit = {},
     navController : androidx.navigation.NavController,
     currentRoute  : String = GyrRoutes.RIDES,
+    notifications       : List<NotificationResponse> = emptyList(),
+    unreadCount         : Long = 0,
+    onNotificationsOpen : () -> Unit = {},
+    onNotificationClick : (Long) -> Unit = {},
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
@@ -64,12 +72,24 @@ fun MyRidesScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-            Text(
-                text       = "My Rides",
-                fontSize   = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color      = NavyPrimary,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text       = "My Rides",
+                    fontSize   = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = NavyPrimary,
+                )
+                RidesNotificationBell(
+                    notifications       = notifications,
+                    unreadCount         = unreadCount,
+                    onOpen              = onNotificationsOpen,
+                    onNotificationClick = onNotificationClick,
+                )
+            }
 
             RideTabRow(selected = selectedTab, onSelect = { selectedTab = it })
 
@@ -215,6 +235,150 @@ private fun RideTabRow(selected: RideTab, onSelect: (RideTab) -> Unit) {
                     color      = if (isSelected) NavyPrimary else TextMuted,
                 )
             }
+        }
+    }
+}
+
+// ── Notification bell + dropdown popup ──────────────────────────────────────
+@Composable
+private fun RidesNotificationBell(
+    notifications       : List<NotificationResponse>,
+    unreadCount         : Long,
+    onOpen              : () -> Unit,
+    onNotificationClick : (Long) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Box {
+            IconButton(
+                onClick = {
+                    expanded = true
+                    onOpen()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsNone,
+                    contentDescription = "Notifications",
+                    tint = NavyPrimary,
+                )
+            }
+            if (unreadCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 6.dp, end = 6.dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(OrangeAccent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            properties = PopupProperties(focusable = true),
+            modifier = Modifier
+                .background(CardWhite)
+                .widthIn(min = 280.dp, max = 340.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Notifications",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NavyPrimary,
+                )
+                if (unreadCount > 0) {
+                    Text(
+                        text = "$unreadCount new",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = OrangeAccent,
+                    )
+                }
+            }
+            HorizontalDivider(color = SurfaceGrey)
+
+            if (notifications.isEmpty()) {
+                Text(
+                    text = "You're all caught up. No notifications yet.",
+                    fontSize = 13.sp,
+                    color = TextMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                )
+            } else {
+                notifications.take(15).forEach { notification ->
+                    RidesNotificationRow(
+                        notification = notification,
+                        onClick = { onNotificationClick(notification.notificationId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RidesNotificationRow(
+    notification : NotificationResponse,
+    onClick      : () -> Unit,
+) {
+    // A clear, short headline based on the notification type, with the detail beneath.
+    val title = when (notification.type) {
+        "RIDE_CANCELLED" -> "Ride cancelled"
+        else -> "Notification"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .background(if (notification.read) Color.Transparent else OrangeAccent.copy(alpha = 0.08f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        // Unread dot (invisible placeholder when read, to keep text aligned).
+        Box(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(if (notification.read) Color.Transparent else OrangeAccent),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = NavyPrimary,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = notification.message,
+                fontSize = 13.sp,
+                color = TextMuted,
+                lineHeight = 18.sp,
+            )
         }
     }
 }

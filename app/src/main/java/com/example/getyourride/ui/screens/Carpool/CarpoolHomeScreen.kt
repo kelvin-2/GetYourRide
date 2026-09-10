@@ -56,7 +56,6 @@ fun CarpoolHomeScreen(
     onViewAllRides      : () -> Unit               = {},
     onViewAllTrips      : () -> Unit               = {},
     onSearchRides       : (pickup: AddressSuggestion, destination: AddressSuggestion) -> Unit = { _, _ -> },
-    onNotifications     : () -> Unit               = {},
     navController       : androidx.navigation.NavController,
 )
 
