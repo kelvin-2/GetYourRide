@@ -61,6 +61,14 @@ interface TripApi {
     @PATCH("api/trips/bookings/{bookingId}/cancel")
     suspend fun cancelBooking(@Path("bookingId") bookingId: Long): Response<TripResponse>
 
+    /**
+     * PATCH /api/trips/{id}/cancel — driver cancels their OWN posted trip.
+     * Backend endpoint: TripController#cancelTrip. Sets the trip status to CANCELLED.
+     * This is distinct from cancelBooking above, which cancels a student's seat reservation.
+     */
+    @PATCH("api/trips/{id}/cancel")
+    suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
+
 
 
     /**

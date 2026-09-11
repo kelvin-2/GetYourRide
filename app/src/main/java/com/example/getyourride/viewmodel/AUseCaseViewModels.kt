@@ -98,6 +98,20 @@ class OfferRideViewModel(
     fun onDestinationSuggestionSelected(suggestion: AddressSuggestion) {
         _destination.value = LocationFieldState(text = suggestion.displayName, selected = suggestion)
     }
+
+    /**
+     * Clears the whole offer-ride form and resets the submit status back to Idle.
+     * Called after a successful post so returning to the screen shows a fresh,
+     * empty form and does NOT auto-navigate away again.
+     */
+    fun resetForm() {
+        _pickup.value = LocationFieldState()
+        _destination.value = LocationFieldState()
+        pickupQuery.value = ""
+        destinationQuery.value = ""
+        errorMessage = null
+        submitStatus = UseCaseSubmitStatus.Idle
+    }
     // ---------------------------
 
     fun postRide(request: OfferRideRequest) {
@@ -126,6 +140,17 @@ class OfferRideViewModel(
         )
 
         viewModelScope.launch {
+            // ── Duplicate / overlap check ────────────────────────────────────
+            // A driver can't post two rides on the same date whose times are too
+            // close together. We only look at trips that are still active
+            // (SCHEDULED / IN_PROGRESS) — cancelled and completed ones are ignored.
+            val conflict = findConflictingRide(request)
+            if (conflict != null) {
+                submitStatus = UseCaseSubmitStatus.Error(conflict)
+                errorMessage = conflict
+                return@launch
+            }
+
             try {
                 val response = tripApi.offerRide(apiRequest)
                 if (response.isSuccessful && response.body() != null) {
@@ -151,6 +176,70 @@ class OfferRideViewModel(
             val regex = "\"message\"\\s*:\\s*\"([^\"]+)\"".toRegex()
             regex.find(json)?.groupValues?.get(1)
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Returns an error message if the requested ride clashes with one the driver
+     * already has posted, or null if there's no clash.
+     *
+     * Rule (option B): on the SAME date, the new ride's time must be at least
+     * [MIN_GAP_MINUTES] minutes away from every existing active ride. Only trips
+     * that are still SCHEDULED or IN_PROGRESS are considered — CANCELLED and
+     * COMPLETED trips are ignored.
+     *
+     * If we can't reach the server to fetch existing trips, we don't block the
+     * post — the backend remains the final authority.
+     */
+    private suspend fun findConflictingRide(request: OfferRideRequest): String? {
+        val requested = parseRideDateTime(request.rideDate, request.rideTime) ?: return null
+
+        val response = try {
+            tripApi.getMyTrips()
+        } catch (e: Exception) {
+            return null // network issue — let the backend decide
+        }
+
+        if (!response.isSuccessful) return null
+        val trips = response.body() ?: return null
+
+        val clash = trips.any { trip ->
+            val isActive = trip.status.equals("SCHEDULED", ignoreCase = true) ||
+                trip.status.equals("IN_PROGRESS", ignoreCase = true)
+            if (!isActive) return@any false
+
+            val existing = parseIsoDateTime(trip.departureTime) ?: return@any false
+
+            // Same calendar date AND within MIN_GAP_MINUTES of each other.
+            existing.toLocalDate() == requested.toLocalDate() &&
+                kotlin.math.abs(
+                    java.time.Duration.between(existing, requested).toMinutes()
+                ) < MIN_GAP_MINUTES
+        }
+
+        return if (clash) {
+            "You already have a ride around this time. " +
+                "Space your rides at least $MIN_GAP_MINUTES minutes apart on the same day."
+        } else null
+    }
+
+    private fun parseRideDateTime(date: String, time: String): java.time.LocalDateTime? = try {
+        java.time.LocalDateTime.parse(
+            "${date}T${time}",
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+        )
+    } catch (e: Exception) { null }
+
+    private fun parseIsoDateTime(iso: String): java.time.LocalDateTime? = try {
+        java.time.LocalDateTime.parse(iso)
+    } catch (e: Exception) {
+        // Some payloads may carry an offset/zone — fall back gracefully.
+        try {
+            java.time.OffsetDateTime.parse(iso).toLocalDateTime()
+        } catch (e2: Exception) { null }
+    }
+
+    private companion object {
+        const val MIN_GAP_MINUTES = 60L
     }
 
     private fun validateOfferRide(request: OfferRideRequest): ValidationResult {

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
@@ -51,6 +52,10 @@ import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.viewmodel.AuthUiState
 import com.example.getyourride.viewmodel.AuthViewModel
 import com.example.getyourride.viewmodel.AuthViewModelFactory
+import com.example.getyourride.NotificationBadgeState
+import com.example.getyourride.data.repository.NotificationRepository
+import com.example.getyourride.viewmodel.NotificationViewModel
+import com.example.getyourride.viewmodel.NotificationViewModelFactory
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModelFactory
 import com.example.getyourride.viewmodel.DriverProfileViewModel
@@ -164,6 +169,31 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
+                // ── Notification badge — refreshed aggressively on every navigation ──
+                // One session-scoped ViewModel drives the unread count shown on the Rides
+                // nav tab. We re-fetch the count whenever the current route changes, so the
+                // badge stays current no matter where the student navigates. The count call
+                // is only made while a student is logged in (the endpoint 401s otherwise).
+                val badgeNotificationViewModel: NotificationViewModel = viewModel(
+                    factory = NotificationViewModelFactory(
+                        NotificationRepository(NetworkModule.notificationApi)
+                    )
+                )
+                val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRouteForBadge = currentBackStackEntry?.destination?.route
+                LaunchedEffect(currentRouteForBadge) {
+                    if (currentRouteForBadge != null &&
+                        currentRouteForBadge != "login" &&
+                        currentRouteForBadge != "signup" &&
+                        UserSession.isStudent
+                    ) {
+                        badgeNotificationViewModel.refreshUnreadCount()
+                    }
+                }
+                LaunchedEffect(badgeNotificationViewModel.unreadCount) {
+                    NotificationBadgeState.unreadCount = badgeNotificationViewModel.unreadCount
+                }
+
                 var isNsfasFunded by remember { mutableStateOf(false) }
 
                 // NEW — holds the details for BookingConfirmedScreen. Set right
@@ -275,6 +305,10 @@ class MainActivity : ComponentActivity() {
                                     UserSession.save(authResponse)
                                 }
 
+                                // Brief pause so the student actually sees the success
+                                // message on Step 3 before we auto-login to Driver Home.
+                                kotlinx.coroutines.delay(1200)
+
                                 // Navigate to Driver Home — no second login needed
                                 navController.navigate("student_driver_home") {
                                     popUpTo("login") { inclusive = true }
@@ -301,6 +335,18 @@ class MainActivity : ComponentActivity() {
                         val pickupState by offerRideViewModel.pickup.collectAsState()
                         val destinationState by offerRideViewModel.destination.collectAsState()
 
+                        // Load the driver's profile so we know their vehicle's seating
+                        // capacity — a driver can't offer more seats than they registered.
+                        val offerProfileViewModel: DriverProfileViewModel = viewModel(
+                            factory = DriverProfileViewModelFactory(driverApplicationRepository)
+                        )
+                        LaunchedEffect(Unit) {
+                            offerProfileViewModel.loadProfile()
+                        }
+                        val driverMaxSeats =
+                            (offerProfileViewModel.profileState as? DriverProfileUiState.Success)
+                                ?.profile?.seatingCapacity ?: 7
+
                         // Navigate to home after successful ride posting
                         LaunchedEffect(submitStatus) {
                             if (submitStatus is UseCaseSubmitStatus.Success) {
@@ -309,11 +355,15 @@ class MainActivity : ComponentActivity() {
                                     popUpTo("offer_ride") { inclusive = true }
                                     launchSingleTop = true
                                 }
+                                // Clear the form + reset status so re-entering Offer a Ride
+                                // shows a fresh screen and doesn't auto-redirect home again.
+                                offerRideViewModel.resetForm()
                             }
                         }
 
                         OfferRideScreen(
                             isDriverVerified = UserSession.canPerformDriverActions,
+                            maxSeats = driverMaxSeats,
                             pickupState = pickupState,
                             destinationState = destinationState,
                             onPickupTextChanged = { text -> offerRideViewModel.onPickupTextChanged(text) },
@@ -513,7 +563,6 @@ class MainActivity : ComponentActivity() {
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
                             onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
-                            onNotifications = { /* TODO: notifications screen */ },
                             navController = navController,
                         )
                     }
@@ -856,10 +905,13 @@ class MainActivity : ComponentActivity() {
                     // above, so the data is already loaded — no extra API call on tab switch.
 
                     composable(GyrRoutes.RIDES) {
+                        // Reuse the shared badge ViewModel so the popup list and the nav-tab
+                        // badge come from a single source — marking one read updates both.
                         LaunchedEffect(Unit) {
                             if (allRidesViewModel.uiState is AllTripsUiState.Loading) {
                                 allRidesViewModel.loadAllTrips()
                             }
+                            badgeNotificationViewModel.load()
                         }
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
@@ -867,6 +919,10 @@ class MainActivity : ComponentActivity() {
                             onTrackRide   = { rideId ->
                                 navController.navigate("track/$rideId")
                             },
+                            notifications       = badgeNotificationViewModel.notifications,
+                            unreadCount         = badgeNotificationViewModel.unreadCount,
+                            onNotificationsOpen = { badgeNotificationViewModel.load() },
+                            onNotificationClick = { id -> badgeNotificationViewModel.markAsRead(id) },
                         )
                     }
 

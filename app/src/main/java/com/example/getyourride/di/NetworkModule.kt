@@ -3,6 +3,7 @@ package com.example.getyourride.di
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.GeocodingApi
+import com.example.getyourride.data.remote.api.NotificationApi
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.ShuttleDriverApi
 import com.example.getyourride.data.remote.api.StudentAuthApi
@@ -17,9 +18,9 @@ object NetworkModule {
 
 
 //    private const val BASE_URL = "http://192.168.0.181:8080/"
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    //private const val BASE_URL = "http://10.0.2.2:8080/"
     //Campus connection ___________________________________________________________________
-//   private const val BASE_URL: String = "https://professor-thrive-family.ngrok-free.dev/"
+   private const val BASE_URL: String = "https://professor-thrive-family.ngrok-free.dev/"
     // ⚠️ You had "http://localhost:8080/" — that will NOT work on the emulator.
     // localhost inside the emulator means the emulator itself, not your PC.
     // Your memory notes 10.0.2.2 as the correct base URL — switching back to that.
@@ -64,6 +65,11 @@ object NetworkModule {
     //trip api
     val tripApi: TripApi by lazy {
         retrofit.create(TripApi::class.java)
+    }
+
+    // Notifications API — student in-app notifications (e.g. ride cancelled)
+    val notificationApi: NotificationApi by lazy {
+        retrofit.create(NotificationApi::class.java)
     }
 
     // Geocoding API — powers pickup/destination address autocomplete
