@@ -43,9 +43,31 @@ interface TripApi {
     @GET("api/trips/{id}")
     suspend fun getTripById(@Path("id") tripId: Long): Response<TripResponse>
 
+    /**
+     * POST /api/trips/{id}/start — driver action. Precomputes the road route if needed, sets the
+     * trip IN_PROGRESS, and starts the backend simulation so the vehicle begins moving.
+     *
+     * One call replaces the old three-step start sequence, so a trip can't be started without a
+     * route. recomputeRoute=true forces the route to be rebuilt (use after the stops changed);
+     * the default reuses an existing route.
+     */
+    @POST("api/trips/{id}/start")
+    suspend fun startTrip(
+        @Path("id") tripId: Long,
+        @Query("recomputeRoute") recomputeRoute: Boolean = false
+    ): Response<TripResponse>
+
     //student to cancle thier trip booking
     @PATCH("api/trips/bookings/{bookingId}/cancel")
     suspend fun cancelBooking(@Path("bookingId") bookingId: Long): Response<TripResponse>
+
+    /**
+     * PATCH /api/trips/{id}/cancel — driver cancels their OWN posted trip.
+     * Backend endpoint: TripController#cancelTrip. Sets the trip status to CANCELLED.
+     * This is distinct from cancelBooking above, which cancels a student's seat reservation.
+     */
+    @PATCH("api/trips/{id}/cancel")
+    suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
 
 
 
@@ -81,7 +103,26 @@ interface TripApi {
      */
     @POST("api/trips")
     suspend fun createTrip(@Body request: CreateTripRequest): Response<TripResponse>
+
+    /**
+     * GET /api/trips/{tripId}/eta — live ETA to the trip's destination, calculated by the
+     * backend via Google Compute Routes from wherever the vehicle currently is.
+     * Backend endpoint: TripEtaController#getEta.
+     */
+    @GET("api/trips/{tripId}/eta")
+    suspend fun getEta(@Path("tripId") tripId: Long): Response<EtaResponse>
 }
+
+/**
+ * Response from GET /api/trips/{tripId}/eta. Field names match the backend's EtaResponse
+ * exactly for Gson deserialization.
+ */
+data class EtaResponse(
+    val tripId: Long,
+    val etaSeconds: Double?,
+    val etaMinutes: Int?,
+    val distanceMeters: Double?
+)
 
 /**
  * Request body for offering a ride (POST /api/trips/offer).
