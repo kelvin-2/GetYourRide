@@ -56,9 +56,13 @@ class TripRepository(private val api: TripApi) {
      * Resolve the trip the logged-in student should currently be tracking, or `null` when
      * there is nothing to track.
      *
-     * "Trackable" means a CONFIRMED booking whose trip is still SCHEDULED or IN_PROGRESS —
-     * a COMPLETED or CANCELLED trip has no live position to follow. When several qualify,
-     * the soonest departure wins.
+     * "Trackable" means a CONFIRMED booking whose trip is IN_PROGRESS — SCHEDULED trips are
+     * deliberately excluded: nothing is moving yet, so showing them here produced a screen
+     * with a blank map and a permanent "Waiting for driver…" state. That's not useful and
+     * reads as broken; the student should see "No rides currently available to track" until
+     * the trip actually starts, then land straight on the live vehicle.
+     * COMPLETED/CANCELLED trips have no live position either and are excluded for the same
+     * reason. When several trips are IN_PROGRESS, the soonest departure wins.
      *
      * `Result.success(null)` is a legitimate outcome (no active rides) and must NOT be
      * treated as an error or substituted with sample data by callers.
@@ -67,16 +71,8 @@ class TripRepository(private val api: TripApi) {
         return getMyBookings(BOOKING_STATUS_CONFIRMED).map { bookings ->
             bookings
                 .map { it.trip }
-                .filter { it.status.uppercase() in TRACKABLE_TRIP_STATUSES }
-                // A trip that is actually moving wins over one that is merely scheduled, regardless
-                // of departure time — otherwise tapping "Track" could open an older SCHEDULED trip
-                // while the one the student is sitting in is IN_PROGRESS. Among trips of equal
-                // priority the soonest departure wins; departureTime is ISO-8601, which sorts
-                // correctly as a string.
-                .minWithOrNull(
-                    compareBy<TripResponse> { if (it.status.equals("IN_PROGRESS", ignoreCase = true)) 0 else 1 }
-                        .thenBy { it.departureTime }
-                )
+                .filter { it.status.equals("IN_PROGRESS", ignoreCase = true) }
+                .minByOrNull { it.departureTime }
         }
     }
 
@@ -213,12 +209,5 @@ class TripRepository(private val api: TripApi) {
 
     private companion object {
         const val BOOKING_STATUS_CONFIRMED = "CONFIRMED"
-
-        /**
-         * Trip statuses that still have a live position worth following on the map.
-         * "ARRIVED" is not a backend trip status (the backend never emits it — arrival at the
-         * destination shows up as COMPLETED), so it was removed to stop it matching nothing.
-         */
-        val TRACKABLE_TRIP_STATUSES = setOf("SCHEDULED", "IN_PROGRESS")
     }
 }

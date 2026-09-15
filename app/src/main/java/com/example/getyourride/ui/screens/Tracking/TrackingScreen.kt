@@ -81,8 +81,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.toDegrees
-import kotlin.math.toRadians
+import kotlin.math.PI
 import kotlinx.coroutines.launch
 
 // Match these to your app's theme colors (Theme.kt) instead of hardcoding
@@ -278,6 +277,13 @@ private fun GoogleTrackingMapView(
 ) {
     val context = LocalContext.current
 
+    // BitmapDescriptorFactory (used below to build marker icons) throws
+    // "IBitmapDescriptorFactory is not initialized" if called before the Maps SDK has been
+    // set up — which normally only happens once a MapView/GoogleMap actually attaches.
+    // Forcing it here, synchronously, before the icon `remember` blocks run guarantees it's
+    // ready in time. Safe to call repeatedly; it's a no-op after the first successful call.
+    remember { com.google.android.gms.maps.MapsInitializer.initialize(context.applicationContext) }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(
             (driverLocation ?: destinationLocation ?: DefaultMapCenter).toLatLng(),
@@ -298,8 +304,8 @@ private fun GoogleTrackingMapView(
     // Animated + rotated driver position. Animatable drives both the marker's LatLng and the
     // "traveled" polyline every frame, same idea as the old osmdroid while-loop but expressed
     // as a proper Compose animation instead of a manual coroutine clock.
-    val animatedLat = remember { Animatable(driverLocation?.latitude ?: DefaultMapCenter.latitude) }
-    val animatedLng = remember { Animatable(driverLocation?.longitude ?: DefaultMapCenter.longitude) }
+    val animatedLat = remember { Animatable((driverLocation?.latitude ?: DefaultMapCenter.latitude).toFloat()) }
+    val animatedLng = remember { Animatable((driverLocation?.longitude ?: DefaultMapCenter.longitude).toFloat()) }
     var bearing by remember { mutableStateOf(0f) }
     var hasPlacedDriver by remember { mutableStateOf(false) }
 
@@ -308,20 +314,20 @@ private fun GoogleTrackingMapView(
 
         if (!hasPlacedDriver) {
             // First position: snap, don't animate from the default centre.
-            animatedLat.snapTo(target.latitude)
-            animatedLng.snapTo(target.longitude)
+            animatedLat.snapTo(target.latitude.toFloat())
+            animatedLng.snapTo(target.longitude.toFloat())
             hasPlacedDriver = true
             return@LaunchedEffect
         }
 
-        val start = LatLng(animatedLat.value, animatedLng.value)
+        val start = LatLng(animatedLat.value.toDouble(), animatedLng.value.toDouble())
         bearing = bearingBetween(start, target.toLatLng())
 
         // 1.5s, slightly under the ~2s backend tick, so movement finishes before the next update.
         launch {
-            animatedLat.animateTo(target.latitude, animationSpec = tween(1500, easing = LinearEasing))
+            animatedLat.animateTo(target.latitude.toFloat(), animationSpec = tween(1500, easing = LinearEasing))
         }
-        animatedLng.animateTo(target.longitude, animationSpec = tween(1500, easing = LinearEasing))
+        animatedLng.animateTo(target.longitude.toFloat(), animationSpec = tween(1500, easing = LinearEasing))
     }
 
     // Camera auto-follow: recentres on the vehicle as it moves. The FAB below still lets the
@@ -334,7 +340,7 @@ private fun GoogleTrackingMapView(
         )
     }
 
-    val animatedDriverLatLng = LatLng(animatedLat.value, animatedLng.value)
+    val animatedDriverLatLng = LatLng(animatedLat.value.toDouble(), animatedLng.value.toDouble())
 
     val traveledPoints = remember(animatedDriverLatLng, currentStopIndex) {
         buildList {
@@ -456,13 +462,14 @@ private fun GeoPoint.toLatLng(): LatLng = LatLng(latitude, longitude)
 
 /** Compass bearing in degrees (0-360, 0 = north) from [start] to [end], for rotating the car icon. */
 private fun bearingBetween(start: LatLng, end: LatLng): Float {
-    val lat1 = toRadians(start.latitude)
-    val lat2 = toRadians(end.latitude)
-    val dLng = toRadians(end.longitude - start.longitude)
+    val lat1 = start.latitude * PI / 180.0
+    val lat2 = end.latitude * PI / 180.0
+    val dLng = (end.longitude - start.longitude) * PI / 180.0
     val y = sin(dLng) * cos(lat2)
     val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng)
     val bearingRad = atan2(y, x)
-    return ((toDegrees(bearingRad) + 360) % 360).toFloat()
+    val bearingDeg = bearingRad * 180.0 / PI
+    return ((bearingDeg + 360) % 360).toFloat()
 }
 
 /**
@@ -486,6 +493,7 @@ private fun bitmapDescriptorFromVector(context: android.content.Context, resId: 
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
+@Composable
 private fun DriverInfoCard(
     info: TripTrackingInfo
 ) {
