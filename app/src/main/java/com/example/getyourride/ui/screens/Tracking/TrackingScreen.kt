@@ -1,7 +1,11 @@
 package com.example.getyourride.ui.screens.Tracking
 
-import android.graphics.DashPathEffect
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,69 +21,68 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.getyourride.domain.model.RideStatus
 import com.example.getyourride.domain.model.TripTrackingInfo
 import com.example.getyourride.ui.components.GyrRoutes
 import com.example.getyourride.ui.components.StudentLayout
+import com.example.getyourride.ui.theme.*
+import com.example.getyourride.viewmodel.TrackingData
 import com.example.getyourride.viewmodel.TrackingUiState
 import com.example.getyourride.viewmodel.TrackingViewModel
-import com.example.getyourride.ui.theme.*
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYTileSource
+// Data layer (TrackingViewModel, mappers) still speaks in osmdroid's GeoPoint — kept as-is so
+// swapping the map renderer doesn't ripple into the ViewModel/mapper layer. Converted to
+// Google's LatLng only at the render boundary below.
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polyline
-
-// Google Maps (Compose) — added for the default map, with osmdroid as fallback
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.Marker as GoogleMarker
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline as GooglePolyline
+import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
+import kotlinx.coroutines.launch
 
 // Match these to your app's theme colors (Theme.kt) instead of hardcoding
 private val UniRideOrange = Color(0xFFFF7A1A)
@@ -87,23 +90,26 @@ private val UniRideNavy = Color(0xFF141A33)
 private val CardGrey = Color(0xFFF5F6F8)
 
 /**
+ * Fallback map centre (NMU South Campus, Gqeberha).
+ *
+ * osmdroid's MapView starts centred on lat/lng 0,0 — open ocean — so a map opened before
+ * any position arrives renders as blank/near-empty tiles. Always seeding a centre is what
+ * keeps the map looking like a map from the first frame.
+ */
+private val DefaultMapCenter = GeoPoint(-33.9581, 25.6014)
+private const val DefaultZoom = 15.0
+
+/**
  * Stateful entry point — wired into NavHost in MainActivity.
  *
- * IMPORTANT: The ViewModel is now built and passed in by the caller
- * (MainActivity's "track/{rideId}" composable), since building it here
- * required a real socket instance at composition time. Keeping construction
- * in MainActivity means MainActivity controls what socket implementation
- * (real STOMP client vs MockRideLocationSocket) gets used, and this screen
- * doesn't need to know or care.
+ * The ViewModel is built and passed in by the caller so MainActivity controls which
+ * socket implementation is used, and this screen doesn't need to know or care.
  */
 @Composable
 fun TrackingScreen(
     viewModel: TrackingViewModel,
     navController: androidx.navigation.NavController,
     onBackClick: (() -> Unit)? = null,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -116,12 +122,7 @@ fun TrackingScreen(
         navController = navController,
         onBackClick = onBackClick
     ) {
-        TrackingScreenContent(
-            uiState = uiState,
-            onMessageDriver = onMessageDriver,
-            onCallDriver = onCallDriver,
-            onCancelRide = { viewModel.cancelRide(onCancelRide) }
-        )
+        TrackingScreenContent(uiState = uiState)
     }
 }
 
@@ -131,210 +132,142 @@ fun TrackingScreen(
  */
 @Composable
 fun TrackingScreenContent(
-    uiState: TrackingUiState,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {}
+    uiState: TrackingUiState
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
-            MapSection(uiState = uiState)
+    when (uiState) {
+        is TrackingUiState.Loading -> CenteredMessage {
+            CircularProgressIndicator(color = UniRideOrange)
+            Spacer(Modifier.height(16.dp))
+            Text("Checking for active rides…", color = TextMuted, fontSize = 14.sp)
         }
-        uiState.tripInfo?.let { info ->
-            DriverInfoCard(
-                info = info,
-                onMessageDriver = onMessageDriver,
-                onCallDriver = onCallDriver,
-                onCancelRide = onCancelRide
+
+        is TrackingUiState.NoRidesAvailable -> CenteredMessage {
+            Icon(
+                Icons.Filled.DirectionsBus,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(48.dp)
             )
-        } ?: run {
-            // Placeholder when no trip is active (e.g. from the Track tab)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No active ride to track.\nBook a ride to see live updates!",
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    color = TextMuted,
-                    fontSize = 14.sp
-                )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "No rides currently available to track.",
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Book a ride to see its live position here.",
+                textAlign = TextAlign.Center,
+                color = TextMuted,
+                fontSize = 14.sp
+            )
+        }
+
+        is TrackingUiState.Error -> CenteredMessage {
+            Icon(
+                Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = Color(0xFFE0483E),
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = uiState.message,
+                textAlign = TextAlign.Center,
+                color = TextMuted,
+                fontSize = 14.sp
+            )
+        }
+
+        is TrackingUiState.Active -> Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                OsmMapSection(data = uiState.data)
             }
-        }
-    }
-}
-
-
-// --- Map selection: Google Maps default, osmdroid fallback -------------
-
-/**
- * Master switch for which map renderer this screen uses.
- *
- * Currently FALSE because the Maps SDK for Android requires a billing-enabled
- * Google Cloud project. Without a billing account attached, every tile request
- * fails with "Authorization failure" and the map renders blank — the renderer
- * itself initializes fine, which is why this looked like a layout bug at first.
- *
- * osmdroid needs no API key and no billing, so it's the default. Flip this to
- * true once billing is enabled on the Cloud project AND the release/debug
- * SHA-1 fingerprints are allowlisted against the MAPS_API_KEY in
- * local.properties.
- */
-private const val USE_GOOGLE_MAPS = false
-
-@Composable
-private fun MapSection(uiState: TrackingUiState) {
-    val context = LocalContext.current
-
-    // Play Services still matters even when Google Maps is enabled — an
-    // unavailable/outdated GMS means the Maps SDK can't render at all.
-    val playServicesOk = remember {
-        GoogleApiAvailability.getInstance()
-            .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
-    }
-
-    if (USE_GOOGLE_MAPS && playServicesOk) {
-        GoogleMapSection(uiState = uiState)
-    } else {
-        OsmMapSection(uiState = uiState)
-    }
-}
-
-@Composable
-private fun GoogleMapSection(uiState: TrackingUiState) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        GoogleMapView(
-            driverLocation = uiState.driverLocation,
-            destinationLocation = uiState.destinationLocation,
-            stops = uiState.stops,
-            currentStopIndex = uiState.currentStopIndex,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        uiState.tripInfo?.destinationLabel?.let { label ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-                    .background(UniRideNavy, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(label, color = Color.White, fontSize = 13.sp)
-            }
-        }
-
-        FloatingActionButton(
-            onClick = { /* TODO: recenter map on the student's current location */ },
-            containerColor = Color.White,
-            contentColor = UniRideOrange,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Icon(Icons.Filled.MyLocation, contentDescription = "Recenter")
+            DriverInfoCard(info = uiState.data.tripInfo)
         }
     }
 }
 
 @Composable
-private fun GoogleMapView(
-    driverLocation: GeoPoint?,
-    destinationLocation: GeoPoint?,
-    stops: List<GeoPoint> = emptyList(),
-    currentStopIndex: Int = 0,
-    modifier: Modifier = Modifier
-) {
-    fun GeoPoint.toLatLng() = LatLng(latitude, longitude)
-
-    val startTarget = driverLocation?.toLatLng() ?: LatLng(-33.9581, 25.6014)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(startTarget, 16f)
-    }
-
-    GoogleMap(
-        modifier = modifier.clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
-        cameraPositionState = cameraPositionState
+private fun CenteredMessage(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
     ) {
-        driverLocation?.let {
-            GoogleMarker(state = MarkerState(position = it.toLatLng()), title = "Driver")
-        }
-        destinationLocation?.let {
-            GoogleMarker(state = MarkerState(position = it.toLatLng()), title = "Destination")
-        }
-        stops.forEachIndexed { index, point ->
-            GoogleMarker(
-                state = MarkerState(position = point.toLatLng()),
-                title = when {
-                    index < currentStopIndex -> "Passed Stop"
-                    index == currentStopIndex -> "Next Stop"
-                    else -> "Upcoming Stop"
-                },
-                alpha = if (index < currentStopIndex) 0.4f else 1.0f
-            )
-        }
-
-        val remainingPoints = buildList {
-            driverLocation?.let { add(it.toLatLng()) }
-            for (i in currentStopIndex until stops.size) add(stops[i].toLatLng())
-            destinationLocation?.let { add(it.toLatLng()) }
-        }
-        if (remainingPoints.size >= 2) {
-            GooglePolyline(points = remainingPoints, color = UniRideNavy.copy(alpha = 0.6f))
-        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) { content() }
     }
 }
 
-// --- osmdroid fallback (unchanged) --------------------------------------
-
 @Composable
-private fun OsmMapSection(uiState: TrackingUiState) {
+private fun OsmMapSection(data: TrackingData) {
     Box(modifier = Modifier.fillMaxSize()) {
-        OsmMapView(
-            driverLocation = uiState.driverLocation,
-            destinationLocation = uiState.destinationLocation,
-            stops = uiState.stops,
-            currentStopIndex = uiState.currentStopIndex,
-            destinationLabel = uiState.tripInfo?.destinationLabel ?: "Destination",
+        GoogleTrackingMapView(
+            driverLocation = data.driverLocation,
+            destinationLocation = data.destinationLocation,
+            stops = data.stops,
+            currentStopIndex = data.currentStopIndex,
+            destinationLabel = data.tripInfo.destinationLabel,
             modifier = Modifier.fillMaxSize()
         )
 
         // Destination chip, top-left over the map (mirrors "Library North" pill in the mockup)
-        uiState.tripInfo?.destinationLabel?.let { label ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-                    .background(UniRideNavy, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(label, color = Color.White, fontSize = 13.sp)
-            }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .background(UniRideNavy, RoundedCornerShape(20.dp))
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(data.tripInfo.destinationLabel, color = Color.White, fontSize = 13.sp)
         }
 
-        FloatingActionButton(
-            onClick = { /* TODO: recenter map on the student's current location */ },
-            containerColor = Color.White,
-            contentColor = UniRideOrange,
+        // Live indicator, top-right over the map. Three states so the student can see at a glance
+        // whether the trip is actually updating:
+        //  - a network hiccup on a poll (connectionError set) -> "Reconnecting…"
+        //  - waiting for the driver to start / first position   -> "Waiting for driver…"
+        //  - a position is flowing in                           -> green "● LIVE"
+        val (indicatorText, dotColor, bgColor) = when {
+            data.connectionError != null ->
+                Triple("Reconnecting…", Color(0xFFFFC107), UniRideNavy.copy(alpha = 0.85f))
+            data.driverLocation == null ->
+                Triple("Waiting for driver…", Color(0xFFFFC107), UniRideNavy.copy(alpha = 0.85f))
+            else ->
+                Triple("LIVE", Color(0xFF39D98A), UniRideNavy.copy(alpha = 0.85f))
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.TopEnd)
                 .padding(16.dp)
+                .background(bgColor, RoundedCornerShape(20.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            Icon(Icons.Filled.MyLocation, contentDescription = "Recenter")
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(text = indicatorText, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun OsmMapView(
+private fun GoogleTrackingMapView(
     driverLocation: GeoPoint?,
     destinationLocation: GeoPoint?,
     stops: List<GeoPoint> = emptyList(),
@@ -344,153 +277,225 @@ private fun OsmMapView(
 ) {
     val context = LocalContext.current
 
-    val cartoDbPositron = remember {
-        XYTileSource(
-            "CartoDB Positron",
-            1, 19, 256, ".png",
-            arrayOf(
-                "https://a.basemaps.cartocdn.com/light_all/",
-                "https://b.basemaps.cartocdn.com/light_all/",
-                "https://c.basemaps.cartocdn.com/light_all/",
-                "https://d.basemaps.cartocdn.com/light_all/"
-            ),
-            "© OpenStreetMap contributors, © CARTO"
+    // BitmapDescriptorFactory (used below to build marker icons) throws
+    // "IBitmapDescriptorFactory is not initialized" if called before the Maps SDK has been
+    // set up — which normally only happens once a MapView/GoogleMap actually attaches.
+    // Forcing it here, synchronously, before the icon `remember` blocks run guarantees it's
+    // ready in time. Safe to call repeatedly; it's a no-op after the first successful call.
+    remember { com.google.android.gms.maps.MapsInitializer.initialize(context.applicationContext) }
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            (driverLocation ?: destinationLocation ?: DefaultMapCenter).toLatLng(),
+            DefaultZoom.toFloat()
         )
     }
 
-    val mapView = remember {
-        Configuration.getInstance().userAgentValue = context.packageName
-        MapView(context).apply {
-            setTileSource(cartoDbPositron) // cleaner "light" tiles
-            setMultiTouchControls(true)
-            controller.setZoom(16.0)
-        }
+    val carIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_driver_marker)
+    }
+    val destinationIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_destination_marker)
+    }
+    val stopIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_stop_marker)
     }
 
-    val driverMarker = remember {
-        Marker(mapView).apply {
-            icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_driver_marker)
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        }
-    }
-    val destinationMarker = remember {
-        Marker(mapView).apply {
-            icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_destination_marker)
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-        }
-    }
+    // Animated + rotated driver position. Animatable drives both the marker's LatLng and the
+    // "traveled" polyline every frame, same idea as the old osmdroid while-loop but expressed
+    // as a proper Compose animation instead of a manual coroutine clock.
+    val animatedLat = remember { Animatable((driverLocation?.latitude ?: DefaultMapCenter.latitude).toFloat()) }
+    val animatedLng = remember { Animatable((driverLocation?.longitude ?: DefaultMapCenter.longitude).toFloat()) }
+    var bearing by remember { mutableStateOf(0f) }
+    var hasPlacedDriver by remember { mutableStateOf(false) }
 
-    // Intermediate stops markers
-    val stopMarkers = remember { mutableListOf<Marker>() }
-
-    val routeLineTraveled = remember { Polyline(mapView).apply { outlinePaint.color = UniRideOrange.toArgb() } }
-    val routeLineRemaining = remember {
-        Polyline(mapView).apply {
-            outlinePaint.color = UniRideNavy.copy(alpha = 0.6f).toArgb()
-            outlinePaint.pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        mapView.overlays.add(routeLineTraveled)
-        mapView.overlays.add(routeLineRemaining)
-        mapView.overlays.add(destinationMarker)
-        mapView.overlays.add(driverMarker)
-        onDispose {
-            mapView.onDetach()
-            stopMarkers.forEach { mapView.overlays.remove(it) }
-        }
-    }
-
-    // Smooth Driver Marker Animation
     LaunchedEffect(driverLocation) {
-        driverLocation?.let { target ->
-            val start = driverMarker.position
-            if (start == null || (start.latitude == 0.0 && start.longitude == 0.0)) {
-                driverMarker.position = target
-                mapView.controller.animateTo(target)
-            } else {
-                // Animate over 1.5s (slightly less than the 2s update interval)
-                val duration = 1500L
-                val startTime = System.currentTimeMillis()
-                while (System.currentTimeMillis() - startTime < duration) {
-                    val progress = (System.currentTimeMillis() - startTime).toFloat() / duration
-                    val lat = start.latitude + (target.latitude - start.latitude) * progress
-                    val lng = start.longitude + (target.longitude - start.longitude) * progress
-                    driverMarker.position = GeoPoint(lat, lng)
+        val target = driverLocation ?: return@LaunchedEffect
 
-                    // Update traveled route line to follow the marker
-                    val traveledPoints = mutableListOf<GeoPoint>()
-                    // Add all passed stops to the traveled line
-                    for (i in 0 until currentStopIndex) {
-                        if (i < stops.size) traveledPoints.add(stops[i])
+        if (!hasPlacedDriver) {
+            // First position: snap, don't animate from the default centre.
+            animatedLat.snapTo(target.latitude.toFloat())
+            animatedLng.snapTo(target.longitude.toFloat())
+            hasPlacedDriver = true
+            return@LaunchedEffect
+        }
+
+        val start = LatLng(animatedLat.value.toDouble(), animatedLng.value.toDouble())
+        bearing = bearingBetween(start, target.toLatLng())
+
+        // 1.5s, slightly under the ~2s backend tick, so movement finishes before the next update.
+        launch {
+            animatedLat.animateTo(target.latitude.toFloat(), animationSpec = tween(1500, easing = LinearEasing))
+        }
+        animatedLng.animateTo(target.longitude.toFloat(), animationSpec = tween(1500, easing = LinearEasing))
+    }
+
+    // Camera auto-follow: recentres on the vehicle as it moves. The FAB below still lets the
+    // student zoom out to the whole route without the camera immediately snapping back — it only
+    // re-engages follow on the next position update.
+    LaunchedEffect(driverLocation) {
+        val target = driverLocation ?: return@LaunchedEffect
+        cameraPositionState.animate(
+            update = com.google.android.gms.maps.CameraUpdateFactory.newLatLng(target.toLatLng())
+        )
+    }
+
+    val animatedDriverLatLng = LatLng(animatedLat.value.toDouble(), animatedLng.value.toDouble())
+
+    val traveledPoints = remember(animatedDriverLatLng, currentStopIndex) {
+        buildList {
+            for (i in 0 until currentStopIndex) {
+                if (i < stops.size) add(stops[i].toLatLng())
+            }
+            if (hasPlacedDriver) add(animatedDriverLatLng)
+        }
+    }
+    val remainingPoints = remember(driverLocation, currentStopIndex, stops, destinationLocation) {
+        buildList {
+            driverLocation?.let { add(it.toLatLng()) }
+            for (i in currentStopIndex until stops.size) add(stops[i].toLatLng())
+            destinationLocation?.let { add(it.toLatLng()) }
+        }
+    }
+
+    Box(modifier = modifier) {
+        GoogleMap(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(isMyLocationEnabled = false),
+            uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
+        ) {
+            if (traveledPoints.size >= 2) {
+                Polyline(points = traveledPoints, color = UniRideOrange, width = 6f)
+            }
+            if (remainingPoints.size >= 2) {
+                Polyline(
+                    points = remainingPoints,
+                    color = UniRideNavy.copy(alpha = 0.6f),
+                    width = 5f,
+                    pattern = listOf(
+                        com.google.android.gms.maps.model.Dash(20f),
+                        com.google.android.gms.maps.model.Gap(14f)
+                    )
+                )
+            }
+
+            stops.forEachIndexed { index, point ->
+                Marker(
+                    state = MarkerState(position = point.toLatLng()),
+                    icon = stopIcon,
+                    alpha = when {
+                        index < currentStopIndex -> 0.4f
+                        index == currentStopIndex -> 1.0f
+                        else -> 0.8f
+                    },
+                    title = when {
+                        index < currentStopIndex -> "Passed Stop"
+                        index == currentStopIndex -> "Next Stop"
+                        else -> "Upcoming Stop"
+                    },
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                )
+            }
+
+            destinationLocation?.let { dest ->
+                Marker(
+                    state = MarkerState(position = dest.toLatLng()),
+                    icon = destinationIcon,
+                    title = destinationLabel,
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 1.0f)
+                )
+            }
+
+            if (hasPlacedDriver) {
+                Marker(
+                    state = MarkerState(position = animatedDriverLatLng),
+                    icon = carIcon,
+                    rotation = bearing,
+                    flat = true,
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                )
+            }
+        }
+
+        // Recenters on the whole route (driver + stops + destination). Deliberately not the
+        // device location: the app holds no location permission, so that would silently no-op.
+        FloatingActionButton(
+            onClick = {
+                val points = buildList {
+                    driverLocation?.let { add(it.toLatLng()) }
+                    addAll(stops.map { it.toLatLng() })
+                    destinationLocation?.let { add(it.toLatLng()) }
+                }
+                val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                when {
+                    points.size > 1 -> {
+                        points.forEach { boundsBuilder.include(it) }
+                        cameraPositionState.move(
+                            com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(
+                                boundsBuilder.build(), 96
+                            )
+                        )
                     }
-                    traveledPoints.add(driverMarker.position)
-                    routeLineTraveled.setPoints(traveledPoints)
-
-                    mapView.invalidate()
-                    kotlinx.coroutines.delay(16) // ~60fps
+                    points.size == 1 -> cameraPositionState.move(
+                        com.google.android.gms.maps.CameraUpdateFactory.newLatLng(points.first())
+                    )
+                    else -> cameraPositionState.move(
+                        com.google.android.gms.maps.CameraUpdateFactory.newLatLng(DefaultMapCenter.toLatLng())
+                    )
                 }
-                driverMarker.position = target
-            }
+            },
+            containerColor = Color.White,
+            contentColor = UniRideOrange,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Filled.MyLocation, contentDescription = "Recenter map on route")
         }
     }
+}
 
-    // Update markers and remaining route
-    LaunchedEffect(driverLocation, destinationLocation, stops, currentStopIndex) {
-        destinationLocation?.let { point ->
-            destinationMarker.position = point
-            destinationMarker.title = destinationLabel
-        }
+private fun GeoPoint.toLatLng(): LatLng = LatLng(latitude, longitude)
 
-        // Update Stop Markers
-        // Clear old stop markers from overlays
-        stopMarkers.forEach { mapView.overlays.remove(it) }
-        stopMarkers.clear()
+/** Compass bearing in degrees (0-360, 0 = north) from [start] to [end], for rotating the car icon. */
+private fun bearingBetween(start: LatLng, end: LatLng): Float {
+    val lat1 = start.latitude * PI / 180.0
+    val lat2 = end.latitude * PI / 180.0
+    val dLng = (end.longitude - start.longitude) * PI / 180.0
+    val y = sin(dLng) * cos(lat2)
+    val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng)
+    val bearingRad = atan2(y, x)
+    val bearingDeg = bearingRad * 180.0 / PI
+    return ((bearingDeg + 360) % 360).toFloat()
+}
 
-        stops.forEachIndexed { index, point ->
-            val marker = Marker(mapView).apply {
-                position = point
-                icon = AppCompatResources.getDrawable(context, com.example.getyourride.R.drawable.ic_stop_marker)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-
-                // Dim passed stops
-                if (index < currentStopIndex) {
-                    alpha = 0.4f
-                    title = "Passed Stop"
-                } else if (index == currentStopIndex) {
-                    alpha = 1.0f
-                    title = "Next Stop"
-                } else {
-                    alpha = 0.8f
-                    title = "Upcoming Stop"
-                }
-            }
-            stopMarkers.add(marker)
-            mapView.overlays.add(marker)
-        }
-
-        // Update remaining route line
-        val remainingPoints = mutableListOf<GeoPoint>()
-        driverLocation?.let { remainingPoints.add(it) }
-        for (i in currentStopIndex until stops.size) {
-            remainingPoints.add(stops[i])
-        }
-        destinationLocation?.let { remainingPoints.add(it) }
-        routeLineRemaining.setPoints(remainingPoints)
-
-        mapView.invalidate()
-    }
-
-    AndroidView(factory = { mapView }, modifier = modifier.clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)))
+/**
+ * Renders a vector drawable to a [BitmapDescriptor] for use as a Google Maps marker icon.
+ *
+ * The Maps SDK's Marker only accepts bitmap-backed icons, not a Composable or a vector
+ * resource directly, so this rasterises it once (memoised via `remember` at each call site)
+ * rather than on every recomposition.
+ */
+private fun bitmapDescriptorFromVector(context: android.content.Context, resId: Int): BitmapDescriptor {
+    val drawable = AppCompatResources.getDrawable(context, resId)
+        ?: return BitmapDescriptorFactory.defaultMarker()
+    val bitmap = Bitmap.createBitmap(
+        drawable.intrinsicWidth.coerceAtLeast(1),
+        drawable.intrinsicHeight.coerceAtLeast(1),
+        Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
 @Composable
 private fun DriverInfoCard(
-    info: TripTrackingInfo,
-    onMessageDriver: () -> Unit,
-    onCallDriver: () -> Unit,
-    onCancelRide: () -> Unit
+    info: TripTrackingInfo
 ) {
     Card(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -526,7 +531,12 @@ private fun DriverInfoCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         StatusBadge(status = info.status)
                         Spacer(Modifier.width(6.dp))
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = UniRideOrange, modifier = Modifier.size(14.dp))
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = UniRideOrange,
+                            modifier = Modifier.size(14.dp)
+                        )
                         Text(" ${info.driverRating}", fontSize = 13.sp)
                     }
                 }
@@ -547,7 +557,12 @@ private fun DriverInfoCard(
                 InfoTile(
                     label = "Car Model",
                     value = info.carModel,
-                    subtitle = "${info.carColor} • ${info.carYear}",
+                    // carYear is 0 when the backend didn't supply one — don't render "• 0".
+                    subtitle = if (info.carYear > 0) {
+                        "${info.carColor} • ${info.carYear}"
+                    } else {
+                        info.carColor
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 InfoTile(
@@ -556,33 +571,6 @@ private fun DriverInfoCard(
                     subtitle = if (info.isPlateVerified) "Verified" else "Unverified",
                     modifier = Modifier.weight(1f)
                 )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = onMessageDriver,
-                    colors = ButtonDefaults.buttonColors(containerColor = UniRideOrange),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.weight(1f).height(52.dp)
-                ) {
-                    Text("Message", color = Color.White)
-                }
-                OutlinedIconButton(
-                    onClick = onCallDriver,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(Icons.Filled.Call, contentDescription = "Call driver", tint = UniRideOrange)
-                }
-                OutlinedIconButton(
-                    onClick = onCancelRide,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(Icons.Filled.Cancel, contentDescription = "Cancel ride", tint = Color(0xFFE0483E))
-                }
             }
         }
     }
@@ -611,4 +599,66 @@ private fun InfoTile(label: String, value: String, subtitle: String, modifier: M
         Text(value, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         Text(subtitle, fontSize = 11.sp, color = Color.Gray)
     }
+}
+
+// --- Previews ----------------------------------------------------------
+// Sample data below is private to this file and only referenced from @Preview functions,
+// so it is not reachable from the runtime path.
+
+private val previewData = TrackingData(
+    tripId = 42L,
+    driverLocation = GeoPoint(-33.9581, 25.6014),      // sample NMU South Campus-ish coords
+    destinationLocation = GeoPoint(-33.9615, 25.6089),
+    stops = listOf(
+        GeoPoint(-33.9590, 25.6030),
+        GeoPoint(-33.9600, 25.6050)
+    ),
+    stopIds = listOf(1L, 2L),
+    currentStopIndex = 1,
+    isConnected = true,
+    connectionError = null,
+    tripInfo = TripTrackingInfo(
+        driverName = "Marcus Thompson",
+        driverRating = 4.9,
+        status = RideStatus.ON_THE_WAY,
+        etaMinutes = 4,
+        carModel = "Toyota Corolla",
+        carColor = "White",
+        carYear = 2022,
+        plateNumber = "UNI-7842",
+        isPlateVerified = true,
+        destinationLabel = "Library North"
+    )
+)
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@Composable
+private fun TrackingScreenPreview() {
+    TrackingScreenContent(uiState = TrackingUiState.Active(previewData))
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780, name = "Connecting state")
+@Composable
+private fun TrackingScreenConnectingPreview() {
+    TrackingScreenContent(
+        uiState = TrackingUiState.Active(
+            previewData.copy(
+                isConnected = false,
+                driverLocation = null,
+                tripInfo = previewData.tripInfo.copy(etaMinutes = null)
+            )
+        )
+    )
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780, name = "No rides to track")
+@Composable
+private fun TrackingScreenEmptyPreview() {
+    TrackingScreenContent(uiState = TrackingUiState.NoRidesAvailable)
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780, name = "Error")
+@Composable
+private fun TrackingScreenErrorPreview() {
+    TrackingScreenContent(uiState = TrackingUiState.Error("Could not check for active rides."))
 }
