@@ -1,12 +1,5 @@
-import java.util.Properties
 import java.io.FileInputStream
-
-val localProperties = Properties().apply {
-    val localPropsFile = rootProject.file("local.properties")
-    if (localPropsFile.exists()) {
-        load(FileInputStream(localPropsFile))
-    }
-}
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,8 +20,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        manifestPlaceholders["MAPS_API_KEY"] =
-            localProperties.getProperty("MAPS_API_KEY", "")
+        // Maps API key lives in local.properties (gitignored), never committed to source
+        // control. Add a line MAPS_API_KEY=your_demo_key there — see
+        // https://mapsplatform.google.com/maps-demo-key/ for a free key needing no billing.
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localProps.load(FileInputStream(localPropsFile))
+        }
+        manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY", "")
     }
 
     buildTypes {
@@ -65,6 +65,11 @@ dependencies {
 
     implementation(libs.androidx.compose.ui)
     implementation(libs.play.services.location)
+    // Google Dynamic Maps (Android SDK) + Compose bindings. Replaces osmdroid for the tracking
+    // screen's map rendering; TrackingViewModel/TripMappers still use osmdroid's GeoPoint as a
+    // plain lat/lng holder, so that dependency stays for now — only the map view swapped.
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.4.1")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -100,10 +105,4 @@ dependencies {
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.zxing:core:3.5.3")
-
-    implementation("com.google.maps.android:maps-compose:6.2.1")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
-
-    // Needed for the Play Services availability check (your fallback trigger)
-    implementation("com.google.android.gms:play-services-base:18.5.0")
 }

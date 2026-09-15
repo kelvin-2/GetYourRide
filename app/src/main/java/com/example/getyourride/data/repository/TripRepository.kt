@@ -193,6 +193,24 @@ class TripRepository(private val api: TripApi) {
         }
     }
 
+    /**
+     * Live ETA to the trip's destination, from wherever the vehicle currently is.
+     * Calls through to TripEtaController#getEta, which asks Google Compute Routes on demand.
+     */
+    suspend fun getEta(tripId: Long): Result<com.example.getyourride.data.remote.api.EtaResponse> {
+        return try {
+            val response = api.getEta(tripId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Failed to load ETA for trip $tripId: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private companion object {
         const val BOOKING_STATUS_CONFIRMED = "CONFIRMED"
 

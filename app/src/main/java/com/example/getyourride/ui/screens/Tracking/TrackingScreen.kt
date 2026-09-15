@@ -1,8 +1,11 @@
 package com.example.getyourride.ui.screens.Tracking
 
-import android.content.Context
-import android.graphics.DashPathEffect
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,29 +21,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +53,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.getyourride.domain.model.RideStatus
@@ -64,15 +63,27 @@ import com.example.getyourride.ui.theme.*
 import com.example.getyourride.viewmodel.TrackingData
 import com.example.getyourride.viewmodel.TrackingUiState
 import com.example.getyourride.viewmodel.TrackingViewModel
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.XYTileSource
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.MapTileIndex
+// Data layer (TrackingViewModel, mappers) still speaks in osmdroid's GeoPoint — kept as-is so
+// swapping the map renderer doesn't ripple into the ViewModel/mapper layer. Converted to
+// Google's LatLng only at the render boundary below.
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polyline
-import java.io.File
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.toDegrees
+import kotlin.math.toRadians
+import kotlinx.coroutines.launch
 
 // Match these to your app's theme colors (Theme.kt) instead of hardcoding
 private val UniRideOrange = Color(0xFFFF7A1A)
@@ -100,9 +111,6 @@ fun TrackingScreen(
     viewModel: TrackingViewModel,
     navController: androidx.navigation.NavController,
     onBackClick: (() -> Unit)? = null,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -115,12 +123,7 @@ fun TrackingScreen(
         navController = navController,
         onBackClick = onBackClick
     ) {
-        TrackingScreenContent(
-            uiState = uiState,
-            onMessageDriver = onMessageDriver,
-            onCallDriver = onCallDriver,
-            onCancelRide = { viewModel.cancelRide(onCancelRide) }
-        )
+        TrackingScreenContent(uiState = uiState)
     }
 }
 
@@ -130,10 +133,7 @@ fun TrackingScreen(
  */
 @Composable
 fun TrackingScreenContent(
-    uiState: TrackingUiState,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {}
+    uiState: TrackingUiState
 ) {
     when (uiState) {
         is TrackingUiState.Loading -> CenteredMessage {
@@ -185,12 +185,7 @@ fun TrackingScreenContent(
             Box(modifier = Modifier.weight(1f)) {
                 OsmMapSection(data = uiState.data)
             }
-            DriverInfoCard(
-                info = uiState.data.tripInfo,
-                onMessageDriver = onMessageDriver,
-                onCallDriver = onCallDriver,
-                onCancelRide = onCancelRide
-            )
+            DriverInfoCard(info = uiState.data.tripInfo)
         }
     }
 }
@@ -211,7 +206,7 @@ private fun CenteredMessage(content: @Composable () -> Unit) {
 @Composable
 private fun OsmMapSection(data: TrackingData) {
     Box(modifier = Modifier.fillMaxSize()) {
-        OsmMapView(
+        GoogleTrackingMapView(
             driverLocation = data.driverLocation,
             destinationLocation = data.destinationLocation,
             stops = data.stops,
@@ -273,7 +268,7 @@ private fun OsmMapSection(data: TrackingData) {
 }
 
 @Composable
-private fun OsmMapView(
+private fun GoogleTrackingMapView(
     driverLocation: GeoPoint?,
     destinationLocation: GeoPoint?,
     stops: List<GeoPoint> = emptyList(),
@@ -282,236 +277,168 @@ private fun OsmMapView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
-    /**
-     * Esri World Street Map raster tiles — keyless, and permitted for application use.
-     *
-     * Two earlier providers were tried and both failed, for different reasons:
-     *
-     *  - **CARTO Positron** returns a 1884-byte placeholder stamped "API KEY REQUIRED" for every
-     *    request. Verified byte-identical (same MD5) with a valid key, with no key, and with a
-     *    deliberately invalid key — the `api_key` parameter is ignored on their raster endpoints.
-     *    A CARTO Basemaps key only authorises their **vector** GL styles
-     *    (`/gl/positron-gl-style/style.json`), which osmdroid cannot render because it is a raster
-     *    tile renderer. So no CARTO key can work here.
-     *
-     *  - **OpenStreetMap's own tile servers** answered with a 403 "Access blocked — App is not
-     *    following the tile usage policy" tile. Those are volunteer-run and explicitly disallow
-     *    app/bulk consumption; a map screen pulls dozens of tiles at once, which trips it.
-     *
-     * Esri serves tiles as `{z}/{y}/{x}` — row before column, the reverse of the usual
-     * `{z}/{x}/{y}` — so [XYTileSource]'s default URL builder cannot be used as-is and
-     * `getTileURLString` is overridden below. Attribution is required and is set here.
-     */
-    val esriStreetTiles = remember {
-        object : XYTileSource(
-            "Esri World Street Map",
-            1, 19, 256, "",
-            arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/"),
-            "© Esri, © OpenStreetMap contributors"
-        ) {
-            override fun getTileURLString(pMapTileIndex: Long): String =
-                baseUrl +
-                    MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                    MapTileIndex.getY(pMapTileIndex) + "/" +
-                    MapTileIndex.getX(pMapTileIndex)
-        }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            (driverLocation ?: destinationLocation ?: DefaultMapCenter).toLatLng(),
+            DefaultZoom.toFloat()
+        )
     }
 
-    val mapView = remember {
-        configureOsmdroid(context)
-        MapView(context).apply {
-            setTileSource(esriStreetTiles)
-            setMultiTouchControls(true)
-            setUseDataConnection(true)
-            // Seed a real centre + zoom before the first draw. Without this osmdroid sits at
-            // 0,0 and the screen looks like a broken/blank map until a location arrives.
-            controller.setZoom(DefaultZoom)
-            controller.setCenter(driverLocation ?: destinationLocation ?: DefaultMapCenter)
-        }
+    val carIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_driver_marker)
+    }
+    val destinationIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_destination_marker)
+    }
+    val stopIcon = remember {
+        bitmapDescriptorFromVector(context, com.example.getyourride.R.drawable.ic_stop_marker)
     }
 
-    val driverMarker = remember {
-        Marker(mapView).apply {
-            icon = AppCompatResources.getDrawable(
-                context,
-                com.example.getyourride.R.drawable.ic_driver_marker
-            )
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        }
-    }
-    val destinationMarker = remember {
-        Marker(mapView).apply {
-            icon = AppCompatResources.getDrawable(
-                context,
-                com.example.getyourride.R.drawable.ic_destination_marker
-            )
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-        }
-    }
+    // Animated + rotated driver position. Animatable drives both the marker's LatLng and the
+    // "traveled" polyline every frame, same idea as the old osmdroid while-loop but expressed
+    // as a proper Compose animation instead of a manual coroutine clock.
+    val animatedLat = remember { Animatable(driverLocation?.latitude ?: DefaultMapCenter.latitude) }
+    val animatedLng = remember { Animatable(driverLocation?.longitude ?: DefaultMapCenter.longitude) }
+    var bearing by remember { mutableStateOf(0f) }
+    var hasPlacedDriver by remember { mutableStateOf(false) }
 
-    // Intermediate stops markers
-    val stopMarkers = remember { mutableListOf<Marker>() }
-
-    val routeLineTraveled = remember {
-        Polyline(mapView).apply { outlinePaint.color = UniRideOrange.toArgb() }
-    }
-    val routeLineRemaining = remember {
-        Polyline(mapView).apply {
-            outlinePaint.color = UniRideNavy.copy(alpha = 0.6f).toArgb()
-            outlinePaint.pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        mapView.overlays.add(routeLineTraveled)
-        mapView.overlays.add(routeLineRemaining)
-        onDispose {
-            stopMarkers.forEach { mapView.overlays.remove(it) }
-            stopMarkers.clear()
-            mapView.overlays.clear()
-            mapView.onDetach()
-        }
-    }
-
-    // osmdroid's MapView is a plain Android View: it needs onResume/onPause to restart its
-    // tile-downloader threads and re-read config. Skipping this leaves the map frozen or
-    // blank after the screen has been backgrounded.
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        mapView.onResume()
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onPause()
-        }
-    }
-
-    // Smooth Driver Marker Animation
     LaunchedEffect(driverLocation) {
         val target = driverLocation ?: return@LaunchedEffect
 
-        // Only attach the driver marker once it has a genuine position, otherwise osmdroid
-        // draws it at 0,0 (Marker's default) which looks like a misplaced marker.
-        if (!mapView.overlays.contains(driverMarker)) {
-            driverMarker.position = target
-            mapView.overlays.add(driverMarker)
-            mapView.controller.animateTo(target)
-            mapView.invalidate()
+        if (!hasPlacedDriver) {
+            // First position: snap, don't animate from the default centre.
+            animatedLat.snapTo(target.latitude)
+            animatedLng.snapTo(target.longitude)
+            hasPlacedDriver = true
             return@LaunchedEffect
         }
 
-        val start = driverMarker.position
-        // Animate over 1.5s (slightly less than the 2s update interval)
-        val duration = 1500L
-        val startTime = System.currentTimeMillis()
-        while (System.currentTimeMillis() - startTime < duration) {
-            val progress = (System.currentTimeMillis() - startTime).toFloat() / duration
-            val lat = start.latitude + (target.latitude - start.latitude) * progress
-            val lng = start.longitude + (target.longitude - start.longitude) * progress
-            driverMarker.position = GeoPoint(lat, lng)
+        val start = LatLng(animatedLat.value, animatedLng.value)
+        bearing = bearingBetween(start, target.toLatLng())
 
-            // Update traveled route line to follow the marker
-            val traveledPoints = mutableListOf<GeoPoint>()
-            for (i in 0 until currentStopIndex) {
-                if (i < stops.size) traveledPoints.add(stops[i])
-            }
-            traveledPoints.add(driverMarker.position)
-            routeLineTraveled.setPoints(traveledPoints)
-
-            mapView.invalidate()
-            kotlinx.coroutines.delay(16) // ~60fps
+        // 1.5s, slightly under the ~2s backend tick, so movement finishes before the next update.
+        launch {
+            animatedLat.animateTo(target.latitude, animationSpec = tween(1500, easing = LinearEasing))
         }
-        driverMarker.position = target
-        mapView.invalidate()
+        animatedLng.animateTo(target.longitude, animationSpec = tween(1500, easing = LinearEasing))
     }
 
-    // Update markers and remaining route
-    LaunchedEffect(driverLocation, destinationLocation, stops, currentStopIndex) {
-        if (destinationLocation != null) {
-            destinationMarker.position = destinationLocation
-            destinationMarker.title = destinationLabel
-            if (!mapView.overlays.contains(destinationMarker)) {
-                mapView.overlays.add(destinationMarker)
+    // Camera auto-follow: recentres on the vehicle as it moves. The FAB below still lets the
+    // student zoom out to the whole route without the camera immediately snapping back — it only
+    // re-engages follow on the next position update.
+    LaunchedEffect(driverLocation) {
+        val target = driverLocation ?: return@LaunchedEffect
+        cameraPositionState.animate(
+            update = com.google.android.gms.maps.CameraUpdateFactory.newLatLng(target.toLatLng())
+        )
+    }
+
+    val animatedDriverLatLng = LatLng(animatedLat.value, animatedLng.value)
+
+    val traveledPoints = remember(animatedDriverLatLng, currentStopIndex) {
+        buildList {
+            for (i in 0 until currentStopIndex) {
+                if (i < stops.size) add(stops[i].toLatLng())
             }
-        } else {
-            mapView.overlays.remove(destinationMarker)
+            if (hasPlacedDriver) add(animatedDriverLatLng)
         }
-
-        // Update Stop Markers
-        stopMarkers.forEach { mapView.overlays.remove(it) }
-        stopMarkers.clear()
-
-        stops.forEachIndexed { index, point ->
-            val marker = Marker(mapView).apply {
-                position = point
-                icon = AppCompatResources.getDrawable(
-                    context,
-                    com.example.getyourride.R.drawable.ic_stop_marker
-                )
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-
-                // Dim passed stops
-                when {
-                    index < currentStopIndex -> {
-                        alpha = 0.4f
-                        title = "Passed Stop"
-                    }
-                    index == currentStopIndex -> {
-                        alpha = 1.0f
-                        title = "Next Stop"
-                    }
-                    else -> {
-                        alpha = 0.8f
-                        title = "Upcoming Stop"
-                    }
-                }
-            }
-            stopMarkers.add(marker)
-            mapView.overlays.add(marker)
+    }
+    val remainingPoints = remember(driverLocation, currentStopIndex, stops, destinationLocation) {
+        buildList {
+            driverLocation?.let { add(it.toLatLng()) }
+            for (i in currentStopIndex until stops.size) add(stops[i].toLatLng())
+            destinationLocation?.let { add(it.toLatLng()) }
         }
-
-        // Update remaining route line
-        val remainingPoints = mutableListOf<GeoPoint>()
-        driverLocation?.let { remainingPoints.add(it) }
-        for (i in currentStopIndex until stops.size) {
-            remainingPoints.add(stops[i])
-        }
-        destinationLocation?.let { remainingPoints.add(it) }
-        routeLineRemaining.setPoints(remainingPoints)
-
-        mapView.invalidate()
     }
 
     Box(modifier = modifier) {
-        AndroidView(
-            factory = { mapView },
+        GoogleMap(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-        )
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(isMyLocationEnabled = false),
+            uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
+        ) {
+            if (traveledPoints.size >= 2) {
+                Polyline(points = traveledPoints, color = UniRideOrange, width = 6f)
+            }
+            if (remainingPoints.size >= 2) {
+                Polyline(
+                    points = remainingPoints,
+                    color = UniRideNavy.copy(alpha = 0.6f),
+                    width = 5f,
+                    pattern = listOf(
+                        com.google.android.gms.maps.model.Dash(20f),
+                        com.google.android.gms.maps.model.Gap(14f)
+                    )
+                )
+            }
+
+            stops.forEachIndexed { index, point ->
+                Marker(
+                    state = MarkerState(position = point.toLatLng()),
+                    icon = stopIcon,
+                    alpha = when {
+                        index < currentStopIndex -> 0.4f
+                        index == currentStopIndex -> 1.0f
+                        else -> 0.8f
+                    },
+                    title = when {
+                        index < currentStopIndex -> "Passed Stop"
+                        index == currentStopIndex -> "Next Stop"
+                        else -> "Upcoming Stop"
+                    },
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                )
+            }
+
+            destinationLocation?.let { dest ->
+                Marker(
+                    state = MarkerState(position = dest.toLatLng()),
+                    icon = destinationIcon,
+                    title = destinationLabel,
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 1.0f)
+                )
+            }
+
+            if (hasPlacedDriver) {
+                Marker(
+                    state = MarkerState(position = animatedDriverLatLng),
+                    icon = carIcon,
+                    rotation = bearing,
+                    flat = true,
+                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                )
+            }
+        }
 
         // Recenters on the whole route (driver + stops + destination). Deliberately not the
         // device location: the app holds no location permission, so that would silently no-op.
         FloatingActionButton(
             onClick = {
                 val points = buildList {
-                    driverLocation?.let { add(it) }
-                    addAll(stops)
-                    destinationLocation?.let { add(it) }
+                    driverLocation?.let { add(it.toLatLng()) }
+                    addAll(stops.map { it.toLatLng() })
+                    destinationLocation?.let { add(it.toLatLng()) }
                 }
+                val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
                 when {
-                    points.size > 1 ->
-                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(points), true, 96)
-                    points.size == 1 -> mapView.controller.animateTo(points.first())
-                    else -> mapView.controller.animateTo(DefaultMapCenter)
+                    points.size > 1 -> {
+                        points.forEach { boundsBuilder.include(it) }
+                        cameraPositionState.move(
+                            com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(
+                                boundsBuilder.build(), 96
+                            )
+                        )
+                    }
+                    points.size == 1 -> cameraPositionState.move(
+                        com.google.android.gms.maps.CameraUpdateFactory.newLatLng(points.first())
+                    )
+                    else -> cameraPositionState.move(
+                        com.google.android.gms.maps.CameraUpdateFactory.newLatLng(DefaultMapCenter.toLatLng())
+                    )
                 }
             },
             containerColor = Color.White,
@@ -525,30 +452,42 @@ private fun OsmMapView(
     }
 }
 
-/**
- * osmdroid needs its config loaded before the first MapView is created.
- *
- * The default base path lives on external storage, which app processes cannot write to on
- * API 29+; the tile cache then fails to open and no tiles are ever rendered. Pointing it at
- * app-private cache dirs fixes the blank map and needs no storage permission.
- */
-private fun configureOsmdroid(context: Context) {
-    Configuration.getInstance().apply {
-        load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-        // Tile servers reject blank user agents, and several block generic or placeholder ones.
-        // A descriptive value identifying the app is what their usage policies ask for.
-        userAgentValue = "GetYourRide/1.0 (${context.packageName})"
-        osmdroidBasePath = File(context.cacheDir, "osmdroid").apply { mkdirs() }
-        osmdroidTileCache = File(osmdroidBasePath, "tiles").apply { mkdirs() }
-    }
+private fun GeoPoint.toLatLng(): LatLng = LatLng(latitude, longitude)
+
+/** Compass bearing in degrees (0-360, 0 = north) from [start] to [end], for rotating the car icon. */
+private fun bearingBetween(start: LatLng, end: LatLng): Float {
+    val lat1 = toRadians(start.latitude)
+    val lat2 = toRadians(end.latitude)
+    val dLng = toRadians(end.longitude - start.longitude)
+    val y = sin(dLng) * cos(lat2)
+    val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng)
+    val bearingRad = atan2(y, x)
+    return ((toDegrees(bearingRad) + 360) % 360).toFloat()
 }
 
-@Composable
+/**
+ * Renders a vector drawable to a [BitmapDescriptor] for use as a Google Maps marker icon.
+ *
+ * The Maps SDK's Marker only accepts bitmap-backed icons, not a Composable or a vector
+ * resource directly, so this rasterises it once (memoised via `remember` at each call site)
+ * rather than on every recomposition.
+ */
+private fun bitmapDescriptorFromVector(context: android.content.Context, resId: Int): BitmapDescriptor {
+    val drawable = AppCompatResources.getDrawable(context, resId)
+        ?: return BitmapDescriptorFactory.defaultMarker()
+    val bitmap = Bitmap.createBitmap(
+        drawable.intrinsicWidth.coerceAtLeast(1),
+        drawable.intrinsicHeight.coerceAtLeast(1),
+        Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
 private fun DriverInfoCard(
-    info: TripTrackingInfo,
-    onMessageDriver: () -> Unit,
-    onCallDriver: () -> Unit,
-    onCancelRide: () -> Unit
+    info: TripTrackingInfo
 ) {
     Card(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -624,42 +563,6 @@ private fun DriverInfoCard(
                     subtitle = if (info.isPlateVerified) "Verified" else "Unverified",
                     modifier = Modifier.weight(1f)
                 )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = onMessageDriver,
-                    colors = ButtonDefaults.buttonColors(containerColor = UniRideOrange),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    Text("Message", color = Color.White)
-                }
-                OutlinedIconButton(
-                    onClick = onCallDriver,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(Icons.Filled.Call, contentDescription = "Call driver", tint = UniRideOrange)
-                }
-                OutlinedIconButton(
-                    onClick = onCancelRide,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.Cancel,
-                        contentDescription = "Cancel ride",
-                        tint = Color(0xFFE0483E)
-                    )
-                }
             }
         }
     }
