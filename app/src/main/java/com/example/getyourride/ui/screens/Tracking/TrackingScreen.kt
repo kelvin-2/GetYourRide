@@ -340,35 +340,6 @@ private fun GoogleTrackingMapView(
         )
     }
 
-    // Before the driver starts (no live position yet) there's no vehicle to follow, so frame the
-    // route context instead: destination + any stops. This is what makes "Track" on a confirmed
-    // upcoming ride land on a useful map (the destination and route) rather than a bare default
-    // centre. Runs only while driverLocation is null; once a position arrives, the follow effect
-    // above takes over.
-    LaunchedEffect(driverLocation, destinationLocation, stops) {
-        if (driverLocation != null) return@LaunchedEffect
-        val routePoints = buildList {
-            addAll(stops.map { it.toLatLng() })
-            destinationLocation?.let { add(it.toLatLng()) }
-        }
-        when {
-            routePoints.size > 1 -> {
-                val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
-                routePoints.forEach { boundsBuilder.include(it) }
-                cameraPositionState.move(
-                    com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(
-                        boundsBuilder.build(), 120
-                    )
-                )
-            }
-            routePoints.size == 1 -> cameraPositionState.animate(
-                update = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(
-                    routePoints.first(), DefaultZoom.toFloat()
-                )
-            )
-        }
-    }
-
     val animatedDriverLatLng = LatLng(animatedLat.value.toDouble(), animatedLng.value.toDouble())
 
     val traveledPoints = remember(animatedDriverLatLng, currentStopIndex) {
