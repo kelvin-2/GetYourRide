@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
@@ -51,16 +52,20 @@ import com.example.getyourride.ui.theme.GetYourRideTheme
 import com.example.getyourride.viewmodel.AuthUiState
 import com.example.getyourride.viewmodel.AuthViewModel
 import com.example.getyourride.viewmodel.AuthViewModelFactory
+import com.example.getyourride.NotificationBadgeState
+import com.example.getyourride.data.repository.NotificationRepository
+import com.example.getyourride.viewmodel.NotificationViewModel
+import com.example.getyourride.viewmodel.NotificationViewModelFactory
 import com.example.getyourride.viewmodel.DriverApplicationViewModel
 import com.example.getyourride.viewmodel.DriverApplicationViewModelFactory
 import com.example.getyourride.viewmodel.DriverProfileViewModel
 import com.example.getyourride.viewmodel.DriverProfileViewModelFactory
 import com.example.getyourride.viewmodel.DriverProfileUiState
 import com.example.getyourride.viewmodel.DriverDeleteUiState
+import com.example.getyourride.viewmodel.DocumentUploadUiState
 import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
 import com.example.getyourride.viewmodel.OfferRideViewModel
-import com.example.getyourride.viewmodel.MockRideLocationSocket
 import com.example.getyourride.viewmodel.StompRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
 import com.example.getyourride.viewmodel.TrackingViewModelFactory
@@ -164,6 +169,31 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
+                // ── Notification badge — refreshed aggressively on every navigation ──
+                // One session-scoped ViewModel drives the unread count shown on the Rides
+                // nav tab. We re-fetch the count whenever the current route changes, so the
+                // badge stays current no matter where the student navigates. The count call
+                // is only made while a student is logged in (the endpoint 401s otherwise).
+                val badgeNotificationViewModel: NotificationViewModel = viewModel(
+                    factory = NotificationViewModelFactory(
+                        NotificationRepository(NetworkModule.notificationApi)
+                    )
+                )
+                val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRouteForBadge = currentBackStackEntry?.destination?.route
+                LaunchedEffect(currentRouteForBadge) {
+                    if (currentRouteForBadge != null &&
+                        currentRouteForBadge != "login" &&
+                        currentRouteForBadge != "signup" &&
+                        UserSession.isStudent
+                    ) {
+                        badgeNotificationViewModel.refreshUnreadCount()
+                    }
+                }
+                LaunchedEffect(badgeNotificationViewModel.unreadCount) {
+                    NotificationBadgeState.unreadCount = badgeNotificationViewModel.unreadCount
+                }
+
                 var isNsfasFunded by remember { mutableStateOf(false) }
 
                 // NEW — holds the details for BookingConfirmedScreen. Set right
@@ -194,6 +224,7 @@ class MainActivity : ComponentActivity() {
 
                         LoginScreen(
                             onCreateAccountClick = { navController.navigate("signup") },
+                            onBecomeDriverClick  = { navController.navigate("driver_step_1") },
                             onLoginClick         = { email, password ->
                                 authViewModel.login(email, password)
                             },
@@ -274,6 +305,10 @@ class MainActivity : ComponentActivity() {
                                     UserSession.save(authResponse)
                                 }
 
+                                // Brief pause so the student actually sees the success
+                                // message on Step 3 before we auto-login to Driver Home.
+                                kotlinx.coroutines.delay(1200)
+
                                 // Navigate to Driver Home — no second login needed
                                 navController.navigate("student_driver_home") {
                                     popUpTo("login") { inclusive = true }
@@ -289,7 +324,8 @@ class MainActivity : ComponentActivity() {
                                 driverApplicationViewModel.submitApplication(step3Data, context.contentResolver)
                             },
                             errorMessage  = driverApplicationViewModel.step3ErrorMessage,
-                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message
+                            statusMessage = (driverApplicationViewModel.submitStatus as? DriverApplicationSubmitStatus.Success)?.message,
+                            isLoading     = driverApplicationViewModel.isSubmitting
                         )
                     }
 
@@ -299,6 +335,18 @@ class MainActivity : ComponentActivity() {
                         val pickupState by offerRideViewModel.pickup.collectAsState()
                         val destinationState by offerRideViewModel.destination.collectAsState()
 
+                        // Load the driver's profile so we know their vehicle's seating
+                        // capacity — a driver can't offer more seats than they registered.
+                        val offerProfileViewModel: DriverProfileViewModel = viewModel(
+                            factory = DriverProfileViewModelFactory(driverApplicationRepository)
+                        )
+                        LaunchedEffect(Unit) {
+                            offerProfileViewModel.loadProfile()
+                        }
+                        val driverMaxSeats =
+                            (offerProfileViewModel.profileState as? DriverProfileUiState.Success)
+                                ?.profile?.seatingCapacity ?: 7
+
                         // Navigate to home after successful ride posting
                         LaunchedEffect(submitStatus) {
                             if (submitStatus is UseCaseSubmitStatus.Success) {
@@ -307,11 +355,15 @@ class MainActivity : ComponentActivity() {
                                     popUpTo("offer_ride") { inclusive = true }
                                     launchSingleTop = true
                                 }
+                                // Clear the form + reset status so re-entering Offer a Ride
+                                // shows a fresh screen and doesn't auto-redirect home again.
+                                offerRideViewModel.resetForm()
                             }
                         }
 
                         OfferRideScreen(
                             isDriverVerified = UserSession.canPerformDriverActions,
+                            maxSeats = driverMaxSeats,
                             pickupState = pickupState,
                             destinationState = destinationState,
                             onPickupTextChanged = { text -> offerRideViewModel.onPickupTextChanged(text) },
@@ -360,7 +412,11 @@ class MainActivity : ComponentActivity() {
                             onProfileClick     = { navController.navigate("driver_profile_settings") },
                             onCancelRide       = { tripId ->
                                 driverHomeViewModel.cancelRide(tripId)
-                            }
+                            },
+                            onStartRide          = { tripId -> driverHomeViewModel.startRide(tripId) },
+                            startingTripId       = driverHomeViewModel.startingTripId,
+                            actionMessage        = driverHomeViewModel.actionMessage,
+                            onActionMessageShown = { driverHomeViewModel.consumeActionMessage() }
                         )
                     }
 
@@ -380,10 +436,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "DriversLicence",
-                                    fileName = uri.lastPathSegment ?: "licence.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -393,10 +454,15 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.OpenDocument()
                         ) { uri: android.net.Uri? ->
                             if (uri != null) {
+                                // Persist read permission so URI survives process restarts
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
                                 driverProfileViewModel.uploadDocument(
                                     documentType = "VehicleRegistration",
-                                    fileName = uri.lastPathSegment ?: "registration.jpg",
-                                    uriString = uri.toString(),
+                                    uri = uri,
                                     contentResolver = context.contentResolver
                                 )
                             }
@@ -457,13 +523,19 @@ class MainActivity : ComponentActivity() {
                                     onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
                                     onUploadRegistration = { registrationPicker.launch(arrayOf("image/*")) },
-                                    statusMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Loading -> "Deleting driver profile..."
-                                        is DriverDeleteUiState.Success -> deleteState.message
+                                    statusMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Success ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Success).message
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Uploading ->
+                                            "Uploading document..."
+                                        deleteState is DriverDeleteUiState.Loading -> "Deleting driver profile..."
+                                        deleteState is DriverDeleteUiState.Success -> (deleteState as DriverDeleteUiState.Success).message
                                         else -> null
                                     },
-                                    errorMessage = when (deleteState) {
-                                        is DriverDeleteUiState.Error -> deleteState.message
+                                    errorMessage = when {
+                                        driverProfileViewModel.uploadState is DocumentUploadUiState.Error ->
+                                            (driverProfileViewModel.uploadState as DocumentUploadUiState.Error).message
+                                        deleteState is DriverDeleteUiState.Error -> (deleteState as DriverDeleteUiState.Error).message
                                         else -> null
                                     },
                                     onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
@@ -491,7 +563,6 @@ class MainActivity : ComponentActivity() {
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
                             onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
-                            onNotifications = { /* TODO: notifications screen */ },
                             navController = navController,
                         )
                     }
@@ -834,10 +905,13 @@ class MainActivity : ComponentActivity() {
                     // above, so the data is already loaded — no extra API call on tab switch.
 
                     composable(GyrRoutes.RIDES) {
+                        // Reuse the shared badge ViewModel so the popup list and the nav-tab
+                        // badge come from a single source — marking one read updates both.
                         LaunchedEffect(Unit) {
                             if (allRidesViewModel.uiState is AllTripsUiState.Loading) {
                                 allRidesViewModel.loadAllTrips()
                             }
+                            badgeNotificationViewModel.load()
                         }
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
@@ -845,21 +919,27 @@ class MainActivity : ComponentActivity() {
                             onTrackRide   = { rideId ->
                                 navController.navigate("track/$rideId")
                             },
+                            notifications       = badgeNotificationViewModel.notifications,
+                            unreadCount         = badgeNotificationViewModel.unreadCount,
+                            onNotificationsOpen = { badgeNotificationViewModel.load() },
+                            onNotificationClick = { id -> badgeNotificationViewModel.markAsRead(id) },
                         )
                     }
 
                     // ── TRACK RIDE ─────────────────────────────────────────────
                     // Route for the bottom nav tab (no ID)
                     composable(GyrRoutes.TRACK) {
-                        // Stays on the mock: rideId is hardcoded to "0" below (no real trip to
-                        // track from this entry point), so a real socket would just fail trying
-                        // to subscribe to a trip that doesn't exist.
-                        val socket = remember { MockRideLocationSocket() }
+                        // No trip id from this entry point, so pass null and let the ViewModel
+                        // resolve the student's active booking from the backend. It shows the
+                        // "no rides to track" empty state when there isn't one — previously this
+                        // route hardcoded rideId "0" + MockRideLocationSocket, which is why the
+                        // tab always displayed fake driver/vehicle data.
+                        val socket = remember { StompRideLocationSocket() }
                         val trackingViewModel: TrackingViewModel = viewModel(
                             factory = TrackingViewModelFactory(
-                                rideId = "0", // Default state
+                                rideId = null,
                                 socket = socket,
-                                tripApi = NetworkModule.tripApi
+                                tripRepository = TripRepository(NetworkModule.tripApi)
                             )
                         )
                         TrackingScreen(
@@ -871,7 +951,7 @@ class MainActivity : ComponentActivity() {
 
                     // Route for direct tracking from My Rides (with ID)
                     composable("track/{rideId}") { backStackEntry ->
-                        val rideId = backStackEntry.arguments?.getString("rideId") ?: ""
+                        val rideId = backStackEntry.arguments?.getString("rideId")
                         // This route always has a real trip id, so it uses the real STOMP socket.
                         // Was previously hardcoded to the mock ("useRealSocket = false") here too,
                         // which meant live tracking never actually connected to the backend.
@@ -880,7 +960,7 @@ class MainActivity : ComponentActivity() {
                             factory = TrackingViewModelFactory(
                                 rideId = rideId,
                                 socket = socket,
-                                tripApi = NetworkModule.tripApi
+                                tripRepository = TripRepository(NetworkModule.tripApi)
                             )
                         )
                         TrackingScreen(
@@ -894,7 +974,9 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_driver_boarding") {
                         val boardingViewModel: ShuttleDriverBoardingViewModel = viewModel(
                             factory = ShuttleDriverBoardingViewModelFactory(
-                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi),
+                                NetworkModule.tripApi,
+                                NetworkModule.shuttleApi
                             )
                         )
 
@@ -904,6 +986,9 @@ class MainActivity : ComponentActivity() {
                             onLoadData = { boardingViewModel.loadBoardingData() },
                             onMarkAsBoarded = { bookingId ->
                                 boardingViewModel.markStudentAsBoarded(bookingId)
+                            },
+                            onSelectTimeSlot = { slot ->
+                                boardingViewModel.selectTimeSlot(slot)
                             },
                             onScanQrCodeClick = {
                                 navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }

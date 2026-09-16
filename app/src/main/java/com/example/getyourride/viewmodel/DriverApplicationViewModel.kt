@@ -41,6 +41,13 @@ class DriverApplicationViewModel(
     )
         private set
 
+    /**
+     * Indicates whether the submission is currently in progress.
+     * The UI uses this to show a loading spinner and disable buttons.
+     */
+    val isSubmitting: Boolean
+        get() = submitStatus is DriverApplicationSubmitStatus.Loading
+
     private var personalInfo: DriverPersonalInfo? = null
     private var vehicleInfo: DriverVehicleInfo? = null
 
@@ -87,14 +94,27 @@ class DriverApplicationViewModel(
      * Submits the full driver application:
      * 1. Validates all collected data
      * 2. Sends personal + vehicle info to backend → gets applicationId
-     * 3. Uploads documents using that applicationId
+     * 3. Uploads documents using that applicationId (with correct MIME type)
      * 4. Finalizes → backend returns AuthResponse (JWT + role=DRIVER_PENDING)
      *
      * On success, submitStatus becomes Success with the AuthResponse attached,
      * so MainActivity can call UserSession.save() and navigate directly to
      * the Driver Home Screen — no second login required.
+     *
+     * Documents are uploaded with the real content type detected from the file URI
+     * so the backend can store them with a proper format/extension. This ensures
+     * the admin can retrieve and view the uploaded documents via a direct URL.
+     *
+     * If submission fails, the student can retry — the ViewModel resets to Loading
+     * and re-attempts the full flow.
      */
     fun submitApplication(data: DriverStep3Data, contentResolver: ContentResolver) {
+        // Prevent double-submission
+        if (isSubmitting) return
+
+        // Clear previous errors
+        step3ErrorMessage = null
+
         // Documents are OPTIONAL — student can upload them later from their profile
         val docs = mutableListOf<DocumentUpload>()
 
@@ -114,9 +134,8 @@ class DriverApplicationViewModel(
         }
 
         val validationResult = validateCompleteApplication()
-        step3ErrorMessage = validationResult.message.takeIf { it.isNotBlank() }
-
         if (!validationResult.isValid) {
+            step3ErrorMessage = validationResult.message
             submitStatus = DriverApplicationSubmitStatus.Error(validationResult.message)
             return
         }
@@ -145,18 +164,28 @@ class DriverApplicationViewModel(
                 repository.submitFullApplication(request, docs, contentResolver)
             }
 
-            submitStatus = when (result) {
+            when (result) {
                 is DriverApplicationResult.Success -> {
-                    DriverApplicationSubmitStatus.Success(
-                        message = "Application submitted successfully. You are now logged in.",
+                    step3ErrorMessage = null
+                    submitStatus = DriverApplicationSubmitStatus.Success(
+                        message = "Application submitted! Your details are saved and pending review. Signing you in...",
                         authResponse = result.authResponse
                     )
                 }
                 is DriverApplicationResult.Error -> {
-                    DriverApplicationSubmitStatus.Error(result.message)
+                    step3ErrorMessage = result.message
+                    submitStatus = DriverApplicationSubmitStatus.Error(result.message)
                 }
             }
         }
+    }
+
+    /**
+     * Resets the submit status so the student can retry after an error.
+     */
+    fun resetSubmitStatus() {
+        submitStatus = DriverApplicationSubmitStatus.Idle
+        step3ErrorMessage = null
     }
 
     // ── Validation ──────────────────────────────────────────────────────────
@@ -166,7 +195,13 @@ class DriverApplicationViewModel(
             info.surname.isBlank() -> DriverApplicationValidationResult(false, "Enter your surname.")
             info.firstName.isBlank() -> DriverApplicationValidationResult(false, "Enter your first name.")
             info.studentNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your student number.")
+            !info.studentNumber.all { it.isDigit() } ->
+                DriverApplicationValidationResult(false, "Student number must contain digits only.")
+            info.studentNumber.length != 9 ->
+                DriverApplicationValidationResult(false, "Student number must be exactly 9 digits.")
             info.contactNumber.isBlank() -> DriverApplicationValidationResult(false, "Enter your contact number.")
+            !info.contactNumber.all { it.isDigit() } ->
+                DriverApplicationValidationResult(false, "Contact number must contain digits only.")
             info.universityEmail.isBlank() -> DriverApplicationValidationResult(false, "Enter your university email.")
             !info.universityEmail.endsWith("@mandela.ac.za", true) ->
                 DriverApplicationValidationResult(false, "Use your NMU email ending with @mandela.ac.za.")

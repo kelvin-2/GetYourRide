@@ -83,9 +83,9 @@ class StopSearchViewModel(
     fun resolveRecentLocation(label: String, onResolved: (AddressSuggestion?) -> Unit) {
         viewModelScope.launch {
             val resolved = geocodingRepository.geocode(label).getOrNull()?.let { result ->
-                val lat = result.lat ?: return@let null
-                val lon = result.lon ?: return@let null
-                AddressSuggestion(displayName = result.matchedAddress ?: label, lat = lat, lon = lon)
+                val lat = result.latitude ?: return@let null
+                val lon = result.longitude ?: return@let null
+                AddressSuggestion(displayName = result.matchedAddress ?: label, latitude = lat, longitude = lon)
             }
             onResolved(resolved)
         }
@@ -112,9 +112,9 @@ class StopSearchViewModel(
     fun resolveTypedAddress(text: String, onResolved: (AddressSuggestion?) -> Unit) {
         viewModelScope.launch {
             val resolved = geocodingRepository.geocode(text).getOrNull()?.let { result ->
-                val lat = result.lat ?: return@let null
-                val lon = result.lon ?: return@let null
-                AddressSuggestion(displayName = result.matchedAddress ?: text, lat = lat, lon = lon)
+                val lat = result.latitude ?: return@let null
+                val lon = result.longitude ?: return@let null
+                AddressSuggestion(displayName = result.matchedAddress ?: text, latitude = lat, longitude = lon)
             }
             onResolved(resolved)
         }

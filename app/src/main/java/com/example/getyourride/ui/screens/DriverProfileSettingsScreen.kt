@@ -112,6 +112,9 @@ data class DriverProfileDetails(
 
 private data class StatusStyle(
     val backgroundColor: Color,
+
+
+
     val textColor: Color,
     val icon: ImageVector
 )
@@ -484,36 +487,6 @@ fun DriverProfileSettingsScreen(
                             )
                         }
                     }
-
-                    // ── Logout Button ────────────────────────────────────────
-                    OutlinedButton(
-                        onClick = onLogoutClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = ProfileError
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp, ProfileError.copy(alpha = 0.4f)
-                        ),
-                        contentPadding = PaddingValues(vertical = 14.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ExitToApp,
-                            contentDescription = null,
-                            tint = ProfileError,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Log Out",
-                            color = ProfileError,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     // ── Delete Button ────────────────────────────────────────
                     OutlinedButton(

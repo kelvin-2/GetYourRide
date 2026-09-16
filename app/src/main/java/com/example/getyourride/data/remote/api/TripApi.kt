@@ -43,9 +43,31 @@ interface TripApi {
     @GET("api/trips/{id}")
     suspend fun getTripById(@Path("id") tripId: Long): Response<TripResponse>
 
+    /**
+     * POST /api/trips/{id}/start — driver action. Precomputes the road route if needed, sets the
+     * trip IN_PROGRESS, and starts the backend simulation so the vehicle begins moving.
+     *
+     * One call replaces the old three-step start sequence, so a trip can't be started without a
+     * route. recomputeRoute=true forces the route to be rebuilt (use after the stops changed);
+     * the default reuses an existing route.
+     */
+    @POST("api/trips/{id}/start")
+    suspend fun startTrip(
+        @Path("id") tripId: Long,
+        @Query("recomputeRoute") recomputeRoute: Boolean = false
+    ): Response<TripResponse>
+
     //student to cancle thier trip booking
     @PATCH("api/trips/bookings/{bookingId}/cancel")
     suspend fun cancelBooking(@Path("bookingId") bookingId: Long): Response<TripResponse>
+
+    /**
+     * PATCH /api/trips/{id}/cancel — driver cancels their OWN posted trip.
+     * Backend endpoint: TripController#cancelTrip. Sets the trip status to CANCELLED.
+     * This is distinct from cancelBooking above, which cancels a student's seat reservation.
+     */
+    @PATCH("api/trips/{id}/cancel")
+    suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
 
 
 

@@ -15,6 +15,12 @@ data class TripTrackingInfo(
 )
 
 enum class RideStatus(val label: String) {
+    /**
+     * The driver has not started the trip yet, so there is no live position to follow.
+     * Distinct from [ON_THE_WAY]: a SCHEDULED trip was previously shown as "ON THE WAY", which
+     * told the student the car was coming when in fact nothing was moving.
+     */
+    WAITING("NOT STARTED"),
     ON_THE_WAY("ON THE WAY"),
     ARRIVED("ARRIVED"),
     IN_TRANSIT("IN TRANSIT"),

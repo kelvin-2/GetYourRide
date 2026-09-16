@@ -110,6 +110,7 @@ private val OfferSectionIcon = Color(0xFF6366F1)
 @Composable
 fun OfferRideScreen(
     isDriverVerified: Boolean = false,
+    maxSeats: Int = 7,
     pickupState: LocationFieldState = LocationFieldState(),
     destinationState: LocationFieldState = LocationFieldState(),
     onPickupTextChanged: (String) -> Unit = {},
@@ -125,10 +126,45 @@ fun OfferRideScreen(
 ) {
     val context = LocalContext.current
 
+    // The stepper can never go above the driver's registered vehicle capacity.
+    val seatCap = maxSeats.coerceIn(1, 7)
+
     var rideDate by rememberSaveable { mutableStateOf(currentRideDateText()) }
     var rideTime by rememberSaveable { mutableStateOf(minimumRideTimeText()) }
-    var availableSeats by rememberSaveable { mutableStateOf(3) }
+    var availableSeats by rememberSaveable { mutableStateOf(seatCap.coerceAtMost(3)) }
     var farePerSeat by rememberSaveable { mutableStateOf("") }
+
+    // Errors only appear once the driver taps "Post Your Ride"; each one then
+    // clears automatically as soon as its field becomes valid again.
+    var showErrors by rememberSaveable { mutableStateOf(false) }
+
+    // ─── Per-field validation ────────────────────────────────────────────────
+    val pickupError: String? = when {
+        pickupState.text.isBlank() -> "Pickup location is required"
+        else -> null
+    }
+    val destinationError: String? = when {
+        destinationState.text.isBlank() -> "Destination is required"
+        else -> null
+    }
+    val fareValue = farePerSeat.trim().toDoubleOrNull()
+    val fareError: String? = when {
+        farePerSeat.isBlank() -> "Enter a fare per seat"
+        fareValue == null -> "Enter a valid amount"
+        fareValue < 0.0 -> "Fare cannot be negative"
+        else -> null
+    }
+    val scheduleError: String? = when {
+        !isRideDateTimeAllowed(rideDate, rideTime) ->
+            "Ride time must be at least 30 minutes from now"
+        else -> null
+    }
+
+    val isFormValid = pickupError == null &&
+        destinationError == null &&
+        fareError == null &&
+        scheduleError == null &&
+        availableSeats in 1..seatCap
 
     Scaffold(
         topBar = {
@@ -236,7 +272,8 @@ fun OfferRideScreen(
                     placeholder = "Where are you leaving from?",
                     icon = Icons.Outlined.LocationOn,
                     onTextChanged = onPickupTextChanged,
-                    onSuggestionSelected = onPickupSuggestionSelected
+                    onSuggestionSelected = onPickupSuggestionSelected,
+                    errorText = pickupError.takeIf { showErrors }
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -247,7 +284,8 @@ fun OfferRideScreen(
                     placeholder = "Where are you headed?",
                     icon = Icons.Outlined.NearMe,
                     onTextChanged = onDestinationTextChanged,
-                    onSuggestionSelected = onDestinationSuggestionSelected
+                    onSuggestionSelected = onDestinationSuggestionSelected,
+                    errorText = destinationError.takeIf { showErrors }
                 )
             }
 
@@ -320,6 +358,23 @@ fun OfferRideScreen(
                         fontSize = 13.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Plain-language explanation of the real-time rule.
+                Text(
+                    text = "You can only offer a ride for a time that's still coming up. " +
+                        "Pick a time at least 30 minutes from now — past times can't be used.",
+                    color = OfferTextMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                // Inline error if the chosen date/time is not allowed.
+                if (showErrors && scheduleError != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OfferFieldError(message = scheduleError)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -336,11 +391,12 @@ fun OfferRideScreen(
                 ) {
                     OfferSeatStepper(
                         seats = availableSeats,
+                        maxSeats = seatCap,
                         onDecreaseClick = {
                             if (availableSeats > 1) availableSeats--
                         },
                         onIncreaseClick = {
-                            if (availableSeats < 7) availableSeats++
+                            if (availableSeats < seatCap) availableSeats++
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -356,6 +412,7 @@ fun OfferRideScreen(
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.5.sp
                         )
+                        val showFareError = showErrors && fareError != null
                         OutlinedTextField(
                             value = farePerSeat,
                             onValueChange = { farePerSeat = it },
@@ -370,6 +427,7 @@ fun OfferRideScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                             },
+                            isError = showFareError,
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
@@ -378,36 +436,16 @@ fun OfferRideScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = offerTextFieldColors()
                         )
+                        if (showFareError) {
+                            OfferFieldError(message = fareError!!)
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ─── Error / Success Messages ────────────────────────────────────
-            AnimatedVisibility(
-                visible = !errorMessage.isNullOrBlank(),
-                enter = fadeIn() + slideInVertically()
-            ) {
-                if (!errorMessage.isNullOrBlank()) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        color = Color(0xFFFEE2E2),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = errorMessage,
-                            color = OfferError,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                }
-            }
-
+            // ─── Success / Status Message ────────────────────────────────────
             AnimatedVisibility(
                 visible = !statusMessage.isNullOrBlank(),
                 enter = fadeIn() + slideInVertically()
@@ -493,34 +531,58 @@ fun OfferRideScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // ─── Server / Network Error (compact, inline near button) ────────
+            if (!errorMessage.isNullOrBlank()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    color = Color(0xFFFEE2E2),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = errorMessage,
+                        color = OfferError,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             // ─── Submit Button ────────────────────────────────────────────────
+            val canSubmit = isDriverVerified && isFormValid
             val buttonScale by animateFloatAsState(
-                targetValue = if (isDriverVerified) 1f else 0.97f,
+                targetValue = if (canSubmit) 1f else 0.97f,
                 animationSpec = tween(200),
                 label = "buttonScale"
             )
 
             Button(
                 onClick = {
-                    onPostRideClick(
-                        OfferRideRequest(
-                            pickupLocation = pickupState.text.trim(),
-                            destination = destinationState.text.trim(),
-                            rideDate = rideDate.trim(),
-                            rideTime = rideTime.trim(),
-                            availableSeats = availableSeats,
-                            farePerSeat = farePerSeat.toDoubleOrNull() ?: -1.0
+                    showErrors = true
+                    if (isDriverVerified && isFormValid) {
+                        onPostRideClick(
+                            OfferRideRequest(
+                                pickupLocation = pickupState.text.trim(),
+                                destination = destinationState.text.trim(),
+                                rideDate = rideDate.trim(),
+                                rideTime = rideTime.trim(),
+                                availableSeats = availableSeats,
+                                farePerSeat = farePerSeat.toDoubleOrNull() ?: -1.0
+                            )
                         )
-                    )
+                    }
                 },
-                enabled = isDriverVerified,
+                enabled = canSubmit,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .height(58.dp)
                     .scale(buttonScale)
                     .shadow(
-                        elevation = if (isDriverVerified) 8.dp else 0.dp,
+                        elevation = if (canSubmit) 8.dp else 0.dp,
                         shape = RoundedCornerShape(16.dp),
                         ambientColor = OfferAccent.copy(alpha = 0.3f)
                     ),
@@ -610,8 +672,23 @@ private fun offerTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = OfferPrimary,
     unfocusedBorderColor = OfferBorder,
     focusedContainerColor = Color.White,
-    unfocusedContainerColor = OfferFieldBackground
+    unfocusedContainerColor = OfferFieldBackground,
+    errorBorderColor = OfferError,
+    errorCursorColor = OfferError,
+    errorLeadingIconColor = OfferError
 )
+
+// ─── Inline Field Error Text ─────────────────────────────────────────────────
+@Composable
+private fun OfferFieldError(message: String) {
+    Text(
+        text = message,
+        color = OfferError,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        lineHeight = 16.sp
+    )
+}
 
 // ─── Autocomplete Field ──────────────────────────────────────────────────────
 @Composable
@@ -622,6 +699,7 @@ private fun AutocompleteOfferField(
     icon: ImageVector,
     onTextChanged: (String) -> Unit,
     onSuggestionSelected: (AddressSuggestion) -> Unit,
+    errorText: String? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -656,11 +734,16 @@ private fun AutocompleteOfferField(
                     )
                 }
             },
+            isError = errorText != null,
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = offerTextFieldColors()
         )
+
+        if (errorText != null) {
+            OfferFieldError(message = errorText)
+        }
 
         if (state.isLoading) {
             LinearProgressIndicator(
@@ -774,6 +857,7 @@ private fun OfferPickerField(
 @Composable
 private fun OfferSeatStepper(
     seats: Int,
+    maxSeats: Int,
     onDecreaseClick: () -> Unit,
     onIncreaseClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -841,19 +925,27 @@ private fun OfferSeatStepper(
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(
-                            if (seats < 7) OfferAccent.copy(alpha = 0.1f)
+                            if (seats < maxSeats) OfferAccent.copy(alpha = 0.1f)
                             else Color.Transparent
                         )
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Add,
                         contentDescription = "Increase seats",
-                        tint = if (seats < 7) OfferAccent else OfferDisabled,
+                        tint = if (seats < maxSeats) OfferAccent else OfferDisabled,
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
+
+        // Reminds the driver of the cap set by their registered vehicle.
+        Text(
+            text = "Max $maxSeats (your vehicle's seating capacity)",
+            color = OfferTextMuted,
+            fontSize = 11.sp,
+            lineHeight = 15.sp
+        )
     }
 }
 
@@ -991,6 +1083,6 @@ private fun formatRideTime(hourOfDay: Int, minute: Int): String {
 @Composable
 fun OfferRideScreenPreview() {
     GetYourRideTheme(dynamicColor = false) {
-        OfferRideScreen(isDriverVerified = true)
+        OfferRideScreen(isDriverVerified = true, maxSeats = 4)
     }
 }
