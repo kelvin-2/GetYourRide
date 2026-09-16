@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -38,6 +39,8 @@ private val BlueLink = Color(0xFF2F6FE0)
 private val CardBg = Color.White
 private val ScreenBg = Color(0xFFF4F5FA)
 private val TextGray = Color(0xFF6B7280)
+private val InfoCardBg = Color(0xFFEDF1FE)
+private val InfoIconBg = Color(0xFFDCE4FB)
 
 /** What gets handed back to whatever screen pushed this one. */
 data class StopResult(
@@ -48,11 +51,17 @@ data class StopResult(
 )
 
 /**
- * NOTE: recentLocations is still a hardcoded list of labels (per your earlier
- * call). Tapping one resolves it into real coordinates via
- * viewModel.resolveRecentLocation(), the same precise /api/geocode endpoint
- * CarpoolSearchViewModel uses for typed text - so a recent behaves exactly
- * like a freshly searched address once picked.
+ * Redesigned to match the "Trip Customizer" mockup:
+ * - Extended navy header with title + eyebrow label + subtitle + info icon,
+ *   inset-aware via statusBarsPadding() so it doesn't draw under the status bar
+ * - Search pill
+ * - Current Location card (with "GPS" badge)
+ * - Intelligent Route Optimization info card
+ * - Search suggestions list (only shown once the student types something —
+ *   the previously hardcoded `recentLocations` list has been removed
+ *   entirely, along with the old default-list behavior)
+ * - "Confirm Stop Location" CTA, lifted off the bottom edge via
+ *   navigationBarsPadding() + extra vertical padding
  *
  * NOTE: I still don't have whatever manages the trip's stop list (a
  * TripCreationViewModel or similar, if one exists). For now onStopChosen
@@ -65,13 +74,8 @@ data class StopResult(
 fun AddStopScreen(
     navController: NavController,
     tripId: Long,
-    recentLocations: List<String> = listOf(
-        "Engineering Bldg",
-        "Main Library",
-        "Student Res A",
-        "Science Park"
-    ),
     viewModel: StopSearchViewModel,
+    onInfoClick: () -> Unit = {},
     onStopChosen: (StopResult) -> Unit = { stop ->
         navController.previousBackStackEntry
             ?.savedStateHandle
@@ -119,7 +123,6 @@ fun AddStopScreen(
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .build()
         try {
-            //live location
             fusedClient.getCurrentLocation(request, cancellationTokenSource.token)
                 .addOnSuccessListener { location ->
                     if (location == null) {
@@ -143,18 +146,19 @@ fun AddStopScreen(
     Scaffold(
         containerColor = ScreenBg,
         topBar = {
-            TopAppBar(
-                title = { Text("Add a Stop", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = NavyDark)
+            AddStopHeader(
+                onBackClick = { navController.popBackStack() },
+                onInfoClick = onInfoClick
             )
         },
         bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth().background(ScreenBg).padding(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ScreenBg)
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 28.dp)
+            ) {
                 Button(
                     onClick = {
                         val resolvedCurrent = (currentLocationState as? CurrentLocationState.Resolved)?.address
@@ -185,9 +189,9 @@ fun AddStopScreen(
                     shape = RoundedCornerShape(26.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
                 ) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Filled.AddLocationAlt, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add This Stop", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("Confirm Stop Location", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -199,20 +203,29 @@ fun AddStopScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            CurrentLocationCard(
-                state = currentLocationState,
-                onClick = {
-                    if (hasLocationPermission()) requestLiveLocation()
-                    else permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                }
-            )
+            // Once the student starts typing, this becomes a focused search-results
+            // view: Current Location and Route Optimization drop away, and come
+            // back automatically once the field is cleared.
+            val isSearching = fieldState.text.isNotBlank()
 
-            Spacer(modifier = Modifier.height(20.dp))
+            if (!isSearching) {
+                CurrentLocationCard(
+                    state = currentLocationState,
+                    onClick = {
+                        if (hasLocationPermission()) requestLiveLocation()
+                        else permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                )
 
-            if (fieldState.text.isNotBlank() && fieldState.suggestions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                RouteOptimizationInfoCard()
+
+                Spacer(modifier = Modifier.height(20.dp))
+            } else if (fieldState.suggestions.isNotEmpty()) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(fieldState.suggestions) { suggestion: AddressSuggestion ->
-                        RecentLocationRow(
+                        SuggestionRow(
                             label = suggestion.displayName,
                             onClick = {
                                 viewModel.onSuggestionSelected(suggestion)
@@ -221,24 +234,60 @@ fun AddStopScreen(
                         )
                     }
                 }
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(recentLocations) { label ->
-                        RecentLocationRow(
-                            label = label,
-                            onClick = {
-                                viewModel.resolveRecentLocation(label) { resolved ->
-                                    if (resolved != null) {
-                                        onStopChosen(StopResult(resolved.displayName, resolved.latitude, resolved.longitude))
-                                    }
-                                    // If resolution fails, we simply don't navigate - the
-                                    // student stays on this screen and can try search instead.
-                                }
-                            }
-                        )
-                    }
-                }
             }
+        }
+    }
+}
+
+@Composable
+private fun AddStopHeader(onBackClick: () -> Unit, onInfoClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(NavyDark)
+            .statusBarsPadding()
+            .padding(top = 4.dp, bottom = 20.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp)
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Text(
+                "Add a Stop",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                modifier = Modifier.weight(1f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            IconButton(onClick = onInfoClick) {
+                Icon(Icons.Filled.Info, contentDescription = "Info", tint = Color.White)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "TRIP CUSTOMIZER",
+                color = OrangeAccent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "Customize your journey with an additional campus or city stop along your route.",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
@@ -250,7 +299,7 @@ private fun SearchPill(value: String, onValueChange: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
             .background(Color(0xFFEDEEF6)).padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
-        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = BlueLink)
+        Icon(Icons.Filled.Search, contentDescription = null, tint = TextGray)
         Spacer(modifier = Modifier.width(8.dp))
         TextField(
             value = value,
@@ -290,29 +339,198 @@ private fun CurrentLocationCard(state: CurrentLocationState, onClick: () -> Unit
             }
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text("Current Location", color = OrangeAccent, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Use Current Location", color = Color(0xFF1F2937), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(OrangeAccent.copy(alpha = 0.15f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text("GPS", color = OrangeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
             val subtitle = when (state) {
-                is CurrentLocationState.Idle -> "Using GPS for precision"
+                is CurrentLocationState.Idle -> "Pinpoint accurate pickup or drop-off"
                 is CurrentLocationState.Locating -> "Finding your location..."
                 is CurrentLocationState.Resolved -> state.address.displayName
                 is CurrentLocationState.Failed -> state.message
             }
-            Text(subtitle, color = BlueLink, fontSize = 13.sp)
+            Text(subtitle, color = TextGray, fontSize = 13.sp)
         }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextGray)
     }
 }
 
 @Composable
-private fun RecentLocationRow(label: String, onClick: () -> Unit) {
+private fun RouteOptimizationInfoCard() {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(InfoCardBg).padding(14.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(InfoIconBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.SwapVert, contentDescription = null, tint = BlueLink, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text("Intelligent Route Optimization", color = Color(0xFF1F2937), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                "Stops are automatically sequenced to minimize extra travel time and avoid shuttle delays.",
+                color = BlueLink,
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+// Themed to match CurrentLocationCard / RouteOptimizationInfoCard instead of
+// sitting as a plain white row: soft lavender-blue background, a colored icon
+// chip, and blue-tinted text — so suggestions read as part of the same
+// design system rather than a generic list.
+@Composable
+private fun SuggestionRow(label: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-            .background(CardBg).clickable { onClick() }.padding(horizontal = 14.dp, vertical = 16.dp)
+            .background(InfoCardBg).clickable { onClick() }.padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
-        Icon(Icons.Filled.History, contentDescription = null, tint = TextGray, modifier = Modifier.size(20.dp))
+        Box(
+            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(InfoIconBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = BlueLink, modifier = Modifier.size(17.dp))
+        }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(label, color = Color(0xFF1F2937), fontWeight = FontWeight.Medium, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextGray)
+        Text(label, color = NavyDark, fontWeight = FontWeight.Medium, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = BlueLink)
+    }
+}
+
+// =====================================================================
+// PREVIEWS — Android Studio design-pane only, not shipped in the app.
+//
+// AddStopScreen itself needs a real NavController + StopSearchViewModel
+// (and their CurrentLocationState / AddressSuggestion types), which are
+// awkward to fake convincingly in a @Preview. Instead, AddStopPreviewShell
+// below reuses your actual UI building blocks (AddStopHeader, SearchPill,
+// CurrentLocationCard, RouteOptimizationInfoCard, SuggestionRow) driven by
+// plain local values, so what you see here matches the real screen.
+//
+// ASSUMPTION TO VERIFY: this assumes CurrentLocationState.Idle and
+// .Locating are parameterless (object) and .Failed takes a single String
+// message — matching how they're read elsewhere in this file
+// (`is CurrentLocationState.Failed -> state.message`). If your actual
+// sealed class differs, adjust the three preview calls below.
+// =====================================================================
+
+@Composable
+private fun AddStopPreviewShell(
+    searchText: String,
+    currentLocationState: CurrentLocationState,
+    previewSuggestions: List<String> = emptyList()
+) {
+    val isSearching = searchText.isNotBlank()
+    Scaffold(
+        containerColor = ScreenBg,
+        topBar = { AddStopHeader(onBackClick = {}, onInfoClick = {}) },
+        bottomBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ScreenBg)
+                    .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 28.dp)
+            ) {
+                Button(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
+                ) {
+                    Icon(Icons.Filled.AddLocationAlt, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Confirm Stop Location", color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SearchPill(value = searchText, onValueChange = {})
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (!isSearching) {
+                CurrentLocationCard(state = currentLocationState, onClick = {})
+                Spacer(modifier = Modifier.height(12.dp))
+                RouteOptimizationInfoCard()
+                Spacer(modifier = Modifier.height(20.dp))
+            } else if (previewSuggestions.isNotEmpty()) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(previewSuggestions) { label ->
+                        SuggestionRow(label = label, onClick = {})
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Add Stop – Browsing (empty)")
+@Composable
+private fun AddStopScreenEmptyPreview() {
+    AddStopPreviewShell(
+        searchText = "",
+        currentLocationState = CurrentLocationState.Idle
+    )
+}
+
+@Preview(showBackground = true, name = "Add Stop – Locating GPS")
+@Composable
+private fun AddStopScreenLocatingPreview() {
+    AddStopPreviewShell(
+        searchText = "",
+        currentLocationState = CurrentLocationState.Locating
+    )
+}
+
+@Preview(showBackground = true, name = "Add Stop – Permission denied")
+@Composable
+private fun AddStopScreenPermissionDeniedPreview() {
+    AddStopPreviewShell(
+        searchText = "",
+        currentLocationState = CurrentLocationState.Failed("Permission denied")
+    )
+}
+
+@Preview(showBackground = true, name = "Add Stop – Searching with results")
+@Composable
+private fun AddStopScreenSearchingPreview() {
+    AddStopPreviewShell(
+        searchText = "humewood",
+        currentLocationState = CurrentLocationState.Failed("Permission denied"),
+        previewSuggestions = listOf(
+            "Humewood, Gqeberha, South Africa",
+            "Humewood Beach, Summerstrand, South Africa"
+        )
+    )
+}
+
+@Preview(showBackground = true, name = "Add Stop – Header only")
+@Composable
+private fun AddStopHeaderPreview() {
+    AddStopHeader(onBackClick = {}, onInfoClick = {})
+}
+
+@Preview(showBackground = true, name = "Suggestion row")
+@Composable
+private fun SuggestionRowPreview() {
+    Box(modifier = Modifier.background(ScreenBg).padding(16.dp)) {
+        SuggestionRow(label = "Humewood, Gqeberha, South Africa", onClick = {})
     }
 }
