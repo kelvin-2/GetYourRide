@@ -72,6 +72,15 @@ fun TripResponse.toCarpoolRide(): CarpoolRide {
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun TripResponse.toRideRequestDetails(): RideRequestDetails {
+    // departureTime arrives as a raw ISO string (e.g. "2026-08-15T14:30:00").
+    // Show just the time (e.g. "02:30 PM"); fall back to the raw string if it
+    // doesn't parse rather than crashing the screen.
+    val formattedDeparture = try {
+        LocalDateTime.parse(departureTime).format(timeFormatter)
+    } catch (e: DateTimeParseException) {
+        departureTime
+    }
+
     return RideRequestDetails(
         tripId = tripId,
         driverName = driverName ?: "Driver",
@@ -88,7 +97,7 @@ fun TripResponse.toRideRequestDetails(): RideRequestDetails {
         destinationLabel = destinationStop,
         destinationLat = destinationLat,
         destinationLng = destinationLng,
-        departureTime = departureTime,   // still a raw ISO string — format this for display, see note below
+        departureTime = formattedDeparture,   // time-only display string, e.g. "02:30 PM"
         arrivalEstimate = arrivalTime ?: "—",
         seatsAvailable = availableSeats,
         pricePerSeat = price.toDouble(),

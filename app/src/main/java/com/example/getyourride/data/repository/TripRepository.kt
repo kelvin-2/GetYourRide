@@ -56,22 +56,36 @@ class TripRepository(private val api: TripApi) {
      * Resolve the trip the logged-in student should currently be tracking, or `null` when
      * there is nothing to track.
      *
-     * "Trackable" means a CONFIRMED booking whose trip is IN_PROGRESS — SCHEDULED trips are
-     * deliberately excluded: nothing is moving yet, so showing them here produced a screen
-     * with a blank map and a permanent "Waiting for driver…" state. That's not useful and
-     * reads as broken; the student should see "No rides currently available to track" until
-     * the trip actually starts, then land straight on the live vehicle.
-     * COMPLETED/CANCELLED trips have no live position either and are excluded for the same
-     * reason. When several trips are IN_PROGRESS, the soonest departure wins.
+     * "Trackable" now means a CONFIRMED booking whose trip is either IN_PROGRESS (a live vehicle
+     * to follow) OR still upcoming (SCHEDULED/CONFIRMED). Upcoming trips used to be excluded, which
+     * meant tapping "Track" on a confirmed-but-not-yet-started ride landed on a blank
+     * "No rides available" screen. Students expect to at least see the route and destination on the
+     * map while they wait, so we now surface the upcoming trip too — the tracking screen renders the
+     * destination/stops with a "Waiting for driver…" banner (no vehicle marker) until the driver
+     * starts, at which point the same trip flips to a live position.
+     *
+     * Priority: an IN_PROGRESS trip always wins over a merely upcoming one. Within each group the
+     * soonest departure wins. COMPLETED/CANCELLED trips are never trackable.
      *
      * `Result.success(null)` is a legitimate outcome (no active rides) and must NOT be
      * treated as an error or substituted with sample data by callers.
      */
     suspend fun getActiveTrackableTrip(): Result<TripResponse?> {
         return getMyBookings(BOOKING_STATUS_CONFIRMED).map { bookings ->
-            bookings
-                .map { it.trip }
+            val trips = bookings.map { it.trip }
+
+            // A vehicle that's actually moving is the best thing to track.
+            val inProgress = trips
                 .filter { it.status.equals("IN_PROGRESS", ignoreCase = true) }
+                .minByOrNull { it.departureTime }
+
+            // Otherwise fall back to the next upcoming (not-yet-started) confirmed trip, so the
+            // student still sees the map + route while waiting for the driver to start.
+            inProgress ?: trips
+                .filter {
+                    it.status.equals("SCHEDULED", ignoreCase = true) ||
+                        it.status.equals("CONFIRMED", ignoreCase = true)
+                }
                 .minByOrNull { it.departureTime }
         }
     }

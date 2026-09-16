@@ -165,9 +165,15 @@ fun RequestRideScreen(
                 onAddStopClick   = onAddStopClick,
             )
 
+            // Prefer the live Google ETA (minutes from now) when the backend
+            // returns it; otherwise fall back to the trip's scheduled arrival.
+            val arrivalEstimate = bookingViewModel.etaMinutes
+                ?.let { mins -> "$mins min" }
+                ?: ride.arrivalEstimate
+
             TripDetailsRow(
                 departureTime   = ride.departureTime,
-                arrivalEstimate = ride.arrivalEstimate,
+                arrivalEstimate = arrivalEstimate,
                 seatsAvailable  = ride.seatsAvailable,
                 pricePerSeat    = ride.pricePerSeat,
             )
@@ -188,7 +194,7 @@ fun RequestRideScreen(
                 enabled  = bookingState !is BookingUiState.Submitting,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(14.dp),
-                colors   = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                colors   = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
             ) {
                 if (bookingState is BookingUiState.Submitting) {
                     CircularProgressIndicator(
@@ -336,7 +342,7 @@ private fun RouteCard(
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add stop", tint = OrangeAccent, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Add a Stop", fontSize = 13.sp, color = OrangeAccent, fontWeight = FontWeight.Medium)
+                Text("ADD YOUR PICK UP", fontSize = 13.sp, color = OrangeAccent, fontWeight = FontWeight.Medium)
             }
 
             // Destination row
@@ -365,7 +371,7 @@ private fun TripDetailsRow(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DetailChip(modifier = Modifier.weight(1f), label = "Departure",   value = "Today, $departureTime")
+            DetailChip(modifier = Modifier.weight(1f), label = "Departure",   value = departureTime)
             DetailChip(modifier = Modifier.weight(1f), label = "Arrival Est.", value = arrivalEstimate)
         }
         Row(
