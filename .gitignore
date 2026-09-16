@@ -15,3 +15,9 @@
 local.properties
 # Added by code-review-graph
 .code-review-graph/
+
+.kotlin/
+build_output.txt
+build_output2.txt
+install2.txt
+install_output.txt

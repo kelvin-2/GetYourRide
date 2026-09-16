@@ -103,7 +103,26 @@ interface TripApi {
      */
     @POST("api/trips")
     suspend fun createTrip(@Body request: CreateTripRequest): Response<TripResponse>
+
+    /**
+     * GET /api/trips/{tripId}/eta — live ETA to the trip's destination, calculated by the
+     * backend via Google Compute Routes from wherever the vehicle currently is.
+     * Backend endpoint: TripEtaController#getEta.
+     */
+    @GET("api/trips/{tripId}/eta")
+    suspend fun getEta(@Path("tripId") tripId: Long): Response<EtaResponse>
 }
+
+/**
+ * Response from GET /api/trips/{tripId}/eta. Field names match the backend's EtaResponse
+ * exactly for Gson deserialization.
+ */
+data class EtaResponse(
+    val tripId: Long,
+    val etaSeconds: Double?,
+    val etaMinutes: Int?,
+    val distanceMeters: Double?
+)
 
 /**
  * Request body for offering a ride (POST /api/trips/offer).
