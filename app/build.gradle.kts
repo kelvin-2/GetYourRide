@@ -29,6 +29,7 @@ android {
             localProps.load(FileInputStream(localPropsFile))
         }
         manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY", "")
+
     }
 
     buildTypes {
