@@ -115,13 +115,18 @@ import com.example.getyourride.viewmodel.ShuttleDriverBoardingViewModelFactory
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverBoardingScreen
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverProfileScreen
 import com.example.getyourride.ui.screens.shuttleDriver.ShuttleDriverScanQrScreen
-
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+
+
         enableEdgeToEdge()
         setContent {
             GetYourRideTheme {
