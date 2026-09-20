@@ -86,7 +86,7 @@ fun RateTripScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            HeaderSection(onClose = onClose)
+            HeaderSection(trip = trip, onClose = onClose)
 
             val scrollState = androidx.compose.foundation.rememberScrollState()
             Column(
@@ -96,10 +96,10 @@ fun RateTripScreen(
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp)
             ) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
                 DriverCard(trip)
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
                 TripInfoCard(trip)
 
                 Spacer(Modifier.height(20.dp))
@@ -157,7 +157,7 @@ fun RateTripScreen(
 
 // ---------- Header ----------
 @Composable
-private fun HeaderSection(onClose: () -> Unit) {
+private fun HeaderSection(trip: TripRatingData, onClose: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -166,7 +166,6 @@ private fun HeaderSection(onClose: () -> Unit) {
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onClose) {
@@ -176,14 +175,13 @@ private fun HeaderSection(onClose: () -> Unit) {
                 "Rate Your Trip",
                 color = Color.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
             )
-            Icon(
-                Icons.Filled.AccountCircle,
-                contentDescription = "Account",
-                tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
+            // Balances the close button's width so the title stays centered
+            // now that the account icon is gone.
+            Spacer(Modifier.width(48.dp))
         }
 
         Spacer(Modifier.height(18.dp))
@@ -232,12 +230,26 @@ private fun HeaderSection(onClose: () -> Unit) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "How was your morning ride with Kelvin?",
+            "How was your ${timeOfDayLabel()} ride with ${trip.driverName.substringBefore(" ")}?",
             color = CardWhite.copy(alpha = 0.6f),
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+/**
+ * Returns "morning" / "afternoon" / "evening" / "night" based on the
+ * device's current local time — no hardcoded time-of-day text.
+ */
+private fun timeOfDayLabel(): String {
+    val hour = java.time.LocalTime.now().hour
+    return when (hour) {
+        in 5..11 -> "morning"
+        in 12..16 -> "afternoon"
+        in 17..20 -> "evening"
+        else -> "night"
     }
 }
 
@@ -248,7 +260,7 @@ private fun DriverCard(trip: TripRatingData) {
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = CardWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier.fillMaxWidth().offset(y = (-24).dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
