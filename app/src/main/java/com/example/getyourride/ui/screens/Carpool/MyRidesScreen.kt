@@ -46,6 +46,7 @@ private enum class RideTab(val label: String) {
 fun MyRidesScreen(
     viewModel     : AllRidesViewModel,
     onTrackRide   : (String) -> Unit = {},
+    onRateRide    : (String) -> Unit = {},
     navController : androidx.navigation.NavController,
     currentRoute  : String = GyrRoutes.RIDES,
     notifications       : List<NotificationResponse> = emptyList(),
@@ -183,6 +184,10 @@ fun MyRidesScreen(
                                     // seen in logcat) — NOT ride.id, which is now
                                     // bookingId under the TripBookingResponse mapper.
                                     onCancelRide = { viewModel.cancelTrip(tripId) },
+                                    // Same convention as track/cancel above — the
+                                    // rating screen needs the real trip id, not
+                                    // the bookingId that ride.id carries.
+                                    onRateRide   = { onRateRide(tripId.toString()) },
                                 )
                             }
                             Spacer(Modifier.height(20.dp))

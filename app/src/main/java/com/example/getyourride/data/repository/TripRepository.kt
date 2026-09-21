@@ -5,6 +5,8 @@ import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripBookingResponse
+import com.example.getyourride.data.remote.dto.TripRatingRequest
+import com.example.getyourride.data.remote.dto.TripReviewResponse
 
 class TripRepository(private val api: TripApi) {
 
@@ -201,6 +203,26 @@ class TripRepository(private val api: TripApi) {
                 Result.success(body)
             } else {
                 Result.failure(Exception("Failed to load ETA for trip $tripId: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Submit a student's rating for a completed trip.
+     * Calls POST /api/ratings/rate. Keyed by bookingId (per the backend's
+     * TripRatingRequest), NOT tripId — the opposite convention from
+     * cancelTrip/startTrip above. JWT is attached automatically by the
+     * auth interceptor, so the student isn't passed explicitly.
+     */
+    suspend fun rateTrip(bookingId: Long, rating: Int, review: String, tags: List<String> = emptyList()): Result<TripReviewResponse> {
+        return try {
+            val response = api.rateTrip(TripRatingRequest(bookingId, rating, review, tags))
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to submit rating: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -67,4 +67,25 @@ class AllRidesViewModel(
                 }
         }
     }
+
+    /**
+     * Submit a student's rating for a completed trip (POST /api/ratings/rate,
+     * keyed by bookingId — see TripRepository.rateTrip). On success, refetches
+     * bookings so `hasRating`/UI state stays authoritative rather than being
+     * guessed client-side. onResult lets the caller (the rating screen) show
+     * its own success/error Toast and navigate back regardless of outcome.
+     */
+    fun submitRating(
+        bookingId: Long,
+        rating: Int,
+        review: String,
+        tags: List<String> = emptyList(),
+        onResult: (Result<com.example.getyourride.data.remote.dto.TripReviewResponse>) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            val result = repository.rateTrip(bookingId, rating, review, tags)
+            result.onSuccess { loadAllTrips() }
+            onResult(result)
+        }
+    }
 }

@@ -2,6 +2,8 @@ package com.example.getyourride.data.remote.api
 
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripBookingResponse
+import com.example.getyourride.data.remote.dto.TripRatingRequest
+import com.example.getyourride.data.remote.dto.TripReviewResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
@@ -111,6 +113,14 @@ interface TripApi {
      */
     @GET("api/trips/{tripId}/eta")
     suspend fun getEta(@Path("tripId") tripId: Long): Response<EtaResponse>
+
+    /**
+     * POST /api/ratings/rate — student rates a completed trip.
+     * Backend: TripReviewController#rateTrip. studentEmail is read server-side
+     * from the JWT (authentication.getName()) — not sent in the body.
+     */
+    @POST("api/ratings/rate")
+    suspend fun rateTrip(@Body request: TripRatingRequest): Response<TripReviewResponse>
 }
 
 /**
