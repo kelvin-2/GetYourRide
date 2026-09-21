@@ -17,8 +17,8 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
 
-//    private const val BASE_URL = "http://192.168.0.181:8080/"
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    private const val BASE_URL = "http://192.168.0.181:8080/"
+//    private const val BASE_URL = "http://10.0.2.2:8080/"
     //Campus connection ___________________________________________________________________
 //   private const val BASE_URL: String = "https://professor-thrive-family.ngrok-free.dev/"
     // ⚠️ You had "http://localhost:8080/" — that will NOT work on the emulator.
