@@ -924,6 +924,12 @@ class MainActivity : ComponentActivity() {
                             onTrackRide   = { rideId ->
                                 navController.navigate("track/$rideId")
                             },
+                            // Tapping a completed ride (or its "Rate this ride"
+                            // row) opens the rating screen for that ride's
+                            // bookingId.
+                            onRateRide    = { bookingId ->
+                                navController.navigate("rate_trip/$bookingId")
+                            },
                             notifications       = badgeNotificationViewModel.notifications,
                             unreadCount         = badgeNotificationViewModel.unreadCount,
                             onNotificationsOpen = { badgeNotificationViewModel.load() },
@@ -973,6 +979,73 @@ class MainActivity : ComponentActivity() {
                             navController = navController,
                             onBackClick = { navController.popBackStack() }
                         )
+                    }
+
+                    // ── RATE TRIP ──────────────────────────────────────────────
+                    // Route param is "bookingId", NOT "tripId" — the backend's
+                    // TripRatingRequest is keyed by bookingId (opposite of
+                    // track/cancel above, which use tripId). Trip DISPLAY
+                    // details (driver name, route, price) still come from
+                    // booking.trip, already loaded in allRidesViewModel — only
+                    // the submit call uses bookingId.
+                    composable("rate_trip/{bookingId}") { backStackEntry ->
+                        val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull()
+                        val context = androidx.compose.ui.platform.LocalContext.current
+
+                        val booking = (allRidesViewModel.uiState as? AllTripsUiState.Success)
+                            ?.bookings
+                            ?.firstOrNull { it.bookingId == bookingId }
+
+                        if (booking == null || bookingId == null) {
+                            // Not found in the already-loaded list (deep link, or
+                            // list hasn't loaded yet) — bail out rather than
+                            // showing broken data.
+                            LaunchedEffect(Unit) { navController.popBackStack() }
+                        } else {
+                            val trip = booking.trip
+                            val dateTime = try {
+                                java.time.LocalDateTime.parse(trip.departureTime)
+                            } catch (e: java.time.format.DateTimeParseException) {
+                                null
+                            }
+
+                            val tripRatingData = com.example.getyourride.ui.screens.ratings.TripRatingData(
+                                driverName = trip.driverName ?: "Driver",
+                                isVerified = true, // TODO: no verification flag on TripResponse yet
+                                driverRating = 4.8, // TODO: same placeholder TripMappers.kt already uses elsewhere
+                                ridesCompleted = 0, // TODO: not in TripResponse yet — backend needs to add this
+                                vehicleDescription = listOfNotNull(trip.vehicleColour, trip.vehicleModel)
+                                    .joinToString(" ")
+                                    .ifBlank { "Unknown Vehicle" } + " • ${trip.registrationNumber ?: "—"}",
+                                pickupLabel = trip.departureStop,
+                                dropoffLabel = trip.destinationStop,
+                                dateTimeLabel = dateTime?.let {
+                                    it.format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM • hh:mm a"))
+                                } ?: trip.departureTime,
+                                priceLabel = "R${trip.price.setScale(2)}",
+                                seatsLabel = "1 Seat", // TODO: booking doesn't expose seat count booked yet
+                            )
+
+                            com.example.getyourride.ui.screens.ratings.RateTripScreen(
+                                trip = tripRatingData,
+                                onClose = { navController.popBackStack() },
+                                onSkip  = { navController.popBackStack() },
+                                onSubmit = { rating, tags, note ->
+                                    allRidesViewModel.submitRating(bookingId, rating, note, tags.toList()) { result ->
+                                        result.onSuccess {
+                                            android.widget.Toast.makeText(
+                                                context, "Thanks for rating your trip!", android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }.onFailure { e ->
+                                            android.widget.Toast.makeText(
+                                                context, e.message ?: "Couldn't submit your rating.", android.widget.Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                        navController.popBackStack()
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     // ── SHUTTLE DRIVER: BOARDING (Home) ────────────────────────
