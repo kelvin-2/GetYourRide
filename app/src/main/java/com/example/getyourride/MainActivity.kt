@@ -996,6 +996,14 @@ class MainActivity : ComponentActivity() {
                             ?.bookings
                             ?.firstOrNull { it.bookingId == bookingId }
 
+                        // Holds the real values the person submitted, so the
+                        // confirmation pop-up shows what actually got saved —
+                        // not placeholders. Non-null only after a successful
+                        // submit, which is what triggers the pop-up.
+                        var submittedResult by remember {
+                            mutableStateOf<Triple<String, Int, List<String>>?>(null)
+                        }
+
                         if (booking == null || bookingId == null) {
                             // Not found in the already-loaded list (deep link, or
                             // list hasn't loaded yet) — bail out rather than
@@ -1033,18 +1041,33 @@ class MainActivity : ComponentActivity() {
                                 onSubmit = { rating, tags, note ->
                                     allRidesViewModel.submitRating(bookingId, rating, note, tags.toList()) { result ->
                                         result.onSuccess {
-                                            android.widget.Toast.makeText(
-                                                context, "Thanks for rating your trip!", android.widget.Toast.LENGTH_SHORT
-                                            ).show()
+                                            // Show the confirmation pop-up on top of
+                                            // this screen rather than popping back
+                                            // immediately — "Back to Home" (below)
+                                            // is what actually navigates away.
+                                            submittedResult = Triple(tripRatingData.driverName, rating, tags.toList())
                                         }.onFailure { e ->
                                             android.widget.Toast.makeText(
                                                 context, e.message ?: "Couldn't submit your rating.", android.widget.Toast.LENGTH_LONG
                                             ).show()
                                         }
-                                        navController.popBackStack()
                                     }
                                 }
                             )
+
+                            submittedResult?.let { (driverName, rating, tags) ->
+                                com.example.getyourride.ui.screens.ratings.RatingConfirmationDialog(
+                                    driverName = driverName,
+                                    rating = rating,
+                                    compliments = tags,
+                                    onBackToHome = {
+                                        navController.navigate(GyrRoutes.HOME) {
+                                            popUpTo(GyrRoutes.HOME) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
 
