@@ -43,6 +43,28 @@ class TripBookingViewModel(
     var bookingState: BookingUiState by mutableStateOf(BookingUiState.Idle)
         private set
 
+    /**
+     * Arrival estimate for the "Arrival Est." chip, pulled from the backend's
+     * live Google Compute Routes ETA (GET /api/trips/{tripId}/eta). Null until
+     * the request comes back (or if it fails) — the screen falls back to the
+     * trip's scheduled arrival time in that case.
+     */
+    var etaMinutes: Int? by mutableStateOf(null)
+        private set
+
+    init {
+        loadEta()
+    }
+
+    /** Fetches the live Google ETA for this trip and stores the minutes. */
+    private fun loadEta() {
+        viewModelScope.launch {
+            repository.getEta(tripId)
+                .onSuccess { eta -> etaMinutes = eta.etaMinutes }
+                .onFailure { etaMinutes = null }
+        }
+    }
+
     /** Called from AddStopScreen when the student is choosing where to be picked up. */
     fun choosePickupStop(stop: StopResult) {
         pickupStop = stop

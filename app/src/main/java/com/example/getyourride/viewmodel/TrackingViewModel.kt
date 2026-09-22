@@ -161,6 +161,7 @@ class TrackingViewModel(
     private fun startPolling(tripId: Long) {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
+            var tick = 0
             while (isActive) {
                 tripRepository.getTripById(tripId).fold(
                     onSuccess = { trip ->
@@ -169,6 +170,12 @@ class TrackingViewModel(
                             trip.status.equals("CANCELLED", ignoreCase = true)
                         ) {
                             return@launch // trip is over; stop polling
+                        }
+                        // ETA calls out to Google Compute Routes, which has its own quota — fetch
+                        // it far less often than the position poll (every ETA_TICK_INTERVAL
+                        // ticks, ~12s at the default 4s poll) rather than on every tick.
+                        if (tick % ETA_TICK_INTERVAL == 0 && trip.status.equals("IN_PROGRESS", ignoreCase = true)) {
+                            fetchEta(tripId)
                         }
                     },
                     onFailure = { e ->
@@ -179,8 +186,17 @@ class TrackingViewModel(
                         }
                     }
                 )
+                tick++
                 delay(POLL_INTERVAL_MS)
             }
+        }
+    }
+
+    /** Fetches a fresh ETA and applies it to the current trip info. Silently no-ops on failure —
+     *  a stale or missing ETA is a minor UI gap, not worth surfacing as a connection error. */
+    private suspend fun fetchEta(tripId: Long) {
+        tripRepository.getEta(tripId).onSuccess { eta ->
+            updateActive { it.copy(tripInfo = it.tripInfo.copy(etaMinutes = eta.etaMinutes)) }
         }
     }
 
@@ -220,6 +236,10 @@ class TrackingViewModel(
         // Matches the backend simulation tick (getyourride.tracking.simulation.tick-interval-ms,
         // default 4000ms), so the marker advances about once per poll.
         const val POLL_INTERVAL_MS = 4_000L
+
+        // Fetch ETA every 3rd position poll (~12s at the default 4s interval) rather than every
+        // tick, since it costs a live Google Compute Routes call.
+        const val ETA_TICK_INTERVAL = 3
     }
 }
 

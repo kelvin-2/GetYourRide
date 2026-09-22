@@ -18,22 +18,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -100,9 +95,6 @@ fun TrackingScreen(
     viewModel: TrackingViewModel,
     navController: androidx.navigation.NavController,
     onBackClick: (() -> Unit)? = null,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -115,12 +107,7 @@ fun TrackingScreen(
         navController = navController,
         onBackClick = onBackClick
     ) {
-        TrackingScreenContent(
-            uiState = uiState,
-            onMessageDriver = onMessageDriver,
-            onCallDriver = onCallDriver,
-            onCancelRide = { viewModel.cancelRide(onCancelRide) }
-        )
+        TrackingScreenContent(uiState = uiState)
     }
 }
 
@@ -130,10 +117,7 @@ fun TrackingScreen(
  */
 @Composable
 fun TrackingScreenContent(
-    uiState: TrackingUiState,
-    onMessageDriver: () -> Unit = {},
-    onCallDriver: () -> Unit = {},
-    onCancelRide: () -> Unit = {}
+    uiState: TrackingUiState
 ) {
     when (uiState) {
         is TrackingUiState.Loading -> CenteredMessage {
@@ -185,12 +169,7 @@ fun TrackingScreenContent(
             Box(modifier = Modifier.weight(1f)) {
                 OsmMapSection(data = uiState.data)
             }
-            DriverInfoCard(
-                info = uiState.data.tripInfo,
-                onMessageDriver = onMessageDriver,
-                onCallDriver = onCallDriver,
-                onCancelRide = onCancelRide
-            )
+            DriverInfoCard(info = uiState.data.tripInfo)
         }
     }
 }
@@ -313,9 +292,9 @@ private fun OsmMapView(
         ) {
             override fun getTileURLString(pMapTileIndex: Long): String =
                 baseUrl +
-                    MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                    MapTileIndex.getY(pMapTileIndex) + "/" +
-                    MapTileIndex.getX(pMapTileIndex)
+                        MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                        MapTileIndex.getY(pMapTileIndex) + "/" +
+                        MapTileIndex.getX(pMapTileIndex)
         }
     }
 
@@ -545,10 +524,7 @@ private fun configureOsmdroid(context: Context) {
 
 @Composable
 private fun DriverInfoCard(
-    info: TripTrackingInfo,
-    onMessageDriver: () -> Unit,
-    onCallDriver: () -> Unit,
-    onCancelRide: () -> Unit
+    info: TripTrackingInfo
 ) {
     Card(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -624,42 +600,6 @@ private fun DriverInfoCard(
                     subtitle = if (info.isPlateVerified) "Verified" else "Unverified",
                     modifier = Modifier.weight(1f)
                 )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = onMessageDriver,
-                    colors = ButtonDefaults.buttonColors(containerColor = UniRideOrange),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    Text("Message", color = Color.White)
-                }
-                OutlinedIconButton(
-                    onClick = onCallDriver,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(Icons.Filled.Call, contentDescription = "Call driver", tint = UniRideOrange)
-                }
-                OutlinedIconButton(
-                    onClick = onCancelRide,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.Cancel,
-                        contentDescription = "Cancel ride",
-                        tint = Color(0xFFE0483E)
-                    )
-                }
             }
         }
     }

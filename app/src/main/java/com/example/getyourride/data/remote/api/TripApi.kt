@@ -2,6 +2,8 @@ package com.example.getyourride.data.remote.api
 
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripBookingResponse
+import com.example.getyourride.data.remote.dto.TripRatingRequest
+import com.example.getyourride.data.remote.dto.TripReviewResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
 import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
@@ -103,7 +105,34 @@ interface TripApi {
      */
     @POST("api/trips")
     suspend fun createTrip(@Body request: CreateTripRequest): Response<TripResponse>
+
+    /**
+     * GET /api/trips/{tripId}/eta — live ETA to the trip's destination, calculated by the
+     * backend via Google Compute Routes from wherever the vehicle currently is.
+     * Backend endpoint: TripEtaController#getEta.
+     */
+    @GET("api/trips/{tripId}/eta")
+    suspend fun getEta(@Path("tripId") tripId: Long): Response<EtaResponse>
+
+    /**
+     * POST /api/ratings/rate — student rates a completed trip.
+     * Backend: TripReviewController#rateTrip. studentEmail is read server-side
+     * from the JWT (authentication.getName()) — not sent in the body.
+     */
+    @POST("api/ratings/rate")
+    suspend fun rateTrip(@Body request: TripRatingRequest): Response<TripReviewResponse>
 }
+
+/**
+ * Response from GET /api/trips/{tripId}/eta. Field names match the backend's EtaResponse
+ * exactly for Gson deserialization.
+ */
+data class EtaResponse(
+    val tripId: Long,
+    val etaSeconds: Double?,
+    val etaMinutes: Int?,
+    val distanceMeters: Double?
+)
 
 /**
  * Request body for offering a ride (POST /api/trips/offer).

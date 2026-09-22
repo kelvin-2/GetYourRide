@@ -8,9 +8,12 @@
 package com.example.getyourride.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Navigation
@@ -56,6 +59,10 @@ data class RideCardData(
     val slotTime: String? = null,           // "06:45:00 - 07:30:00"
     val vehicleCapacity: Int? = null,
     val stops: List<RideStopInfo> = emptyList(),  // pickup stops list
+    // TODO: backend has no rating field yet (no GET /trips/{id} rating flag,
+    // no ratings table). Defaults to false so every COMPLETED ride shows
+    // "Rate this ride" until that field is wired through the API/mapper.
+    val hasRating: Boolean = false,
 )
 
 @Composable
@@ -63,11 +70,15 @@ fun RideCard(
     ride         : RideCardData,
     onTrackRide  : () -> Unit = {},
     onCancelRide : () -> Unit = {}, // parent updates ride.status = CANCELLED (locally and/or via API) here
+    onRateRide   : () -> Unit = {}, // parent navigates to the rating screen for this ride
 ) {
     var showCancelDialog by remember { mutableStateOf(false) }
+    val isUnratedCompleted = ride.status == RideStatus.COMPLETED && !ride.hasRating
 
     Card(
-        modifier  = Modifier.fillMaxWidth(),
+        modifier  = Modifier
+            .fillMaxWidth()
+            .let { if (isUnratedCompleted) it.clickable(onClick = onRateRide) else it },
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(containerColor = CardWhite),
         elevation = CardDefaults.cardElevation(2.dp),
@@ -189,6 +200,30 @@ fun RideCard(
                     }
                 }
             }
+
+            // Whole card is already clickable for this case (see Card's
+            // modifier above) — this row is the visible affordance for it.
+            if (isUnratedCompleted) {
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(OrangeAccent.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Star, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Rate this ride",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NavyPrimary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
+                }
+            }
         }
     }
 
@@ -271,6 +306,28 @@ fun RideCardPreview() {
     GetYourRideTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             RideCard(ride = sampleRide)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RideCardCompletedPreview() {
+    val completedRide = RideCardData(
+        id = "3",
+        driverName = "Kelvin M.",
+        carDescription = "Toyota Corolla",
+        plate = "ABC 123 EC",
+        status = RideStatus.COMPLETED,
+        pickup = "NMU North Campus",
+        dropoff = "Engineering Hub",
+        dateLabel = "Today, 24 Oct",
+        timeLabel = "08:30 AM",
+    )
+
+    GetYourRideTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            RideCard(ride = completedRide)
         }
     }
 }
