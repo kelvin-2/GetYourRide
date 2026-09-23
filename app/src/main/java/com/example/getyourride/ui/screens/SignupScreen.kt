@@ -137,14 +137,32 @@ fun SignUpScreen(
                         leadingIcon   = Icons.Outlined.Person,
                     )
 
-                    GyrTextField(
-                        label         = "Student Number",
-                        value         = studentNumber,
-                        onValueChange = { studentNumber = it },
-                        placeholder   = "8-digit ID",
-                        leadingIcon   = Icons.Outlined.Badge,
-                        keyboardType  = KeyboardType.Number,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        GyrTextField(
+                            label         = "Student Number",
+                            value         = studentNumber,
+                            onValueChange = { input ->
+                                // Digits only, capped at 9 characters
+                                val digitsOnly = input.filter { it.isDigit() }
+                                if (digitsOnly.length <= 9) {
+                                    studentNumber = digitsOnly
+                                }
+                            },
+                            placeholder   = "9-digit ID",
+                            leadingIcon   = Icons.Outlined.Badge,
+                            keyboardType  = KeyboardType.Number,
+                        )
+                        // Feedback: only shown once the student has started typing,
+                        // and only while the number is short of the required 9 digits.
+                        if (studentNumber.isNotEmpty() && studentNumber.length < 9) {
+                            Text(
+                                text     = "Student number must be 9 digits (${studentNumber.length}/9)",
+                                fontSize = 12.sp,
+                                color    = DangerRed,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                    }
 
                     GyrTextField(
                         label         = "University Email",
@@ -267,6 +285,7 @@ fun SignUpScreen(
                             )
                         },
                         enabled  = firstName.isNotBlank() && lastName.isNotBlank() &&
+                                studentNumber.length == 9 &&
                                 agreedToTerms && isNsfasFunded != null && !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
