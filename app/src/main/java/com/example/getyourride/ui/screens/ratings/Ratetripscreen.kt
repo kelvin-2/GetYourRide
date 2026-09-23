@@ -55,7 +55,7 @@ data class WhatWentWellOption(
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 )
 
-private val defaultWentWellOptions = listOf(
+val defaultWentWellOptions = listOf(
     WhatWentWellOption("On time", Icons.Filled.Schedule),
     WhatWentWellOption("Friendly driver", Icons.Filled.SentimentSatisfiedAlt),
     WhatWentWellOption("Clean car", Icons.Filled.AutoAwesome),
