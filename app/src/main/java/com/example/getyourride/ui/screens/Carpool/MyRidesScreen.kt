@@ -184,10 +184,14 @@ fun MyRidesScreen(
                                     // seen in logcat) — NOT ride.id, which is now
                                     // bookingId under the TripBookingResponse mapper.
                                     onCancelRide = { viewModel.cancelTrip(tripId) },
-                                    // Same convention as track/cancel above — the
-                                    // rating screen needs the real trip id, not
-                                    // the bookingId that ride.id carries.
-                                    onRateRide   = { onRateRide(tripId.toString()) },
+                                    // Rating is keyed by bookingId, NOT tripId (opposite
+                                    // of track/cancel above). ride.id already IS the
+                                    // bookingId — TripBookingResponse.toRideCardData()
+                                    // sets id = bookingId.toString(). Passing tripId here
+                                    // made MainActivity's rate_trip/{bookingId} lookup
+                                    // fail (booking == null) and pop straight back,
+                                    // which is why the rating screen never appeared.
+                                    onRateRide   = { onRateRide(ride.id) },
                                 )
                             }
                             Spacer(Modifier.height(20.dp))
