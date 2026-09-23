@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -956,6 +957,11 @@ class MainActivity : ComponentActivity() {
                                 tripRepository = TripRepository(NetworkModule.tripApi)
                             )
                         )
+                        AutoPromptRatingOnArrival(
+                            trackingViewModel = trackingViewModel,
+                            allRidesViewModel = allRidesViewModel,
+                            navController = navController,
+                        )
                         TrackingScreen(
                             viewModel = trackingViewModel,
                             navController = navController,
@@ -976,6 +982,11 @@ class MainActivity : ComponentActivity() {
                                 socket = socket,
                                 tripRepository = TripRepository(NetworkModule.tripApi)
                             )
+                        )
+                        AutoPromptRatingOnArrival(
+                            trackingViewModel = trackingViewModel,
+                            allRidesViewModel = allRidesViewModel,
+                            navController = navController,
                         )
                         TrackingScreen(
                             viewModel = trackingViewModel,
@@ -1159,4 +1170,54 @@ private fun homeRouteFor(response: com.example.getyourride.data.remote.dto.AuthR
     if (response.isFunded == true) return "shuttle_home"
     // Self-funded students go to carpool home
     return GyrRoutes.HOME
+}
+
+/**
+ * Watches the tracking screen's live trip status and, the moment a trip
+ * flips to ARRIVED (backend COMPLETED), auto-navigates the student straight
+ * to the rating screen — instead of leaving them to notice on their own and
+ * dig it up later from My Rides > Past.
+ *
+ * Ratings are keyed by bookingId (see the rate_trip/{bookingId} route
+ * comment above), but TrackingViewModel only knows the tripId, so this
+ * refreshes allRidesViewModel and cross-references trip.tripId against the
+ * freshly loaded bookings to find the matching bookingId.
+ *
+ * promptedTripId guards against firing more than once for the same trip —
+ * e.g. if the student backs out of the rating screen back onto Tracking,
+ * which is still showing the same ARRIVED state.
+ */
+@Composable
+private fun AutoPromptRatingOnArrival(
+    trackingViewModel: TrackingViewModel,
+    allRidesViewModel: AllRidesViewModel,
+    navController: androidx.navigation.NavController,
+) {
+    val trackingState by trackingViewModel.uiState.collectAsState()
+    var promptedTripId by remember { mutableStateOf<Long?>(null) }
+
+    val arrivedTripId = (trackingState as? com.example.getyourride.viewmodel.TrackingUiState.Active)
+        ?.data
+        ?.takeIf { it.tripInfo.status == com.example.getyourride.domain.model.RideStatus.ARRIVED }
+        ?.tripId
+
+    // Refresh bookings as soon as we see the trip has arrived, so the lookup
+    // below has this trip's bookingId to work with.
+    LaunchedEffect(arrivedTripId) {
+        if (arrivedTripId != null && arrivedTripId != promptedTripId) {
+            allRidesViewModel.loadAllTrips()
+        }
+    }
+
+    LaunchedEffect(arrivedTripId, allRidesViewModel.uiState) {
+        if (arrivedTripId == null || arrivedTripId == promptedTripId) return@LaunchedEffect
+
+        val bookings = (allRidesViewModel.uiState as? AllTripsUiState.Success)?.bookings
+            ?: return@LaunchedEffect
+        val booking = bookings.firstOrNull { it.trip.tripId == arrivedTripId }
+            ?: return@LaunchedEffect
+
+        promptedTripId = arrivedTripId
+        navController.navigate("rate_trip/${booking.bookingId}") { launchSingleTop = true }
+    }
 }
