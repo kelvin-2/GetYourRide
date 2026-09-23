@@ -140,7 +140,13 @@ fun SignUpScreen(
                     GyrTextField(
                         label         = "Student Number",
                         value         = studentNumber,
-                        onValueChange = { studentNumber = it },
+                        onValueChange = { input ->
+                            // Digits only, capped at 9 characters
+                            val digitsOnly = input.filter { it.isDigit() }
+                            if (digitsOnly.length <= 9) {
+                                studentNumber = digitsOnly
+                            }
+                        },
                         placeholder   = "8-digit ID",
                         leadingIcon   = Icons.Outlined.Badge,
                         keyboardType  = KeyboardType.Number,
