@@ -46,14 +46,19 @@ data class BookingConfirmation(
     val driverName: String,
     val plateNumber: String,
     val vehicleModel: String,
-    val status: String = "Confirmed"
+    val status: String = "Confirmed",
+    // Real backend booking id. Encoded into the QR so the shuttle driver's scanner
+    // can mark this exact booking as boarded. Null only for previews/placeholders.
+    val bookingId: Long? = null
 )
 
 /**
- * QR payload — encode whatever your backend/scanner expects to validate the ticket.
+ * QR payload — the shuttle driver's scanner reads this to board the student.
+ * booking=<id> is the key part: it identifies the exact booking to mark boarded.
+ * ticket/shuttle are included for display/debugging.
  */
 fun buildQrPayload(booking: BookingConfirmation): String {
-    return "GYR|ticket=${booking.ticketId}|shuttle=${booking.shuttleId}"
+    return "GYR|booking=${booking.bookingId ?: ""}|ticket=${booking.ticketId}|shuttle=${booking.shuttleId}"
 }
 
 /**

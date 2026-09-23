@@ -54,6 +54,9 @@ import com.example.getyourride.viewmodel.AuthUiState
 import com.example.getyourride.viewmodel.AuthViewModel
 import com.example.getyourride.viewmodel.AuthViewModelFactory
 import com.example.getyourride.NotificationBadgeState
+import com.example.getyourride.viewmodel.ShuttleScanViewModel
+import com.example.getyourride.viewmodel.ShuttleScanViewModelFactory
+import com.example.getyourride.viewmodel.ScanBoardResult
 import com.example.getyourride.data.repository.NotificationRepository
 import com.example.getyourride.viewmodel.NotificationViewModel
 import com.example.getyourride.viewmodel.NotificationViewModelFactory
@@ -776,7 +779,8 @@ class MainActivity : ComponentActivity() {
                                     departureTime = uiState.selectedTime ?: "08:30",
                                     driverName = trip?.driverName ?: "S. Mokoena",
                                     plateNumber = trip?.registrationNumber ?: "BS 42 GP",
-                                    vehicleModel = trip?.vehicleModel ?: "Mercedes Sprinter"
+                                    vehicleModel = trip?.vehicleModel ?: "Mercedes Sprinter",
+                                    bookingId = uiState.lastBookingId
                                 )
                                 navController.navigate("shuttle_booking_confirmed") {
                                     popUpTo("shuttle_home")
@@ -1117,7 +1121,25 @@ class MainActivity : ComponentActivity() {
 
                     // ── SHUTTLE DRIVER: SCAN QR ───────────────────────────────
                     composable("shuttle_driver_scan_qr") {
+                        val scanViewModel: ShuttleScanViewModel = viewModel(
+                            factory = ShuttleScanViewModelFactory(
+                                ShuttleDriverRepository(NetworkModule.shuttleDriverApi)
+                            )
+                        )
+                        val boardResult = scanViewModel.boardResult
                         ShuttleDriverScanQrScreen(
+                            onMarkAsBoardedClick = { bookingId -> scanViewModel.markBoarded(bookingId) },
+                            boardSuccess = when (boardResult) {
+                                is ScanBoardResult.Success -> true
+                                is ScanBoardResult.Error -> false
+                                else -> null
+                            },
+                            boardMessage = when (boardResult) {
+                                is ScanBoardResult.Success -> boardResult.message
+                                is ScanBoardResult.Error -> boardResult.message
+                                else -> null
+                            },
+                            isBoarding = boardResult is ScanBoardResult.Loading,
                             onScanQrCodeClick = { /* already here */ },
                             onBoardingClick = {
                                 navController.navigate("shuttle_driver_boarding") { launchSingleTop = true }
