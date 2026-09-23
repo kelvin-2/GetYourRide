@@ -142,7 +142,7 @@ fun TrackingScreenContent(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Book a ride to see its live position here.",
+                text = "Go to Rides and click TRACK on the ride you want to track.",
                 textAlign = TextAlign.Center,
                 color = TextMuted,
                 fontSize = 14.sp
