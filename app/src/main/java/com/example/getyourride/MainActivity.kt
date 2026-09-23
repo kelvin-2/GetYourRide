@@ -657,7 +657,8 @@ class MainActivity : ComponentActivity() {
                                             driverName = shuttle.driverName ?: "S. Mokoena",
                                             plateNumber = shuttle.plateNumber ?: "BS 42 GP",
                                             vehicleModel = shuttle.vehicleModel ?: "Mercedes Sprinter",
-                                            status = shuttle.status
+                                            status = shuttle.status,
+                                            bookingId = shuttle.bookingId
                                         )
                                         navController.navigate("shuttle_booking_confirmed")
                                     },
