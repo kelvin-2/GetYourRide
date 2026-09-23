@@ -343,31 +343,44 @@ private fun TripInfoCard(trip: TripRatingData) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Pickup/dropoff each on their own row now — these labels are full
+            // street addresses, and cramming icon+text+arrow+icon+text into a
+            // single unconstrained Row let each Text measure against nearly the
+            // full row width independently, ballooning the row's height far
+            // beyond the visible card (the "huge gap" before the stars/chips).
+            // weight(1f) bounds each label so it wraps normally instead.
+            Row(verticalAlignment = Alignment.Top) {
                 Icon(
                     Icons.Filled.TripOrigin,
                     contentDescription = null,
                     tint = OrangeAccent,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp).padding(top = 2.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(trip.pickupLabel, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    Icons.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(13.dp)
+                Text(
+                    trip.pickupLabel,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            Row(verticalAlignment = Alignment.Top) {
                 Icon(
                     Icons.Filled.LocationOn,
                     contentDescription = null,
                     tint = NavyPrimary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp).padding(top = 2.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(trip.dropoffLabel, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    trip.dropoffLabel,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             Spacer(Modifier.height(10.dp))

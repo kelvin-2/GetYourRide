@@ -675,7 +675,10 @@ class MainActivity : ComponentActivity() {
                         MyRidesScreen(
                             viewModel = allRidesViewModel,
                             navController = navController,
-                            currentRoute = GyrRoutes.SHUTTLE_RIDES
+                            currentRoute = GyrRoutes.SHUTTLE_RIDES,
+                            onRateRide    = { bookingId ->
+                                navController.navigate("rate_trip/$bookingId")
+                            }
                         )
                     }
 
