@@ -26,8 +26,16 @@
           </targets>
         </DialogSelection>
       </SelectionState>
-      <SelectionState runConfigName="RateTripScreenPreview">
+      <SelectionState runConfigName="OfferRideScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-09-22T08:14:54.770235700Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\AndroidS\.android\avd\Pixel_9a.avd" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
       </SelectionState>
     </selectionStates>
   </component>
