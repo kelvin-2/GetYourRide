@@ -1110,6 +1110,9 @@ class MainActivity : ComponentActivity() {
                             onSelectTimeSlot = { slot ->
                                 boardingViewModel.selectTimeSlot(slot)
                             },
+                            onSelectDate = { date ->
+                                boardingViewModel.selectDate(date)
+                            },
                             onScanQrCodeClick = {
                                 navController.navigate("shuttle_driver_scan_qr") { launchSingleTop = true }
                             },

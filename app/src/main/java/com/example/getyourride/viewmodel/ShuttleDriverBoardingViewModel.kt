@@ -51,7 +51,8 @@ sealed interface BoardingUiState {
         val timeSlots: List<TimeSlot>,
         val selectedSlot: TimeSlot,
         val selectedDate: LocalDate,
-        val driverTrips: List<TripResponse>   // All trips for this driver on selected date
+        val driverTrips: List<TripResponse>,          // All trips for this driver on selected date
+        val availableDates: List<LocalDate> = emptyList()  // Dates that actually have trips
     ) : BoardingUiState
 
     data class NoTrip(
@@ -59,7 +60,8 @@ sealed interface BoardingUiState {
         val timeSlots: List<TimeSlot>? = null,
         val selectedSlot: TimeSlot? = null,
         val selectedDate: LocalDate? = null,
-        val driverTrips: List<TripResponse>? = null
+        val driverTrips: List<TripResponse>? = null,
+        val availableDates: List<LocalDate> = emptyList()
     ) : BoardingUiState
     data class Error(val message: String) : BoardingUiState
 }
@@ -83,9 +85,14 @@ class ShuttleDriverBoardingViewModel(
     var markingBookingId: Long? by mutableStateOf(null)
         private set
 
-    // Internal state: all trips for this driver today
+    // Internal state: all trips for this driver on the currently selected date
     private var allDriverTrips: List<TripResponse> = emptyList()
     private var currentDate: LocalDate = LocalDate.now()
+
+    // Every shuttle trip for this driver across ALL dates — used to compute the
+    // date dropdown options and to re-filter when the driver picks a date.
+    private var allDriverShuttleTripsAllDates: List<TripResponse> = emptyList()
+    private var availableDates: List<LocalDate> = emptyList()
 
     // Time slots loaded from the database via API
     private var loadedTimeSlots: List<TimeSlot> = emptyList()
@@ -141,6 +148,12 @@ class ShuttleDriverBoardingViewModel(
                 val shuttleTripsForDriver = allTrips.filter { trip ->
                     trip.driverId == driverId && trip.tripType == "SHUTTLE"
                 }
+                // Keep every date's trips so the date dropdown can list only dates with trips.
+                allDriverShuttleTripsAllDates = shuttleTripsForDriver
+                availableDates = shuttleTripsForDriver
+                    .mapNotNull { extractDate(it.departureTime) }
+                    .distinct()
+                    .sortedDescending()
                 android.util.Log.d("BoardingVM", "Shuttle trips for this driver (all dates): ${shuttleTripsForDriver.size}")
                 shuttleTripsForDriver.take(10).forEach { trip ->
                     android.util.Log.d("BoardingVM", "  Trip ${trip.tripId}: type=${trip.tripType}, dept='${trip.departureTime}', ${trip.departureStop}->${trip.destinationStop}")
@@ -203,7 +216,8 @@ class ShuttleDriverBoardingViewModel(
                             timeSlots = loadedTimeSlots,
                             selectedSlot = activeSlot,
                             selectedDate = currentDate,
-                            driverTrips = allDriverTrips
+                            driverTrips = allDriverTrips,
+                            availableDates = availableDates
                         )
                     }
                 }
@@ -232,7 +246,45 @@ class ShuttleDriverBoardingViewModel(
                     timeSlots = loadedTimeSlots,
                     selectedSlot = slot,
                     selectedDate = currentDate,
-                    driverTrips = allDriverTrips
+                    driverTrips = allDriverTrips,
+                    availableDates = availableDates
+                )
+            }
+        }
+    }
+
+    /**
+     * Called when the driver picks a date from the dropdown. Re-filters this driver's
+     * shuttle trips to that date and auto-refreshes the schedule (loads the active/first
+     * slot for that date), exactly like the initial load. Only dates that actually have
+     * trips are offered, so allDriverTrips is never empty here.
+     */
+    fun selectDate(date: LocalDate) {
+        val driverId = UserSession.id ?: return
+        currentDate = date
+        allDriverTrips = allDriverShuttleTripsAllDates.filter { trip ->
+            isTripOnDate(trip.departureTime, date)
+        }
+
+        viewModelScope.launch {
+            try {
+                // Prefer the time-based active slot; fall back to the last slot that has a trip.
+                val activeSlot = determineActiveSlot(LocalTime.now())
+                val slotToLoad = if (allDriverTrips.any { tripMatchesSlot(it, activeSlot) }) {
+                    activeSlot
+                } else {
+                    loadedTimeSlots.lastOrNull { slot -> allDriverTrips.any { tripMatchesSlot(it, slot) } }
+                        ?: activeSlot
+                }
+                loadTripForSlot(slotToLoad, driverId)
+            } catch (e: Exception) {
+                uiState = BoardingUiState.NoTrip(
+                    message = "No trips found for the selected date.",
+                    timeSlots = loadedTimeSlots,
+                    selectedSlot = determineActiveSlot(LocalTime.now()),
+                    selectedDate = currentDate,
+                    driverTrips = allDriverTrips,
+                    availableDates = availableDates
                 )
             }
         }
@@ -253,7 +305,8 @@ class ShuttleDriverBoardingViewModel(
                 timeSlots = loadedTimeSlots,
                 selectedSlot = slot,
                 selectedDate = currentDate,
-                driverTrips = allDriverTrips
+                driverTrips = allDriverTrips,
+                availableDates = availableDates
             )
             return
         }
@@ -288,7 +341,8 @@ class ShuttleDriverBoardingViewModel(
             timeSlots = loadedTimeSlots,
             selectedSlot = slot,
             selectedDate = currentDate,
-            driverTrips = allDriverTrips
+            driverTrips = allDriverTrips,
+            availableDates = availableDates
         )
     }
 
@@ -397,7 +451,8 @@ class ShuttleDriverBoardingViewModel(
                             timeSlots = loadedTimeSlots,
                             selectedSlot = newActiveSlot,
                             selectedDate = currentDate,
-                            driverTrips = allDriverTrips
+                            driverTrips = allDriverTrips,
+                            availableDates = availableDates
                         )
                     }
                 }
