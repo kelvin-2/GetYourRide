@@ -868,7 +868,7 @@ private fun PastRidesSection(pastRides: List<TripResponse>) {
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        "Your completed and cancelled rides will appear here.",
+                        "Your completed rides will appear here.",
                         color = DriverTextMuted,
                         fontSize = 14.sp
                     )

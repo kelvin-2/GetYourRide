@@ -2,7 +2,6 @@ package com.example.getyourride.ui.screens.shuttleDriver
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,7 +36,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -98,6 +102,7 @@ fun ShuttleDriverBoardingScreen(
     onLoadData: () -> Unit = {},
     onMarkAsBoarded: (Long) -> Unit = {},
     onSelectTimeSlot: (TimeSlot) -> Unit = {},
+    onSelectDate: (java.time.LocalDate) -> Unit = {},
     onScanQrCodeClick: () -> Unit = {},
     onBoardingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
@@ -244,7 +249,10 @@ fun ShuttleDriverBoardingScreen(
                         TimeSlotFilterRow(
                             timeSlots = uiState.timeSlots,
                             selectedSlot = uiState.selectedSlot,
-                            onSelectSlot = onSelectTimeSlot
+                            onSelectSlot = onSelectTimeSlot,
+                            availableDates = uiState.availableDates,
+                            selectedDate = uiState.selectedDate,
+                            onSelectDate = onSelectDate
                         )
 
                         // No trip message for this slot
@@ -355,9 +363,12 @@ fun ShuttleDriverBoardingScreen(
                     students = uiState.students,
                     timeSlots = uiState.timeSlots,
                     selectedSlot = uiState.selectedSlot,
+                    availableDates = uiState.availableDates,
+                    selectedDate = uiState.selectedDate,
                     markingBookingId = markingBookingId,
                     onMarkAsBoarded = onMarkAsBoarded,
                     onSelectTimeSlot = onSelectTimeSlot,
+                    onSelectDate = onSelectDate,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -376,9 +387,12 @@ private fun BoardingContent(
     students: List<BoardedStudentResponse>,
     timeSlots: List<TimeSlot>,
     selectedSlot: TimeSlot,
+    availableDates: List<java.time.LocalDate>,
+    selectedDate: java.time.LocalDate?,
     markingBookingId: Long?,
     onMarkAsBoarded: (Long) -> Unit,
     onSelectTimeSlot: (TimeSlot) -> Unit,
+    onSelectDate: (java.time.LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var searchText by rememberSaveable { mutableStateOf("") }
@@ -415,11 +429,14 @@ private fun BoardingContent(
             )
         }
 
-        // ── Time Slot Filter ────────────────────────────────────────────
+        // ── Time Slot Filter (with date dropdown) ───────────────────────
         TimeSlotFilterRow(
             timeSlots = timeSlots,
             selectedSlot = selectedSlot,
-            onSelectSlot = onSelectTimeSlot
+            onSelectSlot = onSelectTimeSlot,
+            availableDates = availableDates,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate
         )
 
         // ── Trip Header Card (gradient like profile) ────────────────────
@@ -517,11 +534,15 @@ private fun BoardingContent(
 
 // ── Time Slot Filter Row ────────────────────────────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun TimeSlotFilterRow(
     timeSlots: List<TimeSlot>,
     selectedSlot: TimeSlot,
-    onSelectSlot: (TimeSlot) -> Unit
+    onSelectSlot: (TimeSlot) -> Unit,
+    availableDates: List<java.time.LocalDate> = emptyList(),
+    selectedDate: java.time.LocalDate? = null,
+    onSelectDate: (java.time.LocalDate) -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -553,6 +574,21 @@ private fun TimeSlotFilterRow(
                 )
             }
 
+            // ── Date filter dropdown (only dates that have trips) ────────────
+            if (availableDates.isNotEmpty() && selectedDate != null) {
+                Text(
+                    text = "Date",
+                    color = BoardingTextMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                DateFilterDropdown(
+                    availableDates = availableDates,
+                    selectedDate = selectedDate,
+                    onSelectDate = onSelectDate
+                )
+            }
+
             // Morning slots
             Text(
                 text = "Morning",
@@ -560,11 +596,10 @@ private fun TimeSlotFilterRow(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 timeSlots.filter { it.period == "Morning" }.forEach { slot ->
                     TimeSlotChip(
@@ -582,11 +617,10 @@ private fun TimeSlotFilterRow(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 timeSlots.filter { it.period == "Afternoon" }.forEach { slot ->
                     TimeSlotChip(
@@ -595,6 +629,61 @@ private fun TimeSlotFilterRow(
                         onClick = { onSelectSlot(slot) }
                     )
                 }
+            }
+        }
+    }
+}
+
+/** Formats a date like "Tue, 04 Aug" for the dropdown. */
+private fun formatBoardingDate(date: java.time.LocalDate): String =
+    date.format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM"))
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateFilterDropdown(
+    availableDates: List<java.time.LocalDate>,
+    selectedDate: java.time.LocalDate,
+    onSelectDate: (java.time.LocalDate) -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = formatBoardingDate(selectedDate),
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = BoardingText,
+                unfocusedTextColor = BoardingText,
+                focusedBorderColor = BoardingPrimary,
+                unfocusedBorderColor = BoardingDivider,
+                focusedContainerColor = BoardingFieldBg,
+                unfocusedContainerColor = BoardingFieldBg
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            availableDates.forEach { date ->
+                DropdownMenuItem(
+                    text = { Text(formatBoardingDate(date)) },
+                    onClick = {
+                        expanded = false
+                        if (date != selectedDate) onSelectDate(date)
+                    }
+                )
             }
         }
     }

@@ -117,12 +117,10 @@ private val ScanErrorText = Color(0xFFC62828)
  * when entering the shuttle.
  */
 @Immutable
-data class ShuttleScannedQrStudent(
+data class ShuttleScannedBooking(
     val bookingId: Long,
-    val tripId: Long,
-    val firstName: String,
-    val lastName: String,
-    val studentNumber: String,
+    val shuttleId: String,
+    val ticketId: String,
     val boardedAt: String? = null
 )
 
@@ -130,10 +128,15 @@ data class ShuttleScannedQrStudent(
 @Composable
 fun ShuttleDriverScanQrScreen(
     /*
-     * Later this should call the backend:
-     * update boarding_log.boarded_at where booking_id = bookingId.
+     * Calls the backend to record boarding for the scanned bookingId
+     * (POST /api/shuttle-driver/boarding/mark).
      */
     onMarkAsBoardedClick: (Long) -> Unit = {},
+    // Boarding outcome from the backend, so the screen can show a real success or error.
+    // true = success, false = error; null = idle / not yet attempted.
+    boardSuccess: Boolean? = null,
+    boardMessage: String? = null,
+    isBoarding: Boolean = false,
     onScanQrCodeClick: () -> Unit = {},
     onBoardingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
@@ -162,10 +165,25 @@ fun ShuttleDriverScanQrScreen(
     }
 
     /*
-     * This holds the student details after a QR code has been scanned.
+     * This holds the booking details after a QR code has been scanned.
      */
-    var scannedStudent by remember {
-        mutableStateOf<ShuttleScannedQrStudent?>(null)
+    var scannedBooking by remember {
+        mutableStateOf<ShuttleScannedBooking?>(null)
+    }
+
+    // Turn the backend boarding outcome into the feedback message.
+    androidx.compose.runtime.LaunchedEffect(boardSuccess, boardMessage) {
+        when (boardSuccess) {
+            true -> {
+                isErrorMessage = false
+                messageText = boardMessage ?: "Student marked as boarded successfully."
+            }
+            false -> {
+                isErrorMessage = true
+                messageText = boardMessage ?: "Could not mark the student as boarded."
+            }
+            null -> { /* idle — leave the current message */ }
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -259,16 +277,16 @@ fun ShuttleDriverScanQrScreen(
                          */
                         isScanning = false
 
-                        val parsedStudent = parseScannedStudentQr(rawQrValue)
+                        val parsedBooking = parseScannedBookingQr(rawQrValue)
 
-                        if (parsedStudent != null) {
-                            scannedStudent = parsedStudent
+                        if (parsedBooking != null) {
+                            scannedBooking = parsedBooking
                             isErrorMessage = false
-                            messageText = "QR code scanned successfully. Confirm the student details below."
+                            messageText = "QR scanned. Confirm the booking below, then tap Mark as Boarded."
                         } else {
-                            scannedStudent = null
+                            scannedBooking = null
                             isErrorMessage = true
-                            messageText = "QR code scanned, but the details could not be read. Use Boarding to mark the student manually."
+                            messageText = "Couldn't read a valid booking from this QR. Use Boarding to mark the student manually."
                         }
                     },
                     onStopScanningClick = {
@@ -280,7 +298,7 @@ fun ShuttleDriverScanQrScreen(
             } else {
                 ScannerStartCard(
                     onScanClick = {
-                        scannedStudent = null
+                        scannedBooking = null
 
                         if (hasCameraPermission) {
                             isScanning = true
@@ -298,25 +316,14 @@ fun ShuttleDriverScanQrScreen(
                 isError = isErrorMessage
             )
 
-            scannedStudent?.let { student ->
-                ScannedStudentCard(
-                    student = student,
-                    onMarkAsBoardedClick = {
-                        /*
-                         * This behaves like the Mark as Boarded button on the Boarding page.
-                         *
-                         * For now, it updates local UI state.
-                         * Later, this bookingId should be sent to Spring Boot.
-                         */
-                        onMarkAsBoardedClick(student.bookingId)
+            scannedBooking?.let { booking ->
+                // Reflect the backend boarding outcome onto the card + message.
+                val boardedBooking = if (boardSuccess == true) booking.copy(boardedAt = "Now") else booking
 
-                        scannedStudent = student.copy(
-                            boardedAt = "Now"
-                        )
-
-                        isErrorMessage = false
-                        messageText = "Student marked as boarded successfully."
-                    }
+                ScannedBookingCard(
+                    booking = boardedBooking,
+                    isBoarding = isBoarding,
+                    onMarkAsBoardedClick = { onMarkAsBoardedClick(booking.bookingId) }
                 )
             }
 
@@ -498,11 +505,12 @@ private fun ActiveScannerCard(
  * Shows details from the scanned QR code.
  */
 @Composable
-private fun ScannedStudentCard(
-    student: ShuttleScannedQrStudent,
+private fun ScannedBookingCard(
+    booking: ShuttleScannedBooking,
+    isBoarding: Boolean,
     onMarkAsBoardedClick: () -> Unit
 ) {
-    val isBoarded = student.boardedAt != null
+    val isBoarded = booking.boardedAt != null
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -519,7 +527,7 @@ private fun ScannedStudentCard(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Scanned Student Details",
+                text = "Scanned Booking",
                 color = ScanPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
@@ -550,26 +558,20 @@ private fun ScannedStudentCard(
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
-                        text = "${student.firstName} ${student.lastName}",
+                        text = "Booking #${booking.bookingId}",
                         color = ScanText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Student No: ${student.studentNumber}",
+                        text = "Ticket: ${booking.ticketId}",
                         color = ScanTextMuted,
                         fontSize = 12.sp
                     )
 
                     Text(
-                        text = "Booking ID: ${student.bookingId}",
-                        color = ScanTextMuted,
-                        fontSize = 12.sp
-                    )
-
-                    Text(
-                        text = "Trip ID: ${student.tripId}",
+                        text = "Shuttle ID: ${booking.shuttleId}",
                         color = ScanTextMuted,
                         fontSize = 12.sp
                     )
@@ -581,6 +583,7 @@ private fun ScannedStudentCard(
             } else {
                 Button(
                     onClick = onMarkAsBoardedClick,
+                    enabled = !isBoarding,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -590,7 +593,7 @@ private fun ScannedStudentCard(
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
                     Text(
-                        text = "Mark as Boarded",
+                        text = if (isBoarding) "Marking…" else "Mark as Boarded",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -870,20 +873,20 @@ private fun BoardingFallbackCard(
 }
 
 /*
- * Reads student details from the QR code text.
+ * Reads the booking out of the student's shuttle QR code.
  *
- * Supported QR format:
- * booking_id=1;trip_id=1;first_name=Alex;last_name=Thompson;student_number=ST88291
+ * The student's Booking Confirmed screen encodes (see buildQrPayload):
+ *   GYR|booking=123|ticket=GYR-46|shuttle=46
  *
- * Also supports:
- * bookingId=1;tripId=1;firstName=Alex;lastName=Thompson;studentNumber=ST88291
+ * The pipe-delimited "key=value" pairs are parsed here. Only booking is
+ * required (it's what boarding needs); ticket/shuttle are for display.
+ * Falls back to a bare number if the QR is just the booking id.
  */
-private fun parseScannedStudentQr(rawQrValue: String): ShuttleScannedQrStudent? {
+private fun parseScannedBookingQr(rawQrValue: String): ShuttleScannedBooking? {
     val values = rawQrValue
-        .split(";", "\n", ",")
+        .split("|", ";", "\n", ",")
         .mapNotNull { part ->
             val pieces = part.split("=", limit = 2)
-
             if (pieces.size == 2) {
                 pieces[0].trim().lowercase() to pieces[1].trim()
             } else {
@@ -892,32 +895,20 @@ private fun parseScannedStudentQr(rawQrValue: String): ShuttleScannedQrStudent? 
         }
         .toMap()
 
-    val bookingId = values["booking_id"]?.toLongOrNull()
+    val bookingId = values["booking"]?.toLongOrNull()
+        ?: values["booking_id"]?.toLongOrNull()
         ?: values["bookingid"]?.toLongOrNull()
+        // Fallback: a QR that is just the raw booking number.
+        ?: rawQrValue.trim().toLongOrNull()
         ?: return null
 
-    val tripId = values["trip_id"]?.toLongOrNull()
-        ?: values["tripid"]?.toLongOrNull()
-        ?: return null
+    val shuttleId = values["shuttle"] ?: values["shuttle_id"] ?: "—"
+    val ticketId = values["ticket"] ?: values["ticket_id"] ?: "—"
 
-    val firstName = values["first_name"]
-        ?: values["firstname"]
-        ?: return null
-
-    val lastName = values["last_name"]
-        ?: values["lastname"]
-        ?: return null
-
-    val studentNumber = values["student_number"]
-        ?: values["studentnumber"]
-        ?: return null
-
-    return ShuttleScannedQrStudent(
+    return ShuttleScannedBooking(
         bookingId = bookingId,
-        tripId = tripId,
-        firstName = firstName,
-        lastName = lastName,
-        studentNumber = studentNumber,
+        shuttleId = shuttleId,
+        ticketId = ticketId,
         boardedAt = null
     )
 }
