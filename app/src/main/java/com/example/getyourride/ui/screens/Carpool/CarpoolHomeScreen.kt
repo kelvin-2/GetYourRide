@@ -355,53 +355,6 @@ private fun AvailableRidesSection(
     }
 }
 
-// ── 3. Recent trips ─────────────────────────────────────────────────────────
-
-@Composable
-private fun RecentTripsSection(onViewAll: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader(title = "Recent Trips", onViewAll = onViewAll)
-
-        Card(
-            modifier  = Modifier.fillMaxWidth(),
-            shape     = RoundedCornerShape(12.dp),
-            colors    = CardDefaults.cardColors(containerColor = CardWhite),
-            elevation = CardDefaults.cardElevation(2.dp),
-        ) {
-            Row(
-                modifier              = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Summerstrand → South Campus", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
-                    Text("Yesterday, 13 Oct", fontSize = 12.sp, color = TextMuted)
-                    Row {
-                        repeat(4) {
-                            Icon(Icons.Outlined.Star, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(14.dp))
-                        }
-                        Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = BorderLight, modifier = Modifier.size(14.dp))
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = StatusCompleted.copy(alpha = 0.12f),
-                ) {
-                    Text(
-                        text       = "Completed",
-                        fontSize   = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color      = StatusCompleted,
-                        modifier   = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
-        }
-    }
-}
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
