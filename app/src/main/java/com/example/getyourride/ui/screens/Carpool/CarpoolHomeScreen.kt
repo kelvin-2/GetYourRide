@@ -101,7 +101,7 @@ fun CarpoolHomeScreen(
                 onViewAll  = onViewAllRides,
             )
 
-            RecentTripsSection(onViewAll = onViewAllTrips)
+
 
             Spacer(Modifier.height(20.dp))
         }
