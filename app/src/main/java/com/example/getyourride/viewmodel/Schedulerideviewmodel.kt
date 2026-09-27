@@ -23,7 +23,8 @@ data class ScheduleRideUiState(
     val isConfirming: Boolean = false,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val lastBookedTrip: TripResponse? = null // real trip data for the confirmation screen
+    val lastBookedTrip: TripResponse? = null, // real trip data for the confirmation screen
+    val lastBookingId: Long? = null           // real booking id from the backend, encoded into the QR
 )
 
 class ScheduleRideViewModel(
@@ -81,11 +82,18 @@ class ScheduleRideViewModel(
                 val trip = repository.findAvailableTrip(state.pickupLabel, slot)
                     ?: throw Exception("No shuttle available for this stop and time — try another slot")
 
-                repository.bookShuttle(trip.tripId)
+                val summary = repository.bookShuttle(trip.tripId)
 
                 // Store the real trip (driver, plate, vehicle, times) for the confirmation screen,
-                // instead of leaving the caller to invent placeholder data.
-                _uiState.update { it.copy(isConfirming = false, lastBookedTrip = trip) }
+                // instead of leaving the caller to invent placeholder data. Also keep the real
+                // bookingId returned by the backend — it goes into the QR the driver scans.
+                _uiState.update {
+                    it.copy(
+                        isConfirming = false,
+                        lastBookedTrip = trip,
+                        lastBookingId = summary.bookingConfirmation.bookingId
+                    )
+                }
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.update {

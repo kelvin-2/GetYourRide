@@ -24,56 +24,60 @@ class ShuttleRepository(
 ) {
 
     suspend fun fetchShuttleHomeData(): ShuttleHomeData {
-        val response = tripApi.getMyTrips()
+        // Upcoming trips come from the student's BOOKINGS (not raw trips) so each one
+        // carries its bookingId — that's what the shuttle QR needs for boarding.
+        val bookingsResponse = tripApi.getMyBookings(null)
+        if (!bookingsResponse.isSuccessful) {
+            throw Exception("Failed to fetch bookings: ${bookingsResponse.message()}")
+        }
+        val allBookings = bookingsResponse.body() ?: emptyList()
 
-        if (!response.isSuccessful) {
-            throw Exception("Failed to fetch trips: ${response.message()}")
+        val shuttleBookings = allBookings.filter {
+            it.trip.tripType.equals("SHUTTLE", ignoreCase = true)
         }
 
-        val allTrips = response.body() ?: emptyList()
-
-        // Filter for SHUTTLE trips only
-        val shuttleTrips = allTrips.filter { it.tripType.equals("SHUTTLE", ignoreCase = true) }
-
-        // 1. Upcoming = SCHEDULED, CONFIRMED, or ACTIVE
+        // 1. Upcoming = SCHEDULED, CONFIRMED, or ACTIVE trip status.
         //    CONFIRMED must be included — a trip becomes CONFIRMED immediately after booking,
         //    so leaving it out means a just-booked trip never shows up here.
-        val upcoming = shuttleTrips
+        val upcoming = shuttleBookings
             .filter {
-                it.status.equals("SCHEDULED", ignoreCase = true) ||
-                        it.status.equals("CONFIRMED", ignoreCase = true) ||
-                        it.status.equals("ACTIVE", ignoreCase = true)
+                val s = it.trip.status
+                s.equals("SCHEDULED", ignoreCase = true) ||
+                        s.equals("CONFIRMED", ignoreCase = true) ||
+                        s.equals("ACTIVE", ignoreCase = true)
             }
             .map { it.toUpcomingShuttle() }
 
-        // 2. Recent = COMPLETED (take last 5)
-        val recent = shuttleTrips
-            .filter { it.status.equals("COMPLETED", ignoreCase = true) }
-            .sortedByDescending { it.departureTime }
+        // 2. Recent = COMPLETED trips (take last 5).
+        val recent = shuttleBookings
+            .filter { it.trip.status.equals("COMPLETED", ignoreCase = true) }
+            .sortedByDescending { it.trip.departureTime }
             .take(5)
-            .map { it.toRecentTrip() }
+            .map { it.trip.toRecentTrip() }
 
         return ShuttleHomeData(upcoming, recent)
     }
 
-    private fun TripResponse.toUpcomingShuttle(): UpcomingShuttle {
+    private fun com.example.getyourride.data.remote.dto.TripBookingResponse.toUpcomingShuttle(): UpcomingShuttle {
+        val t = this.trip
         val dateTime = try {
-            LocalDateTime.parse(departureTime)
+            LocalDateTime.parse(t.departureTime)
         } catch (e: Exception) {
             null
         }
 
         return UpcomingShuttle(
-            tripId = tripId.toString(),
-            from = departureStop,
-            to = destinationStop,
-            status = status.lowercase().replaceFirstChar { it.uppercase() },
-            time = dateTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: departureTime.takeLast(8),
+            tripId = t.tripId.toString(),
+            from = t.departureStop,
+            to = t.destinationStop,
+            status = t.status.lowercase().replaceFirstChar { it.uppercase() },
+            time = dateTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: t.departureTime.takeLast(8),
             date = dateTime?.format(DateTimeFormatter.ofPattern("EEE, dd MMM")) ?: "Upcoming",
             seat = "Any", // Backend doesn't return specific seat numbers yet
-            driverName = driverName,
-            plateNumber = registrationNumber,
-            vehicleModel = vehicleModel
+            driverName = t.driverName,
+            plateNumber = t.registrationNumber,
+            vehicleModel = t.vehicleModel,
+            bookingId = this.bookingId
         )
     }
 
