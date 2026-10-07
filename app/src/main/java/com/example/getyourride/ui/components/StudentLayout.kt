@@ -14,6 +14,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
+import com.example.getyourride.UserSession
 import com.example.getyourride.ui.theme.SurfaceGrey
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,8 +58,8 @@ fun StudentLayout(
                     onNavigate = { route ->
                         try {
                             navController.navigate(route) {
-                                // SAFELY access the graph if it exists. 
-                                // Sometimes Live Edit or fast tab switching can 
+                                // SAFELY access the graph if it exists.
+                                // Sometimes Live Edit or fast tab switching can
                                 // trigger a nav call before the graph is attached.
                                 try {
                                     popUpTo(navController.graph.startDestinationId) {
@@ -74,7 +75,12 @@ fun StudentLayout(
                         } catch (e: Exception) {
                             android.util.Log.e("StudentLayout", "Navigation failed: ${e.message}")
                         }
-                    }
+                    },
+                    // FIX: NSFAS-funded students use the shuttle bar, which has no
+                    // Track tab (same mode ShuttleLayout already uses). Without this,
+                    // every screen wrapped in StudentLayout (e.g. Profile) showed the
+                    // carpool bar with Track, even for funded students.
+                    isShuttle = UserSession.isFunded
                 )
             }
         },

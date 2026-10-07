@@ -3,6 +3,7 @@ package com.example.getyourride.ui.screens.shuttle
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,17 +19,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.getyourride.ui.components.StudentLayout
+import com.example.getyourride.ui.theme.BorderLight
 import com.example.getyourride.ui.theme.CardWhite
 import com.example.getyourride.ui.theme.DangerRed
 import com.example.getyourride.ui.theme.GreenSuccess
 import com.example.getyourride.ui.theme.NavyPrimary
 import com.example.getyourride.ui.theme.OrangeAccent
+import com.example.getyourride.ui.theme.SurfaceGrey
+import com.example.getyourride.ui.theme.TextMuted
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.common.BitMatrix
@@ -101,243 +105,303 @@ fun generateQrCodeBitmap(content: String, sizePx: Int = 512): Bitmap? {
     }
 }
 
+/**
+ * Shuttle booking confirmation — styled to match the carpool
+ * BookingConfirmedScreen: white background, orange success icon, grey summary
+ * cards, and a navy "View My Rides" button. The shuttle-specific QR ticket is
+ * shown in the first card. There is no Download Ticket button.
+ */
 @Composable
 fun BookingConfirmationScreen(
+    // Kept so existing callers still compile; this screen no longer needs it.
     navController: NavController,
     booking: BookingConfirmation,
     onViewMyRides: () -> Unit,
-    onDownloadTicket: () -> Unit
+    // No longer used: the Download Ticket button was removed (tickets are not
+    // downloadable). Kept with a default so existing callers still compile.
+    onDownloadTicket: () -> Unit = {}
 ) {
     // Generate QR bitmap once per booking
     val qrBitmap = remember(booking.ticketId) {
         generateQrCodeBitmap(buildQrPayload(booking))
     }
 
-    StudentLayout(
-        currentRoute = "shuttle_home",
-        navController = navController,
-        showBottomBar = false,
-        showTopBar = false, // full-bleed navy design — no GyrTopBar, we draw our own back arrow
-        onBackClick = { navController.popBackStack() }
-    ) {
+    Scaffold(containerColor = CardWhite) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(NavyPrimary)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
         ) {
-            // Self-drawn back button, since GyrTopBar is hidden for this screen.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, start = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        Icons.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(28.dp))
 
             // Success icon
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
+                    .background(OrangeAccent),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White)
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Booking confirmed",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp),
+                )
             }
 
-            Spacer(Modifier.height(12.dp))
-            Text("Booking Confirmed", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(20.dp))
+
             Text(
-                "Your shuttle seat is successfully reserved.",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 13.sp
+                text = "Booking Confirmed!",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = NavyPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "Your shuttle seat is successfully reserved.",
+                fontSize = 14.sp,
+                color = TextMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
             )
 
             Spacer(Modifier.height(20.dp))
 
             // ---------- QR + IDs Card ----------
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(140.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (qrBitmap != null) {
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "Ticket QR Code",
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.QrCode2,
-                                contentDescription = "QR unavailable",
-                                modifier = Modifier.size(80.dp),
-                                tint = NavyPrimary
-                            )
-                        }
-                    }
+            QrTicketCard(
+                qrBitmap = qrBitmap,
+                shuttleId = booking.shuttleId,
+                ticketId = booking.ticketId,
+            )
 
-                    Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("SHUTTLE ID", fontSize = 11.sp, color = Color.Gray)
-                            Text(booking.shuttleId, fontWeight = FontWeight.Bold, color = NavyPrimary)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("TICKET ID", fontSize = 11.sp, color = Color.Gray)
-                            Text(booking.ticketId, fontWeight = FontWeight.Bold, color = NavyPrimary)
-                        }
-                    }
-                }
-            }
+            // ---------- Route + date/time Card ----------
+            RouteSummaryCard(
+                pickupLabel = booking.pickupLocation,
+                destinationLabel = booking.dropoffLocation,
+                date = booking.date,
+                departureTime = booking.departureTime,
+                status = booking.status,
+            )
 
-            Spacer(Modifier.height(16.dp))
-
-            // ---------- Pickup / Drop-off / Date Card ----------
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Pickup", fontSize = 12.sp, color = Color.Gray)
-                        }
-                        StatusBadge(status = booking.status)
-                    }
-                    Text(booking.pickupLocation, fontWeight = FontWeight.Bold, color = NavyPrimary)
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.NearMe, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Drop-off", fontSize = 12.sp, color = Color.Gray)
-                    }
-                    Text(booking.dropoffLocation, fontWeight = FontWeight.Bold, color = NavyPrimary)
-
-                    Spacer(Modifier.height(16.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Date", fontSize = 12.sp, color = Color.Gray)
-                            Text(booking.date, fontWeight = FontWeight.Bold, color = NavyPrimary)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Departure", fontSize = 12.sp, color = Color.Gray)
-                            Text(booking.departureTime, fontWeight = FontWeight.Bold, color = NavyPrimary)
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             // ---------- Driver & Vehicle Card ----------
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    // FIX: mockup shows this label in uppercase small-caps style
-                    Text(
-                        "DRIVER & VEHICLE",
-                        fontWeight = FontWeight.Bold,
-                        color = OrangeAccent,
-                        fontSize = 12.sp
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    InfoRow("Driver", booking.driverName)
-                    InfoRow("Shuttle ID", booking.shuttleId)
-                    InfoRow("Plate Number", booking.plateNumber)
-                    InfoRow("Vehicle", booking.vehicleModel)
-                }
-            }
+            DriverVehicleCard(
+                driverName = booking.driverName,
+                vehicleModel = booking.vehicleModel,
+                plate = booking.plateNumber,
+            )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // ---------- Buttons ----------
+            // ---------- Button ----------
             Button(
                 onClick = onViewMyRides,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
+                    .height(56.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
             ) {
-                Text("View My Rides", color = Color.White)
+                Text(text = "View My Rides", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = onDownloadTicket,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Download Ticket")
-            }
-
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun QrTicketCard(
+    qrBitmap: Bitmap?,
+    shuttleId: String,
+    ticketId: String,
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (qrBitmap != null) {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "Ticket QR Code",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.QrCode2,
+                        contentDescription = "QR unavailable",
+                        modifier = Modifier.size(80.dp),
+                        tint = NavyPrimary,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text("SHUTTLE ID", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(shuttleId, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("TICKET ID", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(ticketId, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteSummaryCard(
+    pickupLabel: String,
+    destinationLabel: String,
+    date: String,
+    departureTime: String,
+    status: String,
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(NavyPrimary),
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("PICKUP", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(pickupLabel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+                StatusBadge(status = status)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = DangerRed, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Column {
+                    Text("DROP-OFF", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(destinationLabel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text("DATE", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(date, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("DEPARTURE", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Text(departureTime, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DriverVehicleCard(
+    driverName: String,
+    vehicleModel: String,
+    plate: String,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .clip(RoundedCornerShape(16.dp))
+            .background(CardWhite)
+            .border(1.dp, BorderLight, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 13.sp, color = Color.Gray)
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NavyPrimary)
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(OrangeAccent.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = OrangeAccent,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "DRIVER & VEHICLE INFO",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextMuted,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(driverName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = NavyPrimary)
+            Text(vehicleModel, fontSize = 13.sp, color = TextMuted)
+        }
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(NavyPrimary.copy(alpha = 0.08f))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        ) {
+            Text(plate, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = NavyPrimary)
+        }
     }
 }
 
@@ -347,16 +411,9 @@ private fun StatusBadge(status: String) {
     // or "CONFIRMED" don't silently fall into the else branch.
     val normalized = status.trim().lowercase()
 
-    // FIX: mockup shows "Confirmed" as an orange badge (not green) — matching
-    // the app's accent color language rather than a literal traffic-light scheme.
-    val bg = when (normalized) {
-        "confirmed" -> OrangeAccent.copy(alpha = 0.15f)
-        "completed" -> GreenSuccess.copy(alpha = 0.15f)
-        "cancelled" -> DangerRed.copy(alpha = 0.15f)
-        else -> OrangeAccent.copy(alpha = 0.15f)
-    }
-    val textColor = when (normalized) {
-        "confirmed" -> OrangeAccent
+    // "Confirmed" is an orange badge (not green) — matching the app's accent
+    // color language rather than a literal traffic-light scheme.
+    val color = when (normalized) {
         "completed" -> GreenSuccess
         "cancelled" -> DangerRed
         else -> OrangeAccent
@@ -364,15 +421,15 @@ private fun StatusBadge(status: String) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(bg)
+            .background(color.copy(alpha = 0.15f))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(status, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(status, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 // ---------- Preview ----------
-@Preview(showBackground = true, backgroundColor = 0xFF0B1F3A)
+@Preview(showBackground = true)
 @Composable
 private fun BookingConfirmationScreenPreview() {
     val sampleBooking = BookingConfirmation(
@@ -390,7 +447,6 @@ private fun BookingConfirmationScreenPreview() {
     BookingConfirmationScreen(
         navController = rememberNavController(),
         booking = sampleBooking,
-        onViewMyRides = {},
-        onDownloadTicket = {}
+        onViewMyRides = {}
     )
 }
