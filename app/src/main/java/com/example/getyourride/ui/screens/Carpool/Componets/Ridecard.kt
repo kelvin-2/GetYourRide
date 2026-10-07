@@ -71,6 +71,10 @@ fun RideCard(
     onTrackRide  : () -> Unit = {},
     onCancelRide : () -> Unit = {}, // parent updates ride.status = CANCELLED (locally and/or via API) here
     onRateRide   : () -> Unit = {}, // parent navigates to the rating screen for this ride
+    // NEW — set to false to hide the "Track Ride" button (e.g. for NSFAS-funded
+    // students, who don't use live tracking). Defaults to true so every existing
+    // caller keeps working exactly as before.
+    showTrack    : Boolean = true,
 ) {
     var showCancelDialog by remember { mutableStateOf(false) }
     val isUnratedCompleted = ride.status == RideStatus.COMPLETED && !ride.hasRating
@@ -183,13 +187,17 @@ fun RideCard(
             if (ride.status == RideStatus.ACTIVE || ride.status == RideStatus.SCHEDULED) {
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick  = onTrackRide,
-                        shape    = RoundedCornerShape(12.dp),
-                        colors   = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Track Ride", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    // Track button is only shown when showTrack is true.
+                    // When hidden, Cancel Ride simply takes the full row width.
+                    if (showTrack) {
+                        Button(
+                            onClick  = onTrackRide,
+                            shape    = RoundedCornerShape(12.dp),
+                            colors   = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Track Ride", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        }
                     }
                     OutlinedButton(
                         onClick  = { showCancelDialog = true },

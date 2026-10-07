@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
+import com.example.getyourride.UserSession
 import com.example.getyourride.data.mapper.toRideCardData
 import com.example.getyourride.data.remote.dto.NotificationResponse
 import com.example.getyourride.ui.components.GyrRoutes
@@ -56,6 +57,11 @@ fun MyRidesScreen(
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
+
+    // NSFAS-funded students don't get the Track feature, so the "Track Ride"
+    // button is hidden on every ride card for them (this screen is shared by
+    // both the carpool and shuttle routes).
+    val showTrack = !UserSession.isFunded
 
     // MyRidesScreen previously had no reload trigger — add one so it doesn't
     // sit on Loading forever (per the ViewModel's own comment).
@@ -172,6 +178,8 @@ fun MyRidesScreen(
                             filtered.forEach { (ride, tripId) ->
                                 RideCard(
                                     ride         = ride,
+                                    // Hidden for NSFAS-funded students (see showTrack above).
+                                    showTrack    = showTrack,
                                     // Track by tripId, NOT ride.id. Under the TripBookingResponse
                                     // mapper ride.id is the bookingId, so passing it made the
                                     // tracking screen call GET /api/trips/{bookingId} and get a 404
