@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.repository.DriverApplicationRepository
+import com.example.getyourride.data.repository.DriverProfileResult
 import com.example.getyourride.data.repository.TripRepository
 import kotlinx.coroutines.launch
 
@@ -24,10 +26,22 @@ sealed class DriverHomeUiState {
 }
 
 class DriverHomeViewModel(
-    private val tripRepository: TripRepository
+    private val tripRepository: TripRepository,
+    // Optional so existing call sites that only pass a TripRepository keep compiling. When present,
+    // the home screen can refresh the driver's live verification status (e.g. after an edit sends
+    // the application back to "Pending Review").
+    private val driverProfileRepository: DriverApplicationRepository? = null
 ) : ViewModel() {
 
     var uiState by mutableStateOf<DriverHomeUiState>(DriverHomeUiState.Loading)
+        private set
+
+    /**
+     * Live verification status pulled from the backend profile (e.g. "Approved", "Pending Review",
+     * "Rejected"). Null until first loaded; the screen falls back to the session value when null.
+     * Kept fresh by [loadMyTrips] so pressing refresh updates the status badge too, not just trips.
+     */
+    var verificationStatus by mutableStateOf<String?>(null)
         private set
 
     /**
@@ -44,6 +58,25 @@ class DriverHomeViewModel(
 
     fun consumeActionMessage() {
         actionMessage = null
+    }
+
+    /**
+     * Fetch the driver's current verification/application status from the backend profile.
+     * No-op when no profile repository was supplied. Uses applicationStatus, which is the field
+     * that reads "Approved" / "Pending Review" / "Rejected".
+     */
+    private fun refreshVerificationStatus() {
+        val repo = driverProfileRepository ?: return
+        viewModelScope.launch {
+            when (val result = repo.getDriverProfile()) {
+                is DriverProfileResult.Success -> {
+                    verificationStatus = result.profile.applicationStatus
+                }
+                is DriverProfileResult.Error -> {
+                    // Leave the previous value; the screen falls back to the session status.
+                }
+            }
+        }
     }
 
     /**
@@ -72,6 +105,9 @@ class DriverHomeViewModel(
 
     fun loadMyTrips() {
         uiState = DriverHomeUiState.Loading
+        // Refresh the live verification status alongside the trips so the "Driver Status" badge
+        // reflects the latest state (e.g. after a profile edit reset it to "Pending Review").
+        refreshVerificationStatus()
         viewModelScope.launch {
             val result = tripRepository.getMyTrips()
             result.onSuccess { trips ->
@@ -138,10 +174,11 @@ class DriverHomeViewModel(
 }
 
 class DriverHomeViewModelFactory(
-    private val tripRepository: TripRepository
+    private val tripRepository: TripRepository,
+    private val driverProfileRepository: DriverApplicationRepository? = null
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         @Suppress("UNCHECKED_CAST")
-        return DriverHomeViewModel(tripRepository) as T
+        return DriverHomeViewModel(tripRepository, driverProfileRepository) as T
     }
 }

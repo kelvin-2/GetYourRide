@@ -6,6 +6,7 @@ import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripRatingRequest
+import com.example.getyourride.data.remote.dto.TripReviewDetailResponse
 import com.example.getyourride.data.remote.dto.TripReviewResponse
 
 class TripRepository(private val api: TripApi) {
@@ -223,6 +224,24 @@ class TripRepository(private val api: TripApi) {
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception("Failed to submit rating: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetch all reviews students left on a completed trip (driver's "View Ratings" screen).
+     * Calls GET /api/ratings/trip/{tripId}. JWT is attached automatically; the backend
+     * verifies the authenticated driver owns the trip.
+     */
+    suspend fun getTripReviews(tripId: Long): Result<List<TripReviewDetailResponse>> {
+        return try {
+            val response = api.getTripReviews(tripId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to load ratings: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

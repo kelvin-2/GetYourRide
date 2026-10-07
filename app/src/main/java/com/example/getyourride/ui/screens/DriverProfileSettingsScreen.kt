@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,14 +29,18 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.UploadFile
-import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
@@ -43,6 +48,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -63,6 +69,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -107,7 +114,36 @@ data class DriverProfileDetails(
     val seatingCapacity: Int,
     val verificationStatus: String,
     val driversLicenceStatus: String,
-    val vehicleRegistrationStatus: String
+    val vehicleRegistrationStatus: String,
+
+    // ── NEW: additional read-only data from shuttle_db ──
+    // All default so existing call sites / previews keep working.
+
+    // Driver stats
+    val totalTrips: Int = 0,
+    val joinDate: String? = null,
+    val verified: Boolean = false,
+    val accountStatus: String = "Active",
+
+    // Ratings & reviews
+    val averageRating: Double = 0.0,
+    val reviewCount: Int = 0,
+    val reviewTags: List<String> = emptyList(),
+
+    // Trip activity
+    val completedTrips: Int = 0,
+    val cancelledTrips: Int = 0,
+    val upcomingTrips: Int = 0,
+    val totalPassengers: Int = 0,
+
+    // Extra vehicle detail
+    val vehicleYear: Int? = null,
+    val vehicleStatus: String = "",
+
+    // Full application detail
+    val applicationVehicleMakeModel: String = "",
+    val driversLicenceUrl: String = "",
+    val vehicleRegistrationUrl: String = ""
 )
 
 private data class StatusStyle(
@@ -132,7 +168,8 @@ fun DriverProfileSettingsScreen(
     errorMessage: String? = null,
     onHomeClick: () -> Unit = {},
     onOfferRideClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    onEditProfile: () -> Unit = {}
 ) {
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -191,7 +228,10 @@ fun DriverProfileSettingsScreen(
                     )
                     .padding(horizontal = 20.dp, vertical = 28.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     // Avatar circle with initials
                     Box(
                         modifier = Modifier
@@ -249,6 +289,25 @@ fun DriverProfileSettingsScreen(
                             }
                         }
                     }
+
+                    // Push the edit action to the end of the header row
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Edit profile pencil — sits beside the name/verification badge
+                    IconButton(
+                        onClick = onEditProfile,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = "Edit profile",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -270,18 +329,15 @@ fun DriverProfileSettingsScreen(
                 )
                 ProfileDetailRow(
                     label = "Student Number",
-                    value = profileDetails.studentNumber,
-                    icon = Icons.Outlined.Badge
+                    value = profileDetails.studentNumber
                 )
                 ProfileDetailRow(
                     label = "University Email",
-                    value = profileDetails.universityEmail,
-                    icon = Icons.Outlined.Email
+                    value = profileDetails.universityEmail
                 )
                 ProfileDetailRow(
                     label = "Contact Number",
-                    value = profileDetails.contactNumber,
-                    icon = Icons.Outlined.Phone
+                    value = profileDetails.contactNumber
                 )
             }
 
@@ -309,6 +365,20 @@ fun DriverProfileSettingsScreen(
                     label = "Seating Capacity",
                     value = "${profileDetails.seatingCapacity} passengers"
                 )
+                // NEW: vehicle year (only when known)
+                if (profileDetails.vehicleYear != null) {
+                    ProfileDetailRow(
+                        label = "Year",
+                        value = profileDetails.vehicleYear.toString()
+                    )
+                }
+                // NEW: vehicle status (only when provided)
+                if (profileDetails.vehicleStatus.isNotBlank()) {
+                    ProfileDetailRow(
+                        label = "Vehicle Status",
+                        value = profileDetails.vehicleStatus
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -337,6 +407,96 @@ fun DriverProfileSettingsScreen(
                             "Not Uploaded", ignoreCase = true
                         )
                     ) onUploadRegistration else null
+                )
+
+                // NEW: links to the actual uploaded documents (Cloudinary), when present
+                if (profileDetails.driversLicenceUrl.isNotBlank()) {
+                    DocumentLinkRow(
+                        label = "View Driver's Licence",
+                        url = profileDetails.driversLicenceUrl
+                    )
+                }
+                if (profileDetails.vehicleRegistrationUrl.isNotBlank()) {
+                    DocumentLinkRow(
+                        label = "View Vehicle Registration",
+                        url = profileDetails.vehicleRegistrationUrl
+                    )
+                }
+
+                // NEW: vehicle make/model exactly as entered on the application
+                if (profileDetails.applicationVehicleMakeModel.isNotBlank()) {
+                    ProfileDetailRow(
+                        label = "Vehicle (as applied)",
+                        value = profileDetails.applicationVehicleMakeModel
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── NEW: Ratings Card (average rating only) ─────────────────────
+            ProfileSectionCard(
+                title = "Rating",
+                icon = Icons.Outlined.Star,
+                iconTint = ProfileAccent
+            ) {
+                if (profileDetails.reviewCount > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Star,
+                            contentDescription = null,
+                            tint = ProfileAccent,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = String.format("%.1f", profileDetails.averageRating),
+                            color = ProfileText,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "/ 5",
+                            color = ProfileTextMuted,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "No rating yet. Your average rating will appear here once passengers rate your completed trips.",
+                        color = ProfileTextMuted,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── NEW: Trip Activity Card ─────────────────────────────────────
+            ProfileSectionCard(
+                title = "Trip Activity",
+                icon = Icons.Outlined.Timeline,
+                iconTint = ProfileSectionBlue
+            ) {
+                ProfileDetailRow(
+                    label = "Completed",
+                    value = profileDetails.completedTrips.toString()
+                )
+                ProfileDetailRow(
+                    label = "Upcoming",
+                    value = profileDetails.upcomingTrips.toString()
+                )
+                ProfileDetailRow(
+                    label = "Cancelled",
+                    value = profileDetails.cancelledTrips.toString()
+                )
+                ProfileDetailRow(
+                    label = "Passengers Carried",
+                    value = profileDetails.totalPassengers.toString()
                 )
             }
 
@@ -797,6 +957,46 @@ private fun DocumentStatusRow(
     }
 }
 
+// ─── Document Link Row (opens the uploaded file in a browser) ────────────────
+@Composable
+private fun DocumentLinkRow(
+    label: String,
+    url: String
+) {
+    val uriHandler = LocalUriHandler.current
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                runCatching { uriHandler.openUri(url) }
+            },
+        color = Color(0xFFEFF6FF),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.OpenInNew,
+                contentDescription = null,
+                tint = ProfileSectionBlue,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = label,
+                color = ProfileSectionBlue,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
 // ─── Status Style Helper ─────────────────────────────────────────────────────
 private fun statusStyleFor(status: String): StatusStyle {
     val cleaned = status.trim().lowercase()
@@ -848,7 +1048,24 @@ fun DriverProfileSettingsScreenPreview() {
                 seatingCapacity = 4,
                 verificationStatus = "Pending Review",
                 driversLicenceStatus = "Uploaded",
-                vehicleRegistrationStatus = "Not Uploaded"
+                vehicleRegistrationStatus = "Not Uploaded",
+                // NEW sample values
+                totalTrips = 23,
+                joinDate = "2025-01-20",
+                verified = true,
+                accountStatus = "Active",
+                averageRating = 4.5,
+                reviewCount = 12,
+                reviewTags = listOf("On time", "Friendly driver", "Safe driver"),
+                completedTrips = 21,
+                cancelledTrips = 2,
+                upcomingTrips = 1,
+                totalPassengers = 48,
+                vehicleYear = 2020,
+                vehicleStatus = "Active",
+                applicationVehicleMakeModel = "Toyota Corolla",
+                driversLicenceUrl = "https://example.com/licence.png",
+                vehicleRegistrationUrl = "https://example.com/registration.png"
             )
         )
     }

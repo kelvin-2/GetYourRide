@@ -28,10 +28,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.getyourride.data.DriverApplicationSubmitStatus
 import com.example.getyourride.data.UseCaseSubmitStatus
 import com.example.getyourride.data.mapper.toRideRequestDetails
@@ -69,6 +75,13 @@ import com.example.getyourride.viewmodel.DriverDeleteUiState
 import com.example.getyourride.viewmodel.DocumentUploadUiState
 import com.example.getyourride.viewmodel.DriverHomeViewModel
 import com.example.getyourride.viewmodel.DriverHomeViewModelFactory
+import com.example.getyourride.viewmodel.TripReviewsViewModel
+import com.example.getyourride.viewmodel.TripReviewsViewModelFactory
+import com.example.getyourride.ui.screens.TripReviewsScreen
+import com.example.getyourride.viewmodel.EditDriverProfileViewModel
+import com.example.getyourride.viewmodel.EditDriverProfileViewModelFactory
+import com.example.getyourride.viewmodel.EditProfileSaveState
+import com.example.getyourride.ui.screens.EditDriverProfileScreen
 import com.example.getyourride.viewmodel.OfferRideViewModel
 import com.example.getyourride.viewmodel.StompRideLocationSocket
 import com.example.getyourride.viewmodel.TrackingViewModel
@@ -396,20 +409,35 @@ class MainActivity : ComponentActivity() {
                     composable("student_driver_home") {
                         val driverHomeViewModel: DriverHomeViewModel = viewModel(
                             factory = DriverHomeViewModelFactory(
-                                TripRepository(NetworkModule.tripApi)
+                                TripRepository(NetworkModule.tripApi),
+                                driverApplicationRepository
                             )
                         )
 
-                        LaunchedEffect(Unit) {
-                            driverHomeViewModel.loadMyTrips()
+                        // Reload trips AND verification status every time this screen RESUMES,
+                        // not just on first composition. With launchSingleTop the home entry is
+                        // reused when returning from the profile/edit, so a plain LaunchedEffect(Unit)
+                        // would not re-run — leaving a stale "Approved" badge after an edit reset the
+                        // driver to "Pending Review". Observing ON_RESUME refreshes the whole screen.
+                        val homeLifecycleOwner = LocalLifecycleOwner.current
+                        DisposableEffect(homeLifecycleOwner) {
+                            val observer = LifecycleEventObserver { _, event ->
+                                if (event == Lifecycle.Event.ON_RESUME) {
+                                    driverHomeViewModel.loadMyTrips()
+                                }
+                            }
+                            homeLifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { homeLifecycleOwner.lifecycle.removeObserver(observer) }
                         }
 
                         val driverName = UserSession.firstName ?: "Driver"
-                        val verificationStatus = when {
+                        // Prefer the live backend status; fall back to the session role until loaded.
+                        val sessionStatus = when {
                             UserSession.isDriverPending  -> "Pending Review"
                             UserSession.isDriverApproved -> "Approved"
                             else                         -> "Pending Review"
                         }
+                        val verificationStatus = driverHomeViewModel.verificationStatus ?: sessionStatus
 
                         StudentDriverHomeScreen(
                             driverName         = driverName,
@@ -425,7 +453,30 @@ class MainActivity : ComponentActivity() {
                             onStartRide          = { tripId -> driverHomeViewModel.startRide(tripId) },
                             startingTripId       = driverHomeViewModel.startingTripId,
                             actionMessage        = driverHomeViewModel.actionMessage,
-                            onActionMessageShown = { driverHomeViewModel.consumeActionMessage() }
+                            onActionMessageShown = { driverHomeViewModel.consumeActionMessage() },
+                            onViewRatings        = { tripId -> navController.navigate("trip_reviews/$tripId") }
+                        )
+                    }
+
+                    // ── TRIP RATINGS (driver views reviews for a completed trip) ───
+                    composable(
+                        route = "trip_reviews/{tripId}",
+                        arguments = listOf(navArgument("tripId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
+                        val tripReviewsViewModel: TripReviewsViewModel = viewModel(
+                            factory = TripReviewsViewModelFactory(
+                                TripRepository(NetworkModule.tripApi)
+                            )
+                        )
+
+                        LaunchedEffect(tripId) {
+                            tripReviewsViewModel.loadReviews(tripId)
+                        }
+
+                        TripReviewsScreen(
+                            uiState = tripReviewsViewModel.uiState,
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
 
@@ -527,7 +578,28 @@ class MainActivity : ComponentActivity() {
                                         seatingCapacity           = profile.seatingCapacity,
                                         verificationStatus        = profile.applicationStatus,
                                         driversLicenceStatus      = profile.driversLicenceStatus,
-                                        vehicleRegistrationStatus = profile.vehicleRegistrationStatus
+                                        vehicleRegistrationStatus = profile.vehicleRegistrationStatus,
+                                        // NEW: driver stats
+                                        totalTrips                = profile.totalTrips,
+                                        joinDate                  = profile.joinDate,
+                                        verified                  = profile.verified,
+                                        accountStatus             = profile.accountStatus,
+                                        // NEW: ratings & reviews
+                                        averageRating             = profile.averageRating,
+                                        reviewCount               = profile.reviewCount,
+                                        reviewTags                = profile.reviewTags,
+                                        // NEW: trip activity
+                                        completedTrips            = profile.completedTrips,
+                                        cancelledTrips            = profile.cancelledTrips,
+                                        upcomingTrips             = profile.upcomingTrips,
+                                        totalPassengers           = profile.totalPassengers,
+                                        // NEW: extra vehicle detail
+                                        vehicleYear               = profile.vehicleYear,
+                                        vehicleStatus             = profile.vehicleStatus,
+                                        // NEW: full application detail
+                                        applicationVehicleMakeModel = profile.applicationVehicleMakeModel,
+                                        driversLicenceUrl         = profile.driversLicenceUrl,
+                                        vehicleRegistrationUrl    = profile.vehicleRegistrationUrl
                                     ),
                                     onConfirmDeleteClick = { driverProfileViewModel.deleteProfile() },
                                     onUploadLicence = { licencePicker.launch(arrayOf("image/*")) },
@@ -550,6 +622,7 @@ class MainActivity : ComponentActivity() {
                                     onHomeClick      = { navController.navigate("student_driver_home") { launchSingleTop = true } },
                                     onOfferRideClick = { navController.navigate("offer_ride") { launchSingleTop = true } },
                                     onProfileClick   = { navController.navigate("driver_profile_settings") { launchSingleTop = true } },
+                                    onEditProfile    = { navController.navigate("edit_driver_profile") },
                                     onLogoutClick    = {
                                         UserSession.clear()
                                         navController.navigate("login") {
@@ -559,6 +632,52 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                    }
+
+                    // ── EDIT DRIVER PROFILE (Student Driver) ───────────────────
+                    composable("edit_driver_profile") {
+                        val context = LocalContext.current
+                        val editViewModel: EditDriverProfileViewModel = viewModel(
+                            factory = EditDriverProfileViewModelFactory(driverApplicationRepository)
+                        )
+
+                        LaunchedEffect(Unit) {
+                            editViewModel.loadProfile()
+                        }
+
+                        // Picker for an optional new vehicle registration document.
+                        val regDocPicker = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.OpenDocument()
+                        ) { uri: android.net.Uri? ->
+                            if (uri != null) {
+                                runCatching {
+                                    context.contentResolver.takePersistableUriPermission(
+                                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                }
+                                val name = runCatching {
+                                    context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                                        val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                        if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
+                                    }
+                                }.getOrNull()
+                                editViewModel.onRegistrationDocPicked(uri, name)
+                            }
+                        }
+
+                        // Navigate back to the profile once the save succeeds.
+                        LaunchedEffect(editViewModel.saveState) {
+                            if (editViewModel.saveState is EditProfileSaveState.Success) {
+                                navController.popBackStack()
+                            }
+                        }
+
+                        EditDriverProfileScreen(
+                            viewModel = editViewModel,
+                            onBackClick = { navController.popBackStack() },
+                            onPickRegistrationDocument = { regDocPicker.launch(arrayOf("image/*")) },
+                            onSave = { editViewModel.save(context.contentResolver) }
+                        )
                     }
 
                     // ── CARPOOL HOME (self-funded students) ────────────────────

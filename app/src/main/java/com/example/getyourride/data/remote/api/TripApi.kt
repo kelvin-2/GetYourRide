@@ -3,6 +3,7 @@ package com.example.getyourride.data.remote.api
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
 import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripRatingRequest
+import com.example.getyourride.data.remote.dto.TripReviewDetailResponse
 import com.example.getyourride.data.remote.dto.TripReviewResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
@@ -121,6 +122,14 @@ interface TripApi {
      */
     @POST("api/ratings/rate")
     suspend fun rateTrip(@Body request: TripRatingRequest): Response<TripReviewResponse>
+
+    /**
+     * GET /api/ratings/trip/{tripId} — all reviews students left on a trip.
+     * Backend: TripReviewController#getTripReviews. Only the driver who owns the trip
+     * may call this; ownership is verified server-side from the JWT.
+     */
+    @GET("api/ratings/trip/{tripId}")
+    suspend fun getTripReviews(@Path("tripId") tripId: Long): Response<List<TripReviewDetailResponse>>
 }
 
 /**
