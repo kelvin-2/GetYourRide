@@ -65,5 +65,8 @@ data class TripBookingResponse(
     val bookingId: Long,
     val trip: TripResponse,
     val bookingDate: String?,
-    val bookingStatus: String?   // "CONFIRMED", "CANCELLED", "PENDING"
+    val bookingStatus: String?,  // "CONFIRMED", "CANCELLED", "PENDING"
+    // True once this booking has been rated. A booking can only be rated once, so the UI uses
+    // this to stop offering the rating screen. Defaults to false for older backend responses.
+    val hasRated: Boolean = false
 )
