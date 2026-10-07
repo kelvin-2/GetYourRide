@@ -73,6 +73,7 @@ fun RateTripScreen(
     onClose: () -> Unit,
     onSkip: () -> Unit,
     onSubmit: (rating: Int, tags: Set<String>, note: String) -> Unit,
+    isSubmitting: Boolean = false,
     wentWellOptions: List<WhatWentWellOption> = defaultWentWellOptions,
     maxNoteLength: Int = 250
 ) {
@@ -131,13 +132,18 @@ fun RateTripScreen(
                 Spacer(Modifier.height(24.dp))
                 Button(
                     onClick = { onSubmit(rating, selectedTags, note) },
+                    enabled = !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
                 ) {
-                    Text("Submit Rating", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (isSubmitting) "Submitting..." else "Submit Rating",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.Filled.ArrowForward, contentDescription = null)
                 }
