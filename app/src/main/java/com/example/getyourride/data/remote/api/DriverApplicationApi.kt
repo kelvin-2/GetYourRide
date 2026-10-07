@@ -28,6 +28,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
@@ -80,6 +81,16 @@ interface DriverApplicationApi {
     suspend fun getDriverProfile(): Response<DriverProfileResponse>
 
     /**
+     * Update the driver's own profile (contact number + vehicle details).
+     * Backend reads driver_id from the JWT. Saving resets verification and sends
+     * the application back for admin review. Returns the updated profile.
+     */
+    @PATCH("api/driver-profile")
+    suspend fun updateDriverProfile(
+        @Body request: UpdateDriverProfileRequest
+    ): Response<DriverProfileResponse>
+
+    /**
      * Upload a document directly from the profile screen.
      * Backend uses the JWT token to find the driver's application and attach the document.
      * This is for students who skipped document upload during Step 3.
@@ -130,7 +141,36 @@ data class DriverProfileResponse(
     // Application & document status
     val applicationStatus: String,       // "Pending Review", "Approved", "Rejected"
     val driversLicenceStatus: String,    // "Uploaded", "Not Uploaded"
-    val vehicleRegistrationStatus: String // "Uploaded", "Not Uploaded"
+    val vehicleRegistrationStatus: String, // "Uploaded", "Not Uploaded"
+
+    // ── NEW: additional profile data (read-only, from shuttle_db) ──
+    // Defaults keep old clients/responses safe if a field is missing.
+
+    // Driver stats
+    val totalTrips: Int = 0,
+    val joinDate: String? = null,        // ISO yyyy-MM-dd, may be null
+    val verified: Boolean = false,
+    val accountStatus: String = "Active", // "Active", "On Break", "Deactivated"
+
+    // Ratings & reviews
+    val averageRating: Double = 0.0,
+    val reviewCount: Int = 0,
+    val reviewTags: List<String> = emptyList(),
+
+    // Trip activity
+    val completedTrips: Int = 0,
+    val cancelledTrips: Int = 0,
+    val upcomingTrips: Int = 0,
+    val totalPassengers: Int = 0,
+
+    // Extra vehicle detail
+    val vehicleYear: Int? = null,
+    val vehicleStatus: String = "",
+
+    // Full application detail
+    val applicationVehicleMakeModel: String = "",
+    val driversLicenceUrl: String = "",
+    val vehicleRegistrationUrl: String = ""
 )
 
 /**
@@ -139,4 +179,18 @@ data class DriverProfileResponse(
  */
 data class DriverProfileDeleteResponse(
     val message: String
+)
+
+/**
+ * Request body for PATCH /api/driver-profile.
+ * Only the editable fields: contact number and vehicle details. Field names match the
+ * backend UpdateDriverProfileRequest. Name, email and student number are not editable.
+ */
+data class UpdateDriverProfileRequest(
+    val contactNumber: String,
+    val vehicleMakeModel: String,
+    val registrationNumber: String,
+    val seatingCapacity: Int,
+    val vehicleColor: String,
+    val vehicleYear: Int? = null
 )

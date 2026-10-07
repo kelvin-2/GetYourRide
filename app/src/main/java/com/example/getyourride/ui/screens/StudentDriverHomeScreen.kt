@@ -92,7 +92,9 @@ fun StudentDriverHomeScreen(
     onStartRide: (Long) -> Unit = {},
     startingTripId: Long? = null,
     actionMessage: String? = null,
-    onActionMessageShown: () -> Unit = {}
+    onActionMessageShown: () -> Unit = {},
+    // Opens the Trip Ratings screen for a completed past ride. Defaulted for previews.
+    onViewRatings: (Long) -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -182,7 +184,10 @@ fun StudentDriverHomeScreen(
                             startingTripId = startingTripId
                         )
                         // Past rides section
-                        PastRidesSection(pastRides = homeUiState.pastRides)
+                        PastRidesSection(
+                            pastRides = homeUiState.pastRides,
+                            onViewRatings = onViewRatings
+                        )
                         // Cancelled rides section
                         CancelledRidesSection(cancelledRides = homeUiState.cancelledRides)
                     }
@@ -822,7 +827,10 @@ private fun PassengerRow(name: String, pickup: String) {
 
 // ── Past Rides Section ──────────────────────────────────────────────────────
 @Composable
-private fun PastRidesSection(pastRides: List<TripResponse>) {
+private fun PastRidesSection(
+    pastRides: List<TripResponse>,
+    onViewRatings: (Long) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -876,7 +884,7 @@ private fun PastRidesSection(pastRides: List<TripResponse>) {
             }
         } else {
             pastRides.take(10).forEach { trip ->
-                PastRideCard(trip = trip)
+                PastRideCard(trip = trip, onViewRatings = onViewRatings)
             }
         }
     }
@@ -945,12 +953,19 @@ private fun CancelledRidesSection(cancelledRides: List<TripResponse>) {
 }
 
 @Composable
-private fun PastRideCard(trip: TripResponse) {
+private fun PastRideCard(
+    trip: TripResponse,
+    onViewRatings: ((Long) -> Unit)? = null
+) {
     val (statusBg, statusColor, statusIcon) = when {
         trip.status.equals("COMPLETED", true) -> Triple(DriverSuccessBg, DriverSuccessText, Icons.Outlined.CheckCircle)
         trip.status.equals("CANCELLED", true) -> Triple(DriverCancelledBg, DriverCancelledText, Icons.Outlined.Cancel)
         else -> Triple(DriverPendingBg, DriverPendingText, Icons.Outlined.Schedule)
     }
+
+    // Show a "View Ratings" action only for completed trips when a handler is supplied
+    // (i.e. from the Past Rides list, not the Cancelled list).
+    val showViewRatings = onViewRatings != null && trip.status.equals("COMPLETED", true)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1001,14 +1016,42 @@ private fun PastRideCard(trip: TripResponse) {
                     }
                 }
             }
-            Surface(color = statusBg, shape = RoundedCornerShape(999.dp)) {
-                Text(
-                    trip.status,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    color = statusColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            if (showViewRatings) {
+                // Tappable "View Ratings" pill that opens the trip's reviews screen.
+                Surface(
+                    color = DriverAccent,
+                    shape = RoundedCornerShape(999.dp),
+                    modifier = Modifier.clickable { onViewRatings?.invoke(trip.tripId) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Star,
+                            null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            "View Ratings",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else {
+                Surface(color = statusBg, shape = RoundedCornerShape(999.dp)) {
+                    Text(
+                        trip.status,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        color = statusColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

@@ -24,6 +24,7 @@ import com.example.getyourride.data.DriverDocumentType
 import com.example.getyourride.data.remote.api.DriverApplicationApi
 import com.example.getyourride.data.remote.api.DriverApplicationStatusResponse
 import com.example.getyourride.data.remote.api.DriverProfileResponse
+import com.example.getyourride.data.remote.api.UpdateDriverProfileRequest
 import com.example.getyourride.data.remote.dto.AuthResponse
 import com.example.getyourride.data.remote.dto.DriverApplicationSubmitRequest
 import com.example.getyourride.data.remote.dto.DriverApplicationSubmitResponse
@@ -217,6 +218,27 @@ class DriverApplicationRepository(
             } else {
                 val errorMsg = extractMessage(response.errorBody()?.string())
                     ?: "Could not fetch driver profile (${response.code()})."
+                DriverProfileResult.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            DriverProfileResult.Error(
+                e.message ?: "Network error — could not reach server."
+            )
+        }
+    }
+
+    /**
+     * Update the driver's own profile (contact number + vehicle details).
+     * Backend resets verification and returns the updated profile on success.
+     */
+    suspend fun updateDriverProfile(request: UpdateDriverProfileRequest): DriverProfileResult {
+        return try {
+            val response = api.updateDriverProfile(request)
+            if (response.isSuccessful && response.body() != null) {
+                DriverProfileResult.Success(response.body()!!)
+            } else {
+                val errorMsg = extractMessage(response.errorBody()?.string())
+                    ?: "Could not update profile (${response.code()})."
                 DriverProfileResult.Error(errorMsg)
             }
         } catch (e: Exception) {

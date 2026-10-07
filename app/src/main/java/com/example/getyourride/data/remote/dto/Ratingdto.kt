@@ -26,3 +26,18 @@ data class TripReviewResponse(
     val review: String,
     val tags: List<String> = emptyList()
 )
+
+/**
+ * Response from GET /api/ratings/trip/{tripId}.
+ * One entry per student who rated the trip. Field names match the backend
+ * TripReviewDetailResponse. reviewDate is an ISO-8601 string (e.g. "2026-09-23T10:37:49").
+ */
+data class TripReviewDetailResponse(
+    val reviewId: Long,
+    val bookingId: Long?,
+    val studentName: String?,
+    val rating: Int,
+    val review: String? = null,
+    val tags: List<String> = emptyList(),
+    val reviewDate: String? = null
+)
