@@ -1,11 +1,17 @@
 package com.example.getyourride.data.repository
 
+import com.example.getyourride.data.remote.ResultResource
 import com.example.getyourride.data.remote.api.ShuttleApi
 import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.ShuttleBookingSummaryResponse
 import com.example.getyourride.data.remote.dto.ShuttleStopResponse
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
+import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.remote.getOrThrow
+import com.example.getyourride.data.remote.safeApiCall
+import com.example.getyourride.data.remote.safeCall
+import com.example.getyourride.data.remote.withFallbackMessage
 import com.example.getyourride.ui.screens.shuttle.RecentTrip
 import com.example.getyourride.ui.screens.shuttle.UpcomingShuttle
 import java.time.LocalDateTime
@@ -17,6 +23,9 @@ import java.time.format.DateTimeFormatter
  * java.time (LocalDateTime, DateTimeFormatter) works on minSdk 24 here because core library
  * desugaring is enabled in app/build.gradle.kts (isCoreLibraryDesugaringEnabled = true +
  * desugar_jdk_libs). No @RequiresApi guards needed.
+ *
+ * API failures are thrown as ApiException (see data/remote/ApiError.kt); its message is
+ * already user-friendly, so callers can show `e.message` or `e.userFacingMessage()`.
  */
 class ShuttleRepository(
     private val api: ShuttleApi,
@@ -26,11 +35,9 @@ class ShuttleRepository(
     suspend fun fetchShuttleHomeData(): ShuttleHomeData {
         // Upcoming trips come from the student's BOOKINGS (not raw trips) so each one
         // carries its bookingId — that's what the shuttle QR needs for boarding.
-        val bookingsResponse = tripApi.getMyBookings(null)
-        if (!bookingsResponse.isSuccessful) {
-            throw Exception("Failed to fetch bookings: ${bookingsResponse.message()}")
-        }
-        val allBookings = bookingsResponse.body() ?: emptyList()
+        val allBookings = safeApiCall<List<TripBookingResponse>>(onEmptyBody = { emptyList() }) {
+            tripApi.getMyBookings(null)
+        }.getOrThrow()
 
         val shuttleBookings = allBookings.filter {
             it.trip.tripType.equals("SHUTTLE", ignoreCase = true)
@@ -129,12 +136,25 @@ class ShuttleRepository(
         }
     }
 
-    suspend fun findAvailableTrip(pickupStop: String, slot: ShuttleTimeSlot): TripResponse? {
-        val response = tripApi.getAllTrips()
-        if (!response.isSuccessful) {
-            throw Exception("Failed to search trips: ${response.message()}")
+    /**
+     * Same as [fetchTimeSlots] but also reports whether the built-in fallback list was used
+     * because the server could not be reached, so the UI can warn the user.
+     */
+    suspend fun fetchTimeSlotsWithStatus(): Pair<List<ShuttleTimeSlot>, Boolean> {
+        val remote = safeCall { api.getAllTimeSlots() }
+        return if (remote is ResultResource.Success) {
+            remote.data.map {
+                ShuttleTimeSlot(slotId = it.slotId, departs = it.departs, arrives = it.arrives, period = it.period)
+            } to false
+        } else {
+            fetchTimeSlots() to true
         }
-        val trips = response.body() ?: emptyList()
+    }
+
+    suspend fun findAvailableTrip(pickupStop: String, slot: ShuttleTimeSlot): TripResponse? {
+        val trips = safeApiCall<List<TripResponse>>(onEmptyBody = { emptyList() }) {
+            tripApi.getAllTrips()
+        }.getOrThrow()
         val expectedSlotTime = "${slot.departs.take(5)} - ${slot.arrives.take(5)}"
 
         return trips.firstOrNull { trip ->
@@ -148,12 +168,12 @@ class ShuttleRepository(
     }
 
     suspend fun bookShuttle(tripId: Long): ShuttleBookingSummaryResponse {
-        val response = api.bookShuttle(tripId)
-        if (!response.isSuccessful) {
-            val errorBody = response.errorBody()?.string()
-            throw Exception(errorBody ?: "Booking failed: ${response.message()}")
-        }
-        return response.body() ?: throw Exception("Empty booking response from server")
+        // Backend {"error": "..."} text (e.g. "Student already has a booking for this trip")
+        // is thrown as an ApiException carrying exactly that message.
+        return safeApiCall { api.bookShuttle(tripId) }
+            // A 409 with no message of its own almost always means a duplicate booking.
+            .withFallbackMessage("You've already booked this trip, or it conflicts with another booking.")
+            .getOrThrow()
     }
 }
 

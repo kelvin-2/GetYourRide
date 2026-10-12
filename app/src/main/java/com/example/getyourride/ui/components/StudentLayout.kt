@@ -26,6 +26,7 @@ fun StudentLayout(
     showTopBar: Boolean = true,
     onBackClick: (() -> Unit)? = null,
     floatingActionButton: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
 
@@ -85,7 +86,8 @@ fun StudentLayout(
             }
         },
 
-        floatingActionButton = floatingActionButton
+        floatingActionButton = floatingActionButton,
+        snackbarHost = snackbarHost,
 
     ) { innerPadding ->
 

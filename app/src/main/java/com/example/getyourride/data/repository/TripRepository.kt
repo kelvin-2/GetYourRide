@@ -8,52 +8,33 @@ import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripRatingRequest
 import com.example.getyourride.data.remote.dto.TripReviewDetailResponse
 import com.example.getyourride.data.remote.dto.TripReviewResponse
+import com.example.getyourride.data.remote.safeApiCall
+import com.example.getyourride.data.remote.toResult
+import com.example.getyourride.data.remote.withFallbackMessage
 
+/**
+ * Every method goes through safeApiCall, so failures arrive as Result.failure(ApiException)
+ * whose message is already short and friendly (backend {"error": "..."} text is passed
+ * through as-is). Callers can keep using `e.message`.
+ */
 class TripRepository(private val api: TripApi) {
 
-    suspend fun getAvailableTrips(): Result<List<TripResponse>> {
-        return try {
-            val response = api.getTripsByStatus("SCHEDULED")
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to load trips: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getAvailableTrips(): Result<List<TripResponse>> =
+        safeApiCall<List<TripResponse>>(onEmptyBody = { emptyList() }) {
+            api.getTripsByStatus("SCHEDULED")
+        }.toResult()
 
-    suspend fun getTrips(): Result<List<TripResponse>> {
-        return try {
-            val response = api.getAllTrips()
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to get trips: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getTrips(): Result<List<TripResponse>> =
+        safeApiCall<List<TripResponse>>(onEmptyBody = { emptyList() }) {
+            api.getAllTrips()
+        }.toResult()
 
     /**
      * Fetch a single trip by id. Used by the tracking screen to hydrate driver/vehicle/stop
      * details for the trip it is following.
      */
-    suspend fun getTripById(tripId: Long): Result<TripResponse> {
-        return try {
-            val response = api.getTripById(tripId)
-            val body = response.body()
-            if (response.isSuccessful && body != null) {
-                Result.success(body)
-            } else {
-                Result.failure(Exception("Failed to load trip $tripId: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getTripById(tripId: Long): Result<TripResponse> =
+        safeApiCall { api.getTripById(tripId) }.toResult()
 
     /**
      * Resolve the trip the logged-in student should currently be tracking, or `null` when
@@ -84,92 +65,43 @@ class TripRepository(private val api: TripApi) {
         pickupLng: Double,
         destinationLat: Double,
         destinationLng: Double
-    ): Result<List<TripResponse>> {
-        return try {
-            val response = api.searchTrips(pickupLat, pickupLng, destinationLat, destinationLng)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to search trips: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    ): Result<List<TripResponse>> =
+        safeApiCall<List<TripResponse>>(onEmptyBody = { emptyList() }) {
+            api.searchTrips(pickupLat, pickupLng, destinationLat, destinationLng)
+        }.toResult()
 
     /**
      * Start a trip (driver action). Precomputes the route if needed, sets it IN_PROGRESS and
      * begins the backend simulation. The returned trip already carries the seeded live position.
      *
-     * Error messages are written for a human reader rather than exposing an HTTP code, because
-     * this result is surfaced directly to the driver on screen.
+     * The failure message is surfaced directly to the driver on screen, so it is the
+     * backend's own message when there is one, otherwise a friendly default.
      */
-    suspend fun startTrip(tripId: Long): Result<TripResponse> {
-        return try {
-            val response = api.startTrip(tripId)
-            val body = response.body()
-            if (response.isSuccessful && body != null) {
-                Result.success(body)
-            } else {
-                Result.failure(Exception(startTripErrorMessage(response.code())))
-            }
-        } catch (e: Exception) {
-            Result.failure(Exception("Couldn't reach the server to start the trip. Check your connection and try again."))
-        }
-    }
+    suspend fun startTrip(tripId: Long): Result<TripResponse> =
+        safeApiCall { api.startTrip(tripId) }
+            .withFallbackMessage("This trip can't be started. It may have no route, or it's already completed or cancelled.")
+            .toResult()
 
-    private fun startTripErrorMessage(code: Int): String = when (code) {
-        400 -> "This trip can't be started. It may have no route, or it's already completed or cancelled."
-        401, 403 -> "You're not allowed to start this trip. Please sign in again."
-        404 -> "This trip no longer exists."
-        else -> "Couldn't start the trip (error $code). Please try again."
-    }
+    suspend fun cancelTrip(tripId: Long): Result<TripResponse> =
+        // Driver cancels their OWN posted trip (PATCH /api/trips/{id}/cancel).
+        // Previously this wrongly called cancelBooking (the student seat-cancel
+        // endpoint), so the driver's trip never actually got cancelled server-side.
+        safeApiCall { api.cancelTrip(tripId) }.toResult()
 
-    suspend fun cancelTrip(tripId: Long): Result<TripResponse> {
-        return try {
-            // Driver cancels their OWN posted trip (PATCH /api/trips/{id}/cancel).
-            // Previously this wrongly called cancelBooking (the student seat-cancel
-            // endpoint), so the driver's trip never actually got cancelled server-side.
-            val response = api.cancelTrip(tripId)
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Failed to cancel trip: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun bookCarpool(tripId: Long, request: BookCarpoolRequest): Result<TripResponse> {
-        return try {
-            val response = api.bookCarpool(tripId, request)
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Failed to book trip: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun bookCarpool(tripId: Long, request: BookCarpoolRequest): Result<TripResponse> =
+        safeApiCall { api.bookCarpool(tripId, request) }
+            // A 409 with no message of its own almost always means a duplicate booking.
+            .withFallbackMessage("You've already booked this trip, or it conflicts with another booking.")
+            .toResult()
 
     /**
      * Fetch all trips posted by the logged-in driver.
      * JWT token is automatically attached by the auth interceptor.
      */
-    suspend fun getMyTrips(): Result<List<TripResponse>> {
-        return try {
-            val response = api.getMyTrips()
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to load your trips: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getMyTrips(): Result<List<TripResponse>> =
+        safeApiCall<List<TripResponse>>(onEmptyBody = { emptyList() }) {
+            api.getMyTrips()
+        }.toResult()
 
     /**
      * Fetch the student's bookings filtered by booking_status.
@@ -179,36 +111,17 @@ class TripRepository(private val api: TripApi) {
      *   getMyBookings("CANCELLED") → cancelled trips (history page)
      *   getMyBookings()            → all bookings regardless of status
      */
-    suspend fun getMyBookings(status: String? = null): Result<List<TripBookingResponse>> {
-        return try {
-            val response = api.getMyBookings(status)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to load bookings: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getMyBookings(status: String? = null): Result<List<TripBookingResponse>> =
+        safeApiCall<List<TripBookingResponse>>(onEmptyBody = { emptyList() }) {
+            api.getMyBookings(status)
+        }.toResult()
 
     /**
      * Live ETA to the trip's destination, from wherever the vehicle currently is.
      * Calls through to TripEtaController#getEta, which asks Google Compute Routes on demand.
      */
-    suspend fun getEta(tripId: Long): Result<com.example.getyourride.data.remote.api.EtaResponse> {
-        return try {
-            val response = api.getEta(tripId)
-            val body = response.body()
-            if (response.isSuccessful && body != null) {
-                Result.success(body)
-            } else {
-                Result.failure(Exception("Failed to load ETA for trip $tripId: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getEta(tripId: Long): Result<com.example.getyourride.data.remote.api.EtaResponse> =
+        safeApiCall { api.getEta(tripId) }.toResult()
 
     /**
      * Submit a student's rating for a completed trip.
@@ -217,36 +130,18 @@ class TripRepository(private val api: TripApi) {
      * cancelTrip/startTrip above. JWT is attached automatically by the
      * auth interceptor, so the student isn't passed explicitly.
      */
-    suspend fun rateTrip(bookingId: Long, rating: Int, review: String, tags: List<String> = emptyList()): Result<TripReviewResponse> {
-        return try {
-            val response = api.rateTrip(TripRatingRequest(bookingId, rating, review, tags))
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Failed to submit rating: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun rateTrip(bookingId: Long, rating: Int, review: String, tags: List<String> = emptyList()): Result<TripReviewResponse> =
+        safeApiCall { api.rateTrip(TripRatingRequest(bookingId, rating, review, tags)) }.toResult()
 
     /**
      * Fetch all reviews students left on a completed trip (driver's "View Ratings" screen).
      * Calls GET /api/ratings/trip/{tripId}. JWT is attached automatically; the backend
      * verifies the authenticated driver owns the trip.
      */
-    suspend fun getTripReviews(tripId: Long): Result<List<TripReviewDetailResponse>> {
-        return try {
-            val response = api.getTripReviews(tripId)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
-            } else {
-                Result.failure(Exception("Failed to load ratings: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun getTripReviews(tripId: Long): Result<List<TripReviewDetailResponse>> =
+        safeApiCall<List<TripReviewDetailResponse>>(onEmptyBody = { emptyList() }) {
+            api.getTripReviews(tripId)
+        }.toResult()
 
     private companion object {
         const val BOOKING_STATUS_CONFIRMED = "CONFIRMED"

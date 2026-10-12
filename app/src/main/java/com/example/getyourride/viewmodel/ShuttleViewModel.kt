@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.userFacingMessage
 import com.example.getyourride.data.repository.ShuttleRepository
 import kotlinx.coroutines.launch
 
@@ -30,7 +31,7 @@ class ShuttleViewModel(
                     recentTrips = data.recentTrips
                 )
             } catch (e: Exception) {
-                uiState = ShuttleUiState.Error(e.message ?: "Failed to load shuttle data")
+                uiState = ShuttleUiState.Error(e.userFacingMessage())
             }
         }
     }

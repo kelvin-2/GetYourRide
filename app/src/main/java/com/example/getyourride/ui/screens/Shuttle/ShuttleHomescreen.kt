@@ -46,8 +46,7 @@ data class UpcomingShuttle(
     val driverName: String? = null,
     val plateNumber: String? = null,
     val vehicleModel: String? = null,
-    // Real backend booking id for this upcoming trip, so re-opening the ticket
-    // produces a QR the shuttle driver can scan to board this exact booking.
+
     val bookingId: Long? = null
 )
 
@@ -84,14 +83,15 @@ fun ShuttleHomeScreen(
         ) {
             item {
                 Spacer(Modifier.height(16.dp))
+                // Greeting: "Hello," + student name
                 Text(
-                    text = "Good morning,",
+                    text = "Hello,",
                     color = OrangeAccent,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = userName,
+                    text = userName.ifBlank { "Student" },
                     color = NavyPrimary,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
@@ -102,7 +102,12 @@ fun ShuttleHomeScreen(
             }
 
             item {
-                SectionHeader(title = "Upcoming Shuttles", actionLabel = "View All", onAction = onViewAllShuttles)
+                SectionHeader(
+                    title = "Your Shuttles",
+                    actionLabel = "View All",
+                    // Redirects to the Rides screen
+                    onAction = { navController.navigate(GyrRoutes.RIDES) }
+                )
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -111,21 +116,7 @@ fun ShuttleHomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-//            item {
-//                Spacer(Modifier.height(10.dp))
-//                Text(
-//                    text = "Recent Trips",
-//                    color = NavyPrimary,
-//                    fontSize = 18.sp,
-//                    fontWeight = FontWeight.Bold
-//                )
-//                Spacer(Modifier.height(12.dp))
-//            }
 
-//            items(recentTrips) { trip ->
-//                RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
-//                Spacer(Modifier.height(12.dp))
-//            }
         }
     }
 }

@@ -21,9 +21,11 @@ import androidx.navigation.NavController
 fun ShuttleLayout(
     currentRoute : String,
     navController: NavController,
+    snackbarHost : @Composable () -> Unit = {},
     content      : @Composable () -> Unit,
 ) {
     Scaffold(
+        snackbarHost = snackbarHost,
         bottomBar = {
             GyrBottomNav(
                 currentRoute = currentRoute,
