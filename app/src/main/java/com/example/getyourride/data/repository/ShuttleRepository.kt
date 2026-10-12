@@ -116,15 +116,18 @@ class ShuttleRepository(
                 ShuttleTimeSlot(slotId = it.slotId, departs = it.departs, arrives = it.arrives, period = it.period)
             }
         } catch (e: Exception) {
+            // 24-hour "HH:mm" strings. These must line up with the departure times of the
+            // seeded SHUTTLE trips, since findAvailableTrip matches a slot to a trip on the
+            // HH:mm of its departureTime. Mixed AM/PM strings here would silently break booking.
             listOf(
-                ShuttleTimeSlot(0, "08:00 AM", "08:30 AM", "Morning"),
-                ShuttleTimeSlot(0, "08:30 AM", "09:00 AM", "Morning"),
-                ShuttleTimeSlot(0, "09:00 AM", "09:30 AM", "Morning"),
-                ShuttleTimeSlot(0, "09:30 AM", "10:00 AM", "Morning"),
-                ShuttleTimeSlot(0, "10:00 AM", "10:30 AM", "Morning"),
-                ShuttleTimeSlot(0, "10:30 AM", "11:00 AM", "Morning"),
-                ShuttleTimeSlot(0, "12:30 PM", "13:15 PM", "Afternoon"),
-                ShuttleTimeSlot(0, "14:30 PM", "15:15 PM", "Afternoon")
+                ShuttleTimeSlot(0, "06:45", "07:15", "Morning"),
+                ShuttleTimeSlot(0, "07:45", "08:15", "Morning"),
+                ShuttleTimeSlot(0, "08:45", "09:15", "Morning"),
+                ShuttleTimeSlot(0, "09:45", "10:15", "Morning"),
+                ShuttleTimeSlot(0, "12:30", "13:00", "Afternoon"),
+                ShuttleTimeSlot(0, "14:30", "15:00", "Afternoon"),
+                ShuttleTimeSlot(0, "16:00", "16:30", "Afternoon"),
+                ShuttleTimeSlot(0, "17:30", "18:00", "Afternoon")
             )
         }
     }
@@ -135,15 +138,35 @@ class ShuttleRepository(
             throw Exception("Failed to search trips: ${response.message()}")
         }
         val trips = response.body() ?: emptyList()
-        val expectedSlotTime = "${slot.departs.take(5)} - ${slot.arrives.take(5)}"
+
+        // The selected slot's departure time, normalised to "HH:mm" (e.g. "14:30").
+        // slot.departs can arrive as "14:30", "14:30:00" or "14:30 PM" depending on
+        // whether the time-slots API responded or the hardcoded fallback kicked in,
+        // so we strip to the first 5 chars.
+        val slotHhmm = slot.departs.take(5)
 
         return trips.firstOrNull { trip ->
-            trip.tripType.equals("SHUTTLE", ignoreCase = true) &&
-                    (trip.status.equals("SCHEDULED", ignoreCase = true) ||
-                            trip.status.equals("CONFIRMED", ignoreCase = true)) &&
-                    trip.availableSeats > 0 &&
-                    trip.departureStop.equals(pickupStop, ignoreCase = true) &&
-                    trip.slotTime == expectedSlotTime
+            if (!trip.tripType.equals("SHUTTLE", ignoreCase = true)) return@firstOrNull false
+
+            val isBookable = trip.status.equals("SCHEDULED", ignoreCase = true) ||
+                    trip.status.equals("CONFIRMED", ignoreCase = true)
+            if (!isBookable) return@firstOrNull false
+
+            // Shuttles come back with availableSeats == null (unlimited / seat count not
+            // tracked). Only enforce a seat check when the backend actually reports a count.
+            if (trip.availableSeats != null && trip.availableSeats <= 0) return@firstOrNull false
+
+            if (!trip.departureStop.equals(pickupStop, ignoreCase = true)) return@firstOrNull false
+
+            // Match the slot to the trip's time. Prefer the backend slotTime
+            // ("HH:mm:ss - HH:mm:ss") when present; otherwise fall back to the HH:mm of
+            // the ISO departureTime ("2026-10-12T14:30:00" -> "14:30").
+            val tripHhmm = when {
+                !trip.slotTime.isNullOrBlank() -> trip.slotTime.take(5)
+                trip.departureTime.length >= 16 -> trip.departureTime.substring(11, 16)
+                else -> ""
+            }
+            tripHhmm == slotHhmm
         }
     }
 

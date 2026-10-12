@@ -80,7 +80,10 @@ class ScheduleRideViewModel(
         viewModelScope.launch {
             try {
                 val trip = repository.findAvailableTrip(state.pickupLabel, slot)
-                    ?: throw Exception("No shuttle available for this stop and time — try another slot")
+                    ?: throw Exception(
+                        "No shuttle from ${state.pickupLabel} at ${slot.departs.take(5)}. " +
+                                "Try a different time or pickup stop."
+                    )
 
                 val summary = repository.bookShuttle(trip.tripId)
 

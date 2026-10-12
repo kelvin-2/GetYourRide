@@ -60,7 +60,7 @@ fun TripResponse.toCarpoolRide(): CarpoolRide {
         driverInitials = initials,
         rating         = 5.0,   // placeholder — no rating field on backend yet
         ratingCount    = 0,     // placeholder — same reason
-        seatsLeft      = availableSeats,
+        seatsLeft      = availableSeats ?: 0,
         departureTime  = formattedTime,
         fromLocation   = departureStop,
         toLocation     = destinationStop,
@@ -99,7 +99,7 @@ fun TripResponse.toRideRequestDetails(): RideRequestDetails {
         destinationLng = destinationLng,
         departureTime = formattedDeparture,   // time-only display string, e.g. "02:30 PM"
         arrivalEstimate = arrivalTime ?: "—",
-        seatsAvailable = availableSeats,
+        seatsAvailable = availableSeats ?: 0,
         pricePerSeat = price.toDouble(),
     )
 }
