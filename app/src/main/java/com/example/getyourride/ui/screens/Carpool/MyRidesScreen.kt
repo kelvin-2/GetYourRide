@@ -26,7 +26,10 @@ import androidx.compose.ui.window.PopupProperties
 import com.example.getyourride.UserSession
 import com.example.getyourride.data.mapper.toRideCardData
 import com.example.getyourride.data.remote.dto.NotificationResponse
+import com.example.getyourride.ui.components.GyrErrorState
+import com.example.getyourride.ui.components.GyrMessageEffect
 import com.example.getyourride.ui.components.GyrRoutes
+import com.example.getyourride.ui.components.GyrSnackbarHost
 import com.example.getyourride.ui.components.RideCard
 import com.example.getyourride.ui.components.RideCardData
 import com.example.getyourride.ui.components.RideStatus
@@ -57,6 +60,14 @@ fun MyRidesScreen(
 ) {
     var selectedTab by remember { mutableStateOf(RideTab.UPCOMING) }
     val uiState = viewModel.uiState
+
+    // Failed actions (e.g. cancel) are reported through the themed snackbar.
+    val snackbarHostState = remember { SnackbarHostState() }
+    GyrMessageEffect(
+        message = viewModel.actionMessage,
+        hostState = snackbarHostState,
+        onShown = viewModel::consumeActionMessage,
+    )
 
     // NSFAS-funded students don't get the Track feature, so the "Track Ride"
     // button is hidden on every ride card for them (this screen is shared by
@@ -111,23 +122,12 @@ fun MyRidesScreen(
 
                 // ── Error ─────────────────────────────────────────────────────
                 is AllTripsUiState.Error -> {
-                    Column(
-                        modifier            = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Text(uiState.message, fontSize = 14.sp, color = DangerRed, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.loadAllTrips() },
-                            colors  = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
-                            shape   = RoundedCornerShape(10.dp),
-                        ) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Try Again")
-                        }
-                    }
+                    GyrErrorState(
+                        message  = uiState.message,
+                        title    = "Couldn't load your rides",
+                        onRetry  = { viewModel.loadAllTrips() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
 
                 // ── Success ───────────────────────────────────────────────────
@@ -156,7 +156,8 @@ fun MyRidesScreen(
                     val filtered = cardsWithTripId.filter { (card, _) ->
                         when (selectedTab) {
                             RideTab.UPCOMING  -> card.status == RideStatus.ACTIVE || card.status == RideStatus.SCHEDULED
-                            RideTab.PAST      -> card.status == RideStatus.COMPLETED
+                            // A no-show is a finished trip the student missed, so it lives in Past.
+                            RideTab.PAST      -> card.status == RideStatus.COMPLETED || card.status == RideStatus.NO_SHOW
                             RideTab.CANCELLED -> card.status == RideStatus.CANCELLED
                         }
                     }
@@ -214,12 +215,14 @@ fun MyRidesScreen(
         ShuttleLayout(
             currentRoute = currentRoute,
             navController = navController,
+            snackbarHost = { GyrSnackbarHost(snackbarHostState) },
             content = content
         )
     } else {
         StudentLayout(
             currentRoute = currentRoute,
             navController = navController,
+            snackbarHost = { GyrSnackbarHost(snackbarHostState) },
             content = content
         )
     }

@@ -3,9 +3,13 @@ package com.example.getyourride.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.UserMessageException
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
+import com.example.getyourride.data.remote.dto.hasDepartedToday
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.remote.userFacingMessage
 import com.example.getyourride.data.repository.ShuttleRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -27,6 +31,9 @@ data class ScheduleRideUiState(
     val lastBookingId: Long? = null           // real booking id from the backend, encoded into the QR
 )
 
+private const val PAST_SLOT_MESSAGE =
+    "That shuttle has already left. Shuttles can only be booked for today, so please pick a later time."
+
 class ScheduleRideViewModel(
     private val repository: ShuttleRepository
 ) : ViewModel() {
@@ -42,16 +49,36 @@ class ScheduleRideViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val slots = repository.fetchTimeSlots()
-                _uiState.update { it.copy(availableTimes = slots, isLoading = false) }
+                val (slots, usedFallback) = repository.fetchTimeSlotsWithStatus()
+                _uiState.update {
+                    it.copy(
+                        availableTimes = slots,
+                        isLoading = false,
+                        errorMessage = if (usedFallback) "Can't reach the server. Showing default departure times." else it.errorMessage
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = "Failed to load time slots", isLoading = false) }
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(errorMessage = e.userFacingMessage(), isLoading = false) }
             }
         }
     }
 
     fun onTimeSelected(slot: ShuttleTimeSlot) {
-        _uiState.update { it.copy(selectedTime = slot.departs, selectedSlot = slot) }
+        if (slot.hasDepartedToday()) {
+            _uiState.update {
+                it.copy(
+                    // Drop any earlier selection so a stale slot can't be confirmed.
+                    selectedTime = if (it.selectedSlot == slot) null else it.selectedTime,
+                    selectedSlot = if (it.selectedSlot == slot) null else it.selectedSlot,
+                    errorMessage = PAST_SLOT_MESSAGE
+                )
+            }
+            return
+        }
+        _uiState.update {
+            it.copy(selectedTime = slot.departs, selectedSlot = slot, errorMessage = null)
+        }
     }
 
     fun onSwapLocations() {
@@ -65,10 +92,17 @@ class ScheduleRideViewModel(
 
     fun onConfirmBooking(onSuccess: () -> Unit) {
         val state = _uiState.value
+        // Ignore taps while a booking request is already in flight (prevents double-submits).
+        if (state.isConfirming) return
         val slot = state.selectedSlot
 
         if (slot == null) {
             _uiState.update { it.copy(errorMessage = "Please select a departure time") }
+            return
+        }
+        // The slot may have passed while the screen was open, so check again at confirm time.
+        if (slot.hasDepartedToday()) {
+            _uiState.update { it.copy(errorMessage = PAST_SLOT_MESSAGE) }
             return
         }
         if (state.pickupLabel == "Select Pickup") {
@@ -80,10 +114,7 @@ class ScheduleRideViewModel(
         viewModelScope.launch {
             try {
                 val trip = repository.findAvailableTrip(state.pickupLabel, slot)
-                    ?: throw Exception(
-                        "No shuttle from ${state.pickupLabel} at ${slot.departs.take(5)}. " +
-                                "Try a different time or pickup stop."
-                    )
+                    ?: throw UserMessageException("No shuttle available for this stop and time. Try another slot.")
 
                 val summary = repository.bookShuttle(trip.tripId)
 
@@ -99,8 +130,10 @@ class ScheduleRideViewModel(
                 }
                 onSuccess()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // Always reset the in-flight flag so the button never stays stuck.
                 _uiState.update {
-                    it.copy(isConfirming = false, errorMessage = e.message ?: "Booking failed")
+                    it.copy(isConfirming = false, errorMessage = e.userFacingMessage())
                 }
             }
         }

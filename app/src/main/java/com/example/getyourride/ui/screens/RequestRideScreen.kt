@@ -53,6 +53,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.ui.components.GyrMessageEffect
+import com.example.getyourride.ui.components.GyrSnackbarHost
 import com.example.getyourride.ui.components.GyrTopBar
 import com.example.getyourride.ui.theme.*
 import com.example.getyourride.viewmodel.BookingUiState
@@ -127,6 +129,15 @@ fun RequestRideScreen(
     }
     val bookingState = bookingViewModel.bookingState
 
+    // Booking failures (e.g. "Student already has a booking for this trip") show in the
+    // themed snackbar, then the error state is cleared so it never re-shows.
+    val snackbarHostState = remember { SnackbarHostState() }
+    GyrMessageEffect(
+        message = (bookingState as? BookingUiState.Error)?.message,
+        hostState = snackbarHostState,
+        onShown = { bookingViewModel.resetState() },
+    )
+
     LaunchedEffect(bookingState) {
         if (bookingState is BookingUiState.Success) {
             onBookingSuccess(bookingState.trip)
@@ -139,6 +150,7 @@ fun RequestRideScreen(
 
     Scaffold(
         containerColor = CardWhite,
+        snackbarHost = { GyrSnackbarHost(snackbarHostState) },
         topBar = {
             // Reuses the shared GyrTopBar with back arrow — consistent with rest of app
             GyrTopBar(
@@ -179,14 +191,6 @@ fun RequestRideScreen(
             )
 
             TotalAmountRow(totalAmount = ride.pricePerSeat)
-
-            if (bookingState is BookingUiState.Error) {
-                Text(
-                    text     = bookingState.message,
-                    color    = DangerRed,
-                    fontSize = 13.sp,
-                )
-            }
 
             // ── Confirm button ────────────────────────────────────────────────
             Button(

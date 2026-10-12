@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.dto.BookCarpoolRequest
+import com.example.getyourride.data.remote.userFacingMessage
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
 import com.example.getyourride.data.repository.TripRepository
@@ -80,6 +81,8 @@ class TripBookingViewModel(
      * pickup is required, since the backend has no default/self-service pickup.
      */
     fun confirmBooking() {
+        // Ignore taps while a booking request is already in flight (prevents double-submits).
+        if (bookingState is BookingUiState.Submitting) return
         val pickup = pickupStop
         if (pickup == null) {
             bookingState = BookingUiState.Error("Please choose a pickup stop first")
@@ -105,7 +108,7 @@ class TripBookingViewModel(
             bookingState = BookingUiState.Submitting
             repository.bookCarpool(tripId, request)
                 .onSuccess { trip -> bookingState = BookingUiState.Success(trip) }
-                .onFailure { e -> bookingState = BookingUiState.Error(e.message ?: "Couldn't book this ride") }
+                .onFailure { e -> bookingState = BookingUiState.Error(e.userFacingMessage()) }
         }
     }
 

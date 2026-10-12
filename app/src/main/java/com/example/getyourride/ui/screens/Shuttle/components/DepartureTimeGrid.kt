@@ -12,6 +12,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
+import com.example.getyourride.data.remote.dto.hasDepartedToday
 import com.example.getyourride.ui.theme.NavyPrimary
 import com.example.getyourride.ui.theme.OrangeAccent
 
@@ -74,6 +75,7 @@ private fun TimeSection(
                     TimeSlotChip(
                         time = slot.departs,
                         isSelected = slot.departs == selectedTime,
+                        isPast = slot.hasDepartedToday(),
                         onClick = { onTimeSelected(slot) },
                         modifier = Modifier.weight(1f)
                     )
@@ -91,12 +93,26 @@ private fun TimeSection(
 private fun TimeSlotChip(
     time: String,
     isSelected: Boolean,
+    isPast: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (isSelected) OrangeAccent else Color(0xFFE0E0E5)
-    val textColor = if (isSelected) OrangeAccent else NavyPrimary
-    val backgroundColor = if (isSelected) OrangeAccent.copy(alpha = 0.08f) else Color.White
+    // Past slots stay tappable so the student gets an explanation, but look greyed out.
+    val borderColor = when {
+        isPast -> Color(0xFFEAEAEA)
+        isSelected -> OrangeAccent
+        else -> Color(0xFFE0E0E5)
+    }
+    val textColor = when {
+        isPast -> Color(0xFFB0B0B8)
+        isSelected -> OrangeAccent
+        else -> NavyPrimary
+    }
+    val backgroundColor = when {
+        isPast -> Color(0xFFF4F4F6)
+        isSelected -> OrangeAccent.copy(alpha = 0.08f)
+        else -> Color.White
+    }
 
     OutlinedButton(
         onClick = onClick,

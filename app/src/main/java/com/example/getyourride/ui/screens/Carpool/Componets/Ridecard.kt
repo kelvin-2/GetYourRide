@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.getyourride.ui.theme.*
 
-enum class RideStatus { ACTIVE, SCHEDULED, COMPLETED, CANCELLED }
+enum class RideStatus { ACTIVE, SCHEDULED, COMPLETED, CANCELLED, NO_SHOW }
 
 data class RideStopInfo(
     val stopName: String,
@@ -280,6 +280,7 @@ private fun StatusPill(status: RideStatus) {
         RideStatus.SCHEDULED -> OrangeAccent to "SCHEDULED"
         RideStatus.COMPLETED -> StatusCompleted to "COMPLETED"
         RideStatus.CANCELLED -> Color(0xFFD32F2F) to "CANCELLED"
+        RideStatus.NO_SHOW   -> Color(0xFF757575) to "NO SHOW"
     }
     Surface(shape = RoundedCornerShape(6.dp), color = color.copy(alpha = 0.12f)) {
         Text(

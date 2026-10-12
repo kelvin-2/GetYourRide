@@ -308,23 +308,11 @@ private fun AvailableRidesSection(
                     shape    = RoundedCornerShape(12.dp),
                     colors   = CardDefaults.cardColors(containerColor = CardWhite),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text     = "Couldn't load rides — ${uiState.message}",
-                            fontSize = 13.sp,
-                            color    = TextMuted,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Button(
-                            onClick = onRetry,
-                            colors  = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
-                        ) {
-                            Text("Retry", color = Color.White)
-                        }
-                    }
+                    com.example.getyourride.ui.components.GyrErrorState(
+                        message = uiState.message,
+                        title   = "Couldn't load rides",
+                        onRetry = onRetry,
+                    )
                 }
             }
 

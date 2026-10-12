@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.ui.components.GyrSnackbarHost
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.screens.shuttle.components.DepartureTimeGrid
 import com.example.getyourride.ui.screens.shuttle.components.TripLocationCard
@@ -67,7 +68,8 @@ fun BookShuttleScreen(
         currentRoute = "book_shuttle",
         navController = navController,
         showBottomBar = false,
-        onBackClick = { navController.popBackStack() }
+        onBackClick = { navController.popBackStack() },
+        snackbarHost = { GyrSnackbarHost(snackbarHostState) }
     ) {
         Box(
             modifier = Modifier

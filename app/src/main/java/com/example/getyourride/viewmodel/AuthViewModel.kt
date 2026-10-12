@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.SESSION_EXPIRED_MESSAGE
 import com.example.getyourride.data.remote.dto.AuthResponse
 import com.example.getyourride.data.repository.AuthResult
 import com.example.getyourride.data.repository.StudentAuthRepository
@@ -90,6 +91,11 @@ class AuthViewModel(
                 is AuthResult.Error   -> AuthUiState.Error(result.message)
             }
         }
+    }
+
+    /** Shown on the login screen after a 401 with an active session sent the user back here. */
+    fun showSessionExpired() {
+        uiState = AuthUiState.Error(SESSION_EXPIRED_MESSAGE)
     }
 
     /** Call after navigating away from a Success/Error state so it doesn't re-trigger. */

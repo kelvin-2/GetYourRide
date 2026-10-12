@@ -8,6 +8,8 @@ import com.example.getyourride.viewmodel.RideViewModel
 import com.example.getyourride.viewmodel.RideViewModelFactory
 import android.os.Bundle
 import com.example.getyourride.UserSession
+import com.example.getyourride.data.remote.SessionEvents
+import com.example.getyourride.ui.components.GyrErrorState
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -223,6 +225,22 @@ class MainActivity : ComponentActivity() {
                 // student leaves that screen via "View My Rides".
                 var confirmedBooking by remember { mutableStateOf<BookingConfirmationDetails?>(null) }
                 var confirmedShuttle by remember { mutableStateOf<BookingConfirmation?>(null) }
+
+                // ── Expired / invalid JWT (HTTP 401 while logged in) ───────────────────
+                // The network layer (safeApiCall) fires SessionEvents.expired. We clear the
+                // session, go back to login and show "Your session expired..." there.
+                LaunchedEffect(Unit) {
+                    SessionEvents.expired.collect {
+                        if (navController.currentDestination?.route != "login") {
+                            UserSession.clear()
+                            authViewModel.showSessionExpired()
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                }
 
                 NavHost(
                     navController    = navController,
@@ -739,12 +757,11 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Couldn't load shuttles: ${state.message}")
-                                        Button(onClick = { shuttleViewModel.loadShuttleHomeData() }) {
-                                            Text("Retry")
-                                        }
-                                    }
+                                    GyrErrorState(
+                                        message = state.message,
+                                        title   = "Couldn't load shuttles",
+                                        onRetry = { shuttleViewModel.loadShuttleHomeData() },
+                                    )
                                 }
                             }
                             is ShuttleUiState.Success -> {

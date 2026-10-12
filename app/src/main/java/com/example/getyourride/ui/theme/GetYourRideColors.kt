@@ -9,6 +9,7 @@ val GreenSuccess   = Color(0xFF2E7D32)  // Green           – success states
 val SurfaceGrey    = Color(0xFFF5F6FA)  // Light Grey      – screen backgrounds
 val CardWhite      = Color(0xFFFFFFFF)  // White           – card backgrounds
 val DangerRed      = Color(0xFFC62828)  // Red             – destructive actions
+val DangerRedSoft  = Color(0xFFFCE4E4)  // Soft red tint   – error icon badges / banners
 
 // ─── Text ────────────────────────────────────────────────────────────────────
 val TextPrimary    = Color(0xFF1A2E5A)

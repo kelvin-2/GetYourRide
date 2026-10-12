@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,8 +47,7 @@ data class UpcomingShuttle(
     val driverName: String? = null,
     val plateNumber: String? = null,
     val vehicleModel: String? = null,
-    // Real backend booking id for this upcoming trip, so re-opening the ticket
-    // produces a QR the shuttle driver can scan to board this exact booking.
+
     val bookingId: Long? = null
 )
 
@@ -84,14 +84,15 @@ fun ShuttleHomeScreen(
         ) {
             item {
                 Spacer(Modifier.height(16.dp))
+                // Greeting: "Hello," + student name
                 Text(
-                    text = "Good morning,",
+                    text = "Hello,",
                     color = OrangeAccent,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = userName,
+                    text = userName.ifBlank { "Student" },
                     color = NavyPrimary,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
@@ -102,8 +103,27 @@ fun ShuttleHomeScreen(
             }
 
             item {
-                SectionHeader(title = "Upcoming Shuttles", actionLabel = "View All", onAction = onViewAllShuttles)
+                SectionHeader(
+                    title = "Your Shuttles",
+                    actionLabel = "View All",
+                    // Redirects to the Rides screen
+                    onAction = { navController.navigate(GyrRoutes.RIDES) }
+                )
                 Spacer(Modifier.height(12.dp))
+            }
+
+            if (upcomingShuttles.isEmpty()) {
+                item {
+                    // Centre the message in the remaining white space under "Your Shuttles"
+                    Box(
+                        modifier = Modifier
+                            .fillParentMaxWidth()
+                            .fillParentMaxHeight(0.5f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EmptyShuttlesState(onBookShuttle = onBookShuttle)
+                    }
+                }
             }
 
             items(upcomingShuttles) { shuttle ->
@@ -111,21 +131,7 @@ fun ShuttleHomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-//            item {
-//                Spacer(Modifier.height(10.dp))
-//                Text(
-//                    text = "Recent Trips",
-//                    color = NavyPrimary,
-//                    fontSize = 18.sp,
-//                    fontWeight = FontWeight.Bold
-//                )
-//                Spacer(Modifier.height(12.dp))
-//            }
 
-//            items(recentTrips) { trip ->
-//                RecentTripItem(trip = trip, onClick = { onTripClick(trip) })
-//                Spacer(Modifier.height(12.dp))
-//            }
         }
     }
 }
@@ -215,6 +221,55 @@ private fun BookShuttleCard(onClick: () -> Unit) {
                     )
                 }
             }
+        }
+    }
+}
+
+// ---------- Empty state ----------
+
+@Composable
+private fun EmptyShuttlesState(onBookShuttle: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(88.dp)
+                .clip(CircleShape)
+                .background(OrangeAccent.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.DirectionsBus,
+                contentDescription = null,
+                tint = OrangeAccent,
+                modifier = Modifier.size(44.dp)
+            )
+        }
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = "No shuttles booked yet",
+            color = NavyPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "You haven't booked a shuttle, so there are no rides to show. Reserve a seat and your upcoming trips will appear here.",
+            color = Color.Gray,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = onBookShuttle,
+            colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(text = "Book your first shuttle", color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

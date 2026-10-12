@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.dto.TripBookingResponse
+import com.example.getyourride.data.remote.userFacingMessage
 import com.example.getyourride.data.repository.TripRepository
 import kotlinx.coroutines.launch
 
@@ -21,6 +22,17 @@ class AllRidesViewModel(
 
     var uiState: AllTripsUiState by mutableStateOf(AllTripsUiState.Loading)
         private set
+
+    /**
+     * One-shot, user-facing message for the outcome of an action (e.g. a failed cancel), shown
+     * as a snackbar. The screen calls [consumeActionMessage] once it has displayed it.
+     */
+    var actionMessage: String? by mutableStateOf(null)
+        private set
+
+    fun consumeActionMessage() {
+        actionMessage = null
+    }
 
     // NOTE: no init { loadAllTrips() } here on purpose — same reasoning as
     // RideViewModel. This ViewModel is constructed at the top of
@@ -43,7 +55,7 @@ class AllRidesViewModel(
                 }
                 .onFailure { e ->
                     uiState = AllTripsUiState.Error(
-                        e.message ?: "Something went wrong"
+                        e.userFacingMessage()
                     )
                 }
         }
@@ -62,8 +74,8 @@ class AllRidesViewModel(
                 }
                 .onFailure { e ->
                     // Cancel failed — list stays as-is so the user doesn't lose
-                    // their other trips from view. Surface this to the user
-                    // (snackbar/toast) once you decide on an error-display pattern.
+                    // their other trips from view. Tell the user via the snackbar.
+                    actionMessage = e.userFacingMessage()
                 }
         }
     }

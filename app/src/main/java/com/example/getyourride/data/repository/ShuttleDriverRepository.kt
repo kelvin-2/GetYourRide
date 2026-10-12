@@ -8,6 +8,9 @@ import com.example.getyourride.data.remote.dto.MarkAsBoardedResponse
 import com.example.getyourride.data.remote.dto.ShuttleDriverActiveTripResponse
 import com.example.getyourride.data.remote.dto.ShuttleDriverLoginRequest
 import com.example.getyourride.data.remote.dto.ShuttleDriverProfileResponse
+import com.example.getyourride.data.remote.getOrThrow
+import com.example.getyourride.data.remote.safeApiCall
+import com.example.getyourride.data.remote.withFallbackMessage
 
 /**
  * Repository for shuttle driver operations.
@@ -16,105 +19,53 @@ import com.example.getyourride.data.remote.dto.ShuttleDriverProfileResponse
  * - Login (admin-created credentials)
  * - Profile fetching (driver info + vehicle + trip summary)
  * - Boarding (active trip, booked students, mark as boarded)
+ *
+ * Failures are thrown as ApiException; its message is already user-friendly
+ * (backend {"error": "..."} text is used when present).
  */
 class ShuttleDriverRepository(private val api: ShuttleDriverApi) {
 
     /**
      * Authenticate shuttle driver with email and password.
      */
-    suspend fun login(email: String, password: String): AuthResponse {
-        val response = api.login(ShuttleDriverLoginRequest(email, password))
-
-        if (response.isSuccessful) {
-            return response.body()
-                ?: throw Exception("Login succeeded but response body was empty")
-        }
-
-        val errorBody = response.errorBody()?.string()
-        throw Exception(
-            when (response.code()) {
-                401 -> "Invalid email or password"
-                403 -> "Account not verified. Contact admin."
-                404 -> "No shuttle driver account found with this email"
-                else -> errorBody ?: "Login failed (${response.code()})"
-            }
-        )
-    }
+    suspend fun login(email: String, password: String): AuthResponse =
+        safeApiCall { api.login(ShuttleDriverLoginRequest(email, password)) }
+            .withFallbackMessage("Invalid email or password")
+            .getOrThrow()
 
     /**
      * Fetch the full shuttle driver profile including vehicle and trip stats.
      */
-    suspend fun getProfile(driverId: Long): ShuttleDriverProfileResponse {
-        val response = api.getProfile(driverId)
-
-        if (response.isSuccessful) {
-            return response.body()
-                ?: throw Exception("Profile loaded but response body was empty")
-        }
-
-        val errorBody = response.errorBody()?.string()
-        throw Exception(
-            when (response.code()) {
-                404 -> "Driver profile not found"
-                401 -> "Session expired. Please log in again."
-                else -> errorBody ?: "Failed to load profile (${response.code()})"
-            }
-        )
-    }
+    suspend fun getProfile(driverId: Long): ShuttleDriverProfileResponse =
+        safeApiCall { api.getProfile(driverId) }
+            .withFallbackMessage("Driver profile not found")
+            .getOrThrow()
 
     // ── Boarding Methods ────────────────────────────────────────────────────
 
     /**
      * Fetch the current/next active trip for this shuttle driver.
      */
-    suspend fun getActiveTrip(driverId: Long): ShuttleDriverActiveTripResponse {
-        val response = api.getActiveTrip(driverId)
-
-        if (response.isSuccessful) {
-            return response.body()
-                ?: throw Exception("No active trip found")
-        }
-
-        val errorBody = response.errorBody()?.string()
-        throw Exception(
-            when (response.code()) {
-                404 -> "No active trip assigned. Check your schedule."
-                401 -> "Session expired. Please log in again."
-                else -> errorBody ?: "Failed to load trip (${response.code()})"
-            }
-        )
-    }
+    suspend fun getActiveTrip(driverId: Long): ShuttleDriverActiveTripResponse =
+        safeApiCall { api.getActiveTrip(driverId) }
+            .withFallbackMessage("No active trip assigned. Check your schedule.")
+            .getOrThrow()
 
     /**
      * Fetch all booked students for a specific trip.
      */
-    suspend fun getBookedStudents(tripId: Long): List<BoardedStudentResponse> {
-        val response = api.getBookedStudents(tripId)
-
-        if (response.isSuccessful) {
-            return response.body() ?: emptyList()
-        }
-
-        val errorBody = response.errorBody()?.string()
-        throw Exception(
-            errorBody ?: "Failed to load students (${response.code()})"
-        )
-    }
+    suspend fun getBookedStudents(tripId: Long): List<BoardedStudentResponse> =
+        safeApiCall<List<BoardedStudentResponse>>(onEmptyBody = { emptyList() }) {
+            api.getBookedStudents(tripId)
+        }.getOrThrow()
 
     /**
      * Mark a student as boarded — updates boarding_log.boarded_at.
      */
-    suspend fun markAsBoarded(bookingId: Long): MarkAsBoardedResponse {
-        val response = api.markAsBoarded(MarkAsBoardedRequest(bookingId))
-
-        if (response.isSuccessful) {
-            return response.body()
-                ?: MarkAsBoardedResponse(true, "Marked as boarded", null)
-        }
-
-        val errorBody = response.errorBody()?.string()
-        throw Exception(
-            errorBody ?: "Failed to mark as boarded (${response.code()})"
-        )
-    }
+    suspend fun markAsBoarded(bookingId: Long): MarkAsBoardedResponse =
+        safeApiCall<MarkAsBoardedResponse>(
+            onEmptyBody = { MarkAsBoardedResponse(true, "Marked as boarded", null) }
+        ) {
+            api.markAsBoarded(MarkAsBoardedRequest(bookingId))
+        }.getOrThrow()
 }
