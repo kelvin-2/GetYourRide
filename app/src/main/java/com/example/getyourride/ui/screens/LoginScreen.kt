@@ -326,45 +326,45 @@ fun LoginScreen(
                 .clickable { onBecomeDriverClick() },
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        val footerText = buildAnnotatedString {
-            append("By logging in, you agree to the Get Your Ride ")
-
-            withStyle(
-                SpanStyle(
-                    color = NavyPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = TextDecoration.Underline,
-                )
-            ) {
-                append("Terms of Service")
-            }
-
-            append(" and ")
-
-            withStyle(
-                SpanStyle(
-                    color = NavyPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = TextDecoration.Underline,
-                )
-            ) {
-                append("Privacy Policy")
-            }
-
-            append(".")
-        }
-
-        Text(
-            text = footerText,
-            fontSize = 12.sp,
-            color = TextMuted,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
+//        Spacer(modifier = Modifier.height(24.dp))
+//
+//        val footerText = buildAnnotatedString {
+//            append("By logging in, you agree to the Get Your Ride ")
+//
+//            withStyle(
+//                SpanStyle(
+//                    color = NavyPrimary,
+//                    fontWeight = FontWeight.SemiBold,
+//                    textDecoration = TextDecoration.Underline,
+//                )
+//            ) {
+//                append("Terms of Service")
+//            }
+//
+//            append(" and ")
+//
+//            withStyle(
+//                SpanStyle(
+//                    color = NavyPrimary,
+//                    fontWeight = FontWeight.SemiBold,
+//                    textDecoration = TextDecoration.Underline,
+//                )
+//            ) {
+//                append("Privacy Policy")
+//            }
+//
+//            append(".")
+//        }
+//
+//        Text(
+//            text = footerText,
+//            fontSize = 12.sp,
+//            color = TextMuted,
+//            textAlign = TextAlign.Center,
+//            modifier = Modifier.padding(horizontal = 8.dp),
+//        )
+//
+//        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

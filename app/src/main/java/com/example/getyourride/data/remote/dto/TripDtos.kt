@@ -21,7 +21,10 @@ data class TripResponse(
     val destinationLng: Double?,
     val departureTime: String,
     val arrivalTime: String?,
-    val availableSeats: Int,
+    // Nullable: SHUTTLE trips come back with "availableSeats": null from the backend.
+    // Declaring this non-null made Gson coerce null -> 0, which caused the shuttle
+    // booking lookup to reject every shuttle (availableSeats > 0 was always false).
+    val availableSeats: Int?,
     val price: BigDecimal,
     val status: String,
     val slotTime: String? = null,   // NEW — "06:45:00 - 07:30:00", matches backend TripResponse.slotTime

@@ -596,7 +596,7 @@ private fun ActiveRideCard(
     isStarting: Boolean = false
 ) {
     val bookedPassengers = trip.stops.filter { it.studentId != null }
-    val seatsRemaining = trip.availableSeats - bookedPassengers.size
+    val seatsRemaining = (trip.availableSeats ?: trip.vehicleCapacity ?: 0) - bookedPassengers.size
     val isScheduled = trip.status.equals("SCHEDULED", ignoreCase = true) ||
             trip.status.equals("CONFIRMED", ignoreCase = true)
     val isLive = trip.status.equals("IN_PROGRESS", ignoreCase = true)
