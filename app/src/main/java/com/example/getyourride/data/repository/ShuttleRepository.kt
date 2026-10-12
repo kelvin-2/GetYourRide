@@ -47,6 +47,11 @@ class ShuttleRepository(
         //    CONFIRMED must be included — a trip becomes CONFIRMED immediately after booking,
         //    so leaving it out means a just-booked trip never shows up here.
         val upcoming = shuttleBookings
+            // A cancelled booking keeps a CONFIRMED trip status, so check the booking too.
+            .filter {
+                !it.bookingStatus.equals("CANCELLED", ignoreCase = true) &&
+                        !it.bookingStatus.equals("NO_SHOW", ignoreCase = true)
+            }
             .filter {
                 val s = it.trip.status
                 s.equals("SCHEDULED", ignoreCase = true) ||

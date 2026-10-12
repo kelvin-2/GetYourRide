@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.getyourride.data.remote.UserMessageException
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
+import com.example.getyourride.data.remote.dto.hasDepartedToday
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.userFacingMessage
 import com.example.getyourride.data.repository.ShuttleRepository
@@ -29,6 +30,9 @@ data class ScheduleRideUiState(
     val lastBookedTrip: TripResponse? = null, // real trip data for the confirmation screen
     val lastBookingId: Long? = null           // real booking id from the backend, encoded into the QR
 )
+
+private const val PAST_SLOT_MESSAGE =
+    "That shuttle has already left. Shuttles can only be booked for today, so please pick a later time."
 
 class ScheduleRideViewModel(
     private val repository: ShuttleRepository
@@ -61,7 +65,20 @@ class ScheduleRideViewModel(
     }
 
     fun onTimeSelected(slot: ShuttleTimeSlot) {
-        _uiState.update { it.copy(selectedTime = slot.departs, selectedSlot = slot) }
+        if (slot.hasDepartedToday()) {
+            _uiState.update {
+                it.copy(
+                    // Drop any earlier selection so a stale slot can't be confirmed.
+                    selectedTime = if (it.selectedSlot == slot) null else it.selectedTime,
+                    selectedSlot = if (it.selectedSlot == slot) null else it.selectedSlot,
+                    errorMessage = PAST_SLOT_MESSAGE
+                )
+            }
+            return
+        }
+        _uiState.update {
+            it.copy(selectedTime = slot.departs, selectedSlot = slot, errorMessage = null)
+        }
     }
 
     fun onSwapLocations() {
@@ -81,6 +98,11 @@ class ScheduleRideViewModel(
 
         if (slot == null) {
             _uiState.update { it.copy(errorMessage = "Please select a departure time") }
+            return
+        }
+        // The slot may have passed while the screen was open, so check again at confirm time.
+        if (slot.hasDepartedToday()) {
+            _uiState.update { it.copy(errorMessage = PAST_SLOT_MESSAGE) }
             return
         }
         if (state.pickupLabel == "Select Pickup") {

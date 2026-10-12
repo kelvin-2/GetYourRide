@@ -89,17 +89,7 @@ fun ProfileScreen(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        // CHANGED: ProfileHeader is now wrapped in GyrMapBackground
-                        // so the navy section gets the decorative radar/pins/route
-                        // pattern instead of a flat navy fill.
-                        //
-                        // - fillMaxWidth() (not fillMaxSize()) so it only takes the
-                        //   width, and wraps to ProfileHeader's natural height —
-                        //   since GyrMapBackground no longer forces fillMaxSize()
-                        //   internally (see GyrMapBackground.kt fix), this sizes
-                        //   correctly to just the header, not the whole screen.
-                        // - backgroundColor = NavyPrimary keeps it consistent with
-                        //   the rest of your navy/orange design system.
+
                         GyrMapBackground(
                             modifier = Modifier.fillMaxWidth(),
                             backgroundColor = NavyPrimary
@@ -126,11 +116,11 @@ fun ProfileScreen(
                                         label = "EMAIL",
                                         value = profile.email
                                     ),
-                                    InfoRowData(
-                                        icon = Icons.Outlined.Phone,
-                                        label = "PHONE",
-                                        value = profile.phone
-                                    ),
+//                                    InfoRowData(
+//                                        icon = Icons.Outlined.Phone,
+//                                        label = "PHONE",
+//                                        value = profile.phone
+//                                    ),
                                     InfoRowData(
                                         icon = Icons.Outlined.Badge,
                                         label = "STUDENT NUMBER",
@@ -149,22 +139,6 @@ fun ProfileScreen(
                                 modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
                             )
 
-//                            val settingsItems = buildList {
-//                                add(SettingsItem(Icons.Outlined.Edit, "Edit Profile", onEditProfile))
-//                                add(SettingsItem(Icons.Outlined.DirectionsCar, "My Rides", {
-//                                    navController.navigate(if (profile.isNsfasFunded) GyrRoutes.SHUTTLE_RIDES else GyrRoutes.RIDES)
-//                                }))
-//                                // Payment Methods only makes sense for students paying
-//                                // out of pocket (carpool). NSFAS shuttle rides are
-//                                // pre-funded, so this is hidden for those students.
-//                                if (!profile.isNsfasFunded) {
-//                                    add(SettingsItem(Icons.Outlined.CreditCard, "Payment Methods", onPaymentMethods))
-//                                }
-//                                add(SettingsItem(Icons.Outlined.Notifications, "Notifications", onNotifications))
-//                                add(SettingsItem(Icons.Outlined.HelpOutline, "Help & Support", onHelpSupport))
-//                            }
-
-//                            SettingsListCard(items = settingsItems)
 
                             Spacer(modifier = Modifier.height(20.dp))
 

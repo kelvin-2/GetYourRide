@@ -156,7 +156,8 @@ fun MyRidesScreen(
                     val filtered = cardsWithTripId.filter { (card, _) ->
                         when (selectedTab) {
                             RideTab.UPCOMING  -> card.status == RideStatus.ACTIVE || card.status == RideStatus.SCHEDULED
-                            RideTab.PAST      -> card.status == RideStatus.COMPLETED
+                            // A no-show is a finished trip the student missed, so it lives in Past.
+                            RideTab.PAST      -> card.status == RideStatus.COMPLETED || card.status == RideStatus.NO_SHOW
                             RideTab.CANCELLED -> card.status == RideStatus.CANCELLED
                         }
                     }

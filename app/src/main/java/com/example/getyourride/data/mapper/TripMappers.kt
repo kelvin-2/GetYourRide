@@ -177,6 +177,8 @@ fun TripBookingResponse.toRideCardData(): RideCardData {
         // Order matters: check the terminal trip states first, then fall back to the booking for
         // trips that have not started yet (a cancelled booking on an upcoming trip is CANCELLED).
         status = when {
+            // Checked first: the backend completes the trip, but this student never boarded.
+            bookingStatus.equals("NO_SHOW", ignoreCase = true)   -> RideStatus.NO_SHOW
             trip.status.equals("COMPLETED", ignoreCase = true)   -> RideStatus.COMPLETED
             trip.status.equals("CANCELLED", ignoreCase = true)   -> RideStatus.CANCELLED
             bookingStatus.equals("CANCELLED", ignoreCase = true) -> RideStatus.CANCELLED
