@@ -226,39 +226,39 @@ fun SignUpScreen(
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.Top,
-                        modifier          = Modifier.fillMaxWidth(),
-                    ) {
-                        Checkbox(
-                            checked         = agreedToTerms,
-                            onCheckedChange = { agreedToTerms = it },
-                            colors          = CheckboxDefaults.colors(
-                                checkedColor   = NavyPrimary,
-                                checkmarkColor = Color.White,
-                            ),
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(10.dp))
-
-                        val termsText = buildAnnotatedString {
-                            append("I agree to the ")
-                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                                append("Terms of Service")
-                            }
-                            append(" and ")
-                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                                append("Privacy Policy")
-                            }
-                            append(" of GetYourRide.")
-                        }
-                        Text(
-                            text     = termsText,
-                            fontSize = 13.sp,
-                            color    = TextMuted,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
+//                    Row(
+//                        verticalAlignment = Alignment.Top,
+//                        modifier          = Modifier.fillMaxWidth(),
+//                    ) {
+//                        Checkbox(
+//                            checked         = agreedToTerms,
+//                            onCheckedChange = { agreedToTerms = it },
+//                            colors          = CheckboxDefaults.colors(
+//                                checkedColor   = NavyPrimary,
+//                                checkmarkColor = Color.White,
+//                            ),
+//                            modifier = Modifier.size(20.dp),
+//                        )
+//                        Spacer(Modifier.width(10.dp))
+//
+//                        val termsText = buildAnnotatedString {
+//                            append("I agree to the ")
+//                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+//                                append("Terms of Service")
+//                            }
+//                            append(" and ")
+//                            withStyle(SpanStyle(color = NavyPrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+//                                append("Privacy Policy")
+//                            }
+//                            append(" of GetYourRide.")
+//                        }
+//                        Text(
+//                            text     = termsText,
+//                            fontSize = 13.sp,
+//                            color    = TextMuted,
+////                            modifier = Modifier.padding(top = 2.dp),
+////                        )
+//                    }
 
                     // Error message, shown above the Sign Up button when present
                     if (errorMessage != null) {
@@ -285,8 +285,7 @@ fun SignUpScreen(
                             )
                         },
                         enabled  = firstName.isNotBlank() && lastName.isNotBlank() &&
-                                studentNumber.length == 9 &&
-                                agreedToTerms && isNsfasFunded != null && !isLoading,
+                                studentNumber.length == 9 && isNsfasFunded != null && !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
