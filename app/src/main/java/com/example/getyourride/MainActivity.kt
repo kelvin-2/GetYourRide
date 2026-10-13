@@ -383,9 +383,25 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(Unit) {
                             offerProfileViewModel.loadProfile()
                         }
+                        val offerLifecycleOwner = LocalLifecycleOwner.current
+                        DisposableEffect(offerLifecycleOwner) {
+                            val observer = LifecycleEventObserver { _, event ->
+                                if (event == Lifecycle.Event.ON_RESUME) {
+                                    offerProfileViewModel.loadProfile()
+                                }
+                            }
+                            offerLifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { offerLifecycleOwner.lifecycle.removeObserver(observer) }
+                        }
+                        val offerProfile =
+                            (offerProfileViewModel.profileState as? DriverProfileUiState.Success)?.profile
+
                         val driverMaxSeats =
                             (offerProfileViewModel.profileState as? DriverProfileUiState.Success)
                                 ?.profile?.seatingCapacity ?: 7
+                        val isDriverVerifiedLive: Boolean =
+                            offerProfile?.applicationStatus?.contains("Approved", ignoreCase = true)
+                                ?: UserSession.canPerformDriverActions
 
                         // Navigate to home after successful ride posting
                         LaunchedEffect(submitStatus) {
@@ -402,7 +418,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         OfferRideScreen(
-                            isDriverVerified = UserSession.canPerformDriverActions,
+                            isDriverVerified = isDriverVerifiedLive,
                             maxSeats = driverMaxSeats,
                             pickupState = pickupState,
                             destinationState = destinationState,
@@ -448,6 +464,7 @@ class MainActivity : ComponentActivity() {
                             onDispose { homeLifecycleOwner.lifecycle.removeObserver(observer) }
                         }
 
+
                         val driverName = UserSession.firstName ?: "Driver"
                         // Prefer the live backend status; fall back to the session role until loaded.
                         val sessionStatus = when {
@@ -456,7 +473,13 @@ class MainActivity : ComponentActivity() {
                             else                         -> "Pending Review"
                         }
                         val verificationStatus = driverHomeViewModel.verificationStatus ?: sessionStatus
-
+                        LaunchedEffect(verificationStatus) {
+                            if (verificationStatus.contains("Approved", ignoreCase = true) &&
+                                !UserSession.isDriverApproved
+                            ) {
+                                UserSession.markDriverApproved()
+                            }
+                        }
                         StudentDriverHomeScreen(
                             driverName         = driverName,
                             verificationStatus = verificationStatus,

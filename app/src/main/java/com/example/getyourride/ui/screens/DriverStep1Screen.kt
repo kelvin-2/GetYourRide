@@ -136,7 +136,7 @@ fun DriverStep1Screen(
     }
     val contactNumberError: String? = when {
         contactNumber.isBlank() -> "Contact number is required"
-        !contactNumber.all { it.isDigit() } -> "Contact number must contain digits only"
+        contactNumber.length != 10 -> "Contact number must contain digits only"
         else -> null
     }
     val emailError: String? = when {
@@ -362,7 +362,7 @@ fun DriverStep1Screen(
                     label = "Contact Number",
                     value = contactNumber,
                     placeholder = "Example: 0123456789",
-                    onValueChange = { new -> contactNumber = new.filter { it.isDigit() } },
+                    onValueChange = { new -> contactNumber = new.filter { it.isDigit() }.take(10) },
                     icon = Icons.Outlined.Phone,
                     keyboardType = KeyboardType.Phone,
                     errorText = contactNumberError.takeIf { showErrors }

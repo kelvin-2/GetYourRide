@@ -54,6 +54,7 @@ object UserSession {
     val isDriverPending: Boolean get() = role.equals("DRIVER_PENDING", ignoreCase = true)
 
     /** true when the driver is fully approved and verified */
+    private var approvedOverride: Boolean = false
     val isDriverApproved: Boolean get() = role.equals("DRIVER_APPROVED", ignoreCase = true)
             || role.equals("APPROVED", ignoreCase = true)
 
@@ -69,10 +70,14 @@ object UserSession {
     // Called from MainActivity after successful login/signup/driver-application
     fun save(response: AuthResponse) {
         current = response
+        approvedOverride = false
     }
-
+    fun markDriverApproved() {
+        approvedOverride = true
+    }
     // Called on logout — clears everything
     fun clear() {
         current = null
+        approvedOverride = false
     }
 }
