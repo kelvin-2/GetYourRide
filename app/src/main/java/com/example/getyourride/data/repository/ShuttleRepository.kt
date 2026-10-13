@@ -157,7 +157,7 @@ class ShuttleRepository(
         } else {
             fetchTimeSlots() to true
         }
-        val trips = response.body() ?: emptyList()
+        val trips =  response.body() ?: emptyList()
 
         // The selected slot's departure time, normalised to "HH:mm" (e.g. "14:30").
         // slot.departs can arrive as "14:30", "14:30:00" or "14:30 PM" depending on
