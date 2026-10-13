@@ -62,6 +62,8 @@ fun CarpoolHomeScreen(
 {
     val pickupState by searchViewModel.pickup.collectAsState()
     val destinationState by searchViewModel.destination.collectAsState()
+    val isResolving by searchViewModel.isResolving.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     StudentLayout(
         currentRoute  = GyrRoutes.HOME,
@@ -85,12 +87,14 @@ fun CarpoolHomeScreen(
                 onPickupSuggestionSelected      = { searchViewModel.onPickupSuggestionSelected(it) },
                 onDestinationTextChanged        = { searchViewModel.onDestinationTextChanged(it) },
                 onDestinationSuggestionSelected = { searchViewModel.onDestinationSuggestionSelected(it) },
+                isResolving = isResolving,
                 onSearchRides = {
-                    val pickup = pickupState.selected
-                    val destination = destinationState.selected
-                    if (pickup != null && destination != null) {
-                        onSearchRides(pickup, destination)
-                    }
+                    searchViewModel.onSearchClicked(
+                        onReady = { pickup, destination -> onSearchRides(pickup, destination) },
+                        onError = { msg ->
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 },
             )
 
@@ -120,6 +124,7 @@ private fun FindCarpoolHeader(
     onPickupSuggestionSelected      : (AddressSuggestion) -> Unit,
     onDestinationTextChanged        : (String) -> Unit,
     onDestinationSuggestionSelected : (AddressSuggestion) -> Unit,
+    isResolving                     : Boolean,
     onSearchRides                   : () -> Unit,
 ) {
     Column {
@@ -170,7 +175,7 @@ private fun FindCarpoolHeader(
 
         Button(
             onClick        = onSearchRides,
-            enabled        = pickupState.selected != null && destinationState.selected != null,
+            enabled        = pickupState.text.isNotBlank() && destinationState.text.isNotBlank() && !isResolving,
             shape          = RoundedCornerShape(24.dp),
             colors         = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
             contentPadding = PaddingValues(vertical = 14.dp),
