@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.getyourride.UserSession
 import com.example.getyourride.ui.components.GyrSnackbarHost
 import com.example.getyourride.ui.components.StudentLayout
 import com.example.getyourride.ui.screens.shuttle.components.DepartureTimeGrid
@@ -127,6 +128,14 @@ fun BookShuttleScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 ShuttleInfoBanner()
+
+                // Tell funded students the campus rule up front, before they hit the error.
+                if (UserSession.isFunded) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ShuttleInfoBanner(
+                        text = "As a funded student, your pickup or drop-off must be a campus (South, North, 2nd Avenue or Missionvale)."
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -229,7 +238,10 @@ private fun BookShuttleHero(modifier: Modifier = Modifier) {
 
 /** Info banner shown below the time grid: shuttle frequency + arrival reminder. */
 @Composable
-private fun ShuttleInfoBanner(modifier: Modifier = Modifier) {
+private fun ShuttleInfoBanner(
+    modifier: Modifier = Modifier,
+    text: String = "Shuttles run every 30 minutes. Please arrive 5 minutes before departure."
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -255,7 +267,7 @@ private fun ShuttleInfoBanner(modifier: Modifier = Modifier) {
             }
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "Shuttles run every 30 minutes. Please arrive 5 minutes before departure.",
+                text = text,
                 fontSize = 12.5.sp,
                 color = NavyPrimary,
                 lineHeight = 16.sp

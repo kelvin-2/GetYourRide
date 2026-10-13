@@ -3,6 +3,7 @@ package com.example.getyourride.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.UserSession
 import com.example.getyourride.data.remote.UserMessageException
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.dto.hasDepartedToday
@@ -33,6 +34,14 @@ data class ScheduleRideUiState(
 
 private const val PAST_SLOT_MESSAGE =
     "That shuttle has already left. Shuttles can only be booked for today, so please pick a later time."
+
+private const val FUNDED_CAMPUS_MESSAGE =
+    "Funded students can only book shuttles to or from a campus. Please choose a campus as your pickup or drop-off."
+
+/** True when the pickup or the drop-off is a campus (e.g. "North Campus", "2nd Avenue Campus"). */
+internal fun isCampusTrip(pickup: String, destination: String): Boolean =
+    pickup.contains("campus", ignoreCase = true) ||
+            destination.contains("campus", ignoreCase = true)
 
 class ScheduleRideViewModel(
     private val repository: ShuttleRepository
@@ -107,6 +116,12 @@ class ScheduleRideViewModel(
         }
         if (state.pickupLabel == "Select Pickup") {
             _uiState.update { it.copy(errorMessage = "Please select a pickup stop") }
+            return
+        }
+        // Funded (NSFAS) students may only ride between a campus and somewhere else, so at
+        // least one end of the trip must be a campus.
+        if (UserSession.isFunded && !isCampusTrip(state.pickupLabel, state.destinationLabel)) {
+            _uiState.update { it.copy(errorMessage = FUNDED_CAMPUS_MESSAGE) }
             return
         }
 
