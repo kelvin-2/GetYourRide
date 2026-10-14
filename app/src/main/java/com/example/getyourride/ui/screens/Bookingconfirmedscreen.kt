@@ -56,7 +56,7 @@ import com.example.getyourride.ui.theme.*
  */
 data class BookingConfirmationDetails(
     val driverName: String,
-    val driverRating: Double,
+    val driverRating: Double?,
     val carDescription: String,
     val plate: String,
     val pickupLabel: String,
@@ -230,7 +230,7 @@ private fun RouteSummaryCard(pickupLabel: String, destinationLabel: String) {
 @Composable
 private fun DriverVehicleCard(
     driverName: String,
-    driverRating: Double,
+    driverRating: Double?,
     carDescription: String,
     plate: String,
 ) {
@@ -282,7 +282,7 @@ private fun DriverVehicleCard(
             ) {
                 Icon(Icons.Filled.Star, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(12.dp))
                 Spacer(Modifier.width(2.dp))
-                Text(driverRating.toString(), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NavyPrimary)
+                Text(com.example.getyourride.data.model.formatDriverRating(driverRating), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NavyPrimary)
             }
             Spacer(Modifier.height(8.dp))
             Box(

@@ -276,7 +276,7 @@ private fun TripResponse.toTrackingData(): TrackingData {
         isConnected = true,
         tripInfo = TripTrackingInfo(
             driverName = driverName ?: "Unknown Driver",
-            driverRating = 4.8,
+            driverRating = null, // TODO: wire to backend rating when TripResponse supplies it
             // Mapped to the backend's real status vocabulary (a closed DB enum). The backend never
             // emits "ARRIVED" — arrival at the destination shows up as COMPLETED. SCHEDULED and
             // CONFIRMED map to WAITING rather than ON_THE_WAY, because nothing is moving yet and

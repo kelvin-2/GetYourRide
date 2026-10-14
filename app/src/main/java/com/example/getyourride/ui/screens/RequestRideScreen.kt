@@ -77,7 +77,7 @@ import com.example.getyourride.viewmodel.TripBookingViewModel
 data class RideRequestDetails(
     val tripId               : Long,
     val driverName           : String,
-    val driverRating         : Double,
+    val driverRating         : Double?,
     val driverRidesCompleted : Int,
     val driverAvatarUrl      : String?,  // null shows initials fallback
     val carDescription       : String,   // e.g. "Silver Toyota Corolla"
@@ -297,7 +297,7 @@ private fun DriverInfoCard(ride: RideRequestDetails) {
                 Icon(Icons.Filled.Star, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(2.dp))
                 Text(
-                    text       = ride.driverRating.toString(),
+                    text       = com.example.getyourride.data.model.formatDriverRating(ride.driverRating),
                     fontWeight = FontWeight.SemiBold,
                     fontSize   = 14.sp,
                     color      = NavyPrimary,

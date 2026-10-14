@@ -126,7 +126,7 @@ data class DriverProfileDetails(
     val accountStatus: String = "Active",
 
     // Ratings & reviews
-    val averageRating: Double = 0.0,
+    val averageRating: Double? = null,
     val reviewCount: Int = 0,
     val reviewTags: List<String> = emptyList(),
 
@@ -440,7 +440,7 @@ fun DriverProfileSettingsScreen(
                 icon = Icons.Outlined.Star,
                 iconTint = ProfileAccent
             ) {
-                if (profileDetails.reviewCount > 0) {
+                if (profileDetails.averageRating != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -453,7 +453,7 @@ fun DriverProfileSettingsScreen(
                             modifier = Modifier.size(28.dp)
                         )
                         Text(
-                            text = String.format("%.1f", profileDetails.averageRating),
+                            text = com.example.getyourride.data.model.formatDriverRating(profileDetails.averageRating),
                             color = ProfileText,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
@@ -466,7 +466,7 @@ fun DriverProfileSettingsScreen(
                     }
                 } else {
                     Text(
-                        text = "No rating yet. Your average rating will appear here once passengers rate your completed trips.",
+                        text = "New - your average rating will appear here once passengers rate your completed trips.",
                         color = ProfileTextMuted,
                         fontSize = 13.sp,
                         lineHeight = 18.sp

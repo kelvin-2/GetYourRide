@@ -30,7 +30,7 @@ import com.example.getyourride.ui.theme.*
 data class CarpoolRide(
     val driverName: String,
     val driverInitials: String,
-    val rating: Double,
+    val rating: Double?,
     val ratingCount: Int,
     val seatsLeft: Int,
     val departureTime: String,
@@ -119,7 +119,7 @@ fun CarpoolBookingCard(
                             )
                             Spacer(Modifier.width(3.dp))
                             Text(
-                                text     = "${ride.rating} (${ride.ratingCount})",
+                                text     = if (ride.rating == null) "New" else "${com.example.getyourride.data.model.formatDriverRating(ride.rating)} (${ride.ratingCount})",
                                 fontSize = 12.sp,
                                 color    = TextMuted,
                             )

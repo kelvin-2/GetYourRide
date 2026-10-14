@@ -1206,7 +1206,7 @@ class MainActivity : ComponentActivity() {
                             val tripRatingData = com.example.getyourride.ui.screens.ratings.TripRatingData(
                                 driverName = trip.driverName ?: "Driver",
                                 isVerified = true, // TODO: no verification flag on TripResponse yet
-                                driverRating = 4.8, // TODO: same placeholder TripMappers.kt already uses elsewhere
+                                driverRating = trip.driverRating, // null = unrated -> New
                                 ridesCompleted = 0, // TODO: not in TripResponse yet — backend needs to add this
                                 vehicleDescription = listOfNotNull(trip.vehicleColour, trip.vehicleModel)
                                     .joinToString(" ")

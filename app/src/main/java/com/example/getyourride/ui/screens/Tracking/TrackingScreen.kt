@@ -566,7 +566,7 @@ private fun DriverInfoCard(
                             tint = UniRideOrange,
                             modifier = Modifier.size(14.dp)
                         )
-                        Text(" ${info.driverRating}", fontSize = 13.sp)
+                        Text(" ${com.example.getyourride.data.model.formatDriverRating(info.driverRating)}", fontSize = 13.sp)
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
