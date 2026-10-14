@@ -1315,10 +1315,13 @@ class MainActivity : ComponentActivity() {
                         ShuttleDriverBoardingScreen(
                             uiState = boardingViewModel.uiState,
                             markingBookingId = boardingViewModel.markingBookingId,
+                            isEndingTrip = boardingViewModel.isEndingTrip,
+                            endTripError = boardingViewModel.endTripError,
                             onLoadData = { boardingViewModel.loadBoardingData() },
                             onMarkAsBoarded = { bookingId ->
                                 boardingViewModel.markStudentAsBoarded(bookingId)
                             },
+                            onEndTrip = { boardingViewModel.endTrip() },
                             onSelectTimeSlot = { slot ->
                                 boardingViewModel.selectTimeSlot(slot)
                             },

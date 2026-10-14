@@ -12,6 +12,8 @@ import com.example.getyourride.data.remote.api.TripApi
 import com.example.getyourride.data.remote.dto.BoardedStudentResponse
 import com.example.getyourride.data.remote.dto.ShuttleDriverActiveTripResponse
 import com.example.getyourride.data.remote.dto.TripResponse
+import com.example.getyourride.data.remote.getOrThrow
+import com.example.getyourride.data.remote.safeApiCall
 import com.example.getyourride.data.repository.ShuttleDriverRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -83,6 +85,14 @@ class ShuttleDriverBoardingViewModel(
 
     // Tracks which booking is currently being marked (for button loading state)
     var markingBookingId: Long? by mutableStateOf(null)
+        private set
+
+    // True while the "End Trip" request is in flight (for button loading state)
+    var isEndingTrip: Boolean by mutableStateOf(false)
+        private set
+
+    // Error message from the last "End Trip" attempt, null if none (shown in UI)
+    var endTripError: String? by mutableStateOf(null)
         private set
 
     // Internal state: all trips for this driver on the currently selected date
@@ -498,6 +508,64 @@ class ShuttleDriverBoardingViewModel(
                 markingBookingId = null
             }
         }
+    }
+
+    /**
+     * End the currently displayed trip: sets its status to COMPLETED on the backend
+     * (PATCH /api/trips/{id}/status?status=COMPLETED) so the change is persisted to the
+     * database, then reflects the new status in the UI immediately.
+     *
+     * Only valid when a trip is currently loaded (Success state). The auto-advance
+     * timer is cancelled so the completed trip isn't scrolled off before the driver
+     * sees the confirmation.
+     */
+    fun endTrip() {
+        val currentState = uiState
+        if (currentState !is BoardingUiState.Success) return
+
+        val tripId = currentState.trip.tripId
+        isEndingTrip = true
+        endTripError = null
+
+        viewModelScope.launch {
+            try {
+                val updatedTrip = safeApiCall {
+                    tripApi.updateTripStatus(tripId, "COMPLETED")
+                }.getOrThrow()
+
+                // Stop auto-advancing — the trip is now finished.
+                autoAdvanceJob?.cancel()
+
+                // Reflect the backend status locally. Prefer the status the backend
+                // returned; fall back to COMPLETED if it echoed nothing useful.
+                val newStatus = updatedTrip.status.ifBlank { "COMPLETED" }
+
+                // Keep the local trip list in sync so re-selecting this slot still
+                // shows it as completed.
+                allDriverTrips = allDriverTrips.map { trip ->
+                    if (trip.tripId == tripId) trip.copy(status = newStatus) else trip
+                }
+                allDriverShuttleTripsAllDates = allDriverShuttleTripsAllDates.map { trip ->
+                    if (trip.tripId == tripId) trip.copy(status = newStatus) else trip
+                }
+
+                val latest = uiState
+                if (latest is BoardingUiState.Success && latest.trip.tripId == tripId) {
+                    uiState = latest.copy(
+                        trip = latest.trip.copy(status = newStatus)
+                    )
+                }
+            } catch (e: Exception) {
+                endTripError = e.message ?: "Failed to end trip. Please try again."
+            } finally {
+                isEndingTrip = false
+            }
+        }
+    }
+
+    /** Clears the last end-trip error (e.g. after the UI has shown it). */
+    fun clearEndTripError() {
+        endTripError = null
     }
 }
 

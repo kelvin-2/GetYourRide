@@ -7,7 +7,6 @@ import com.example.getyourride.data.remote.dto.TripReviewDetailResponse
 import com.example.getyourride.data.remote.dto.TripReviewResponse
 import com.example.getyourride.data.remote.dto.TripResponse
 import com.example.getyourride.data.remote.dto.TripStopRequest
-import com.example.getyourride.data.remote.dto.UpdateTripStatusRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -71,6 +70,19 @@ interface TripApi {
      */
     @PATCH("api/trips/{id}/cancel")
     suspend fun cancelTrip(@Path("id") tripId: Long): Response<TripResponse>
+
+    /**
+     * PATCH /api/trips/{id}/status?status=COMPLETED — update a trip's status directly.
+     * Backend endpoint: TripController#updateTripStatus. The backend reads the new status
+     * from a @RequestParam ("status"), so it must be sent as a query parameter, NOT a JSON
+     * body. Used by the shuttle driver's "End Trip" action to mark the trip COMPLETED and
+     * persist it to the database.
+     */
+    @PATCH("api/trips/{id}/status")
+    suspend fun updateTripStatus(
+        @Path("id") tripId: Long,
+        @Query("status") status: String
+    ): Response<TripResponse>
 
 
 
