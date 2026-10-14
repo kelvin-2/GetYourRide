@@ -963,6 +963,15 @@ class MainActivity : ComponentActivity() {
                     composable("shuttle_booking_confirmed") {
                         val booking = confirmedShuttle
                         val context = LocalContext.current
+
+                        // CHANGED: same fix as booking_confirmed. The stashed booking is cleared
+                        // once this screen has left composition, not inside onViewMyRides —
+                        // clearing it there made the null guard below fire popBackStack() and
+                        // pop the freshly opened My Rides screen.
+                        DisposableEffect(Unit) {
+                            onDispose { confirmedShuttle = null }
+                        }
+
                         if (booking == null) {
                             LaunchedEffect(Unit) { navController.popBackStack() }
                         } else {
@@ -970,9 +979,9 @@ class MainActivity : ComponentActivity() {
                                 navController = navController,
                                 booking = booking,
                                 onViewMyRides = {
-                                    confirmedShuttle = null
                                     navController.navigate(GyrRoutes.SHUTTLE_RIDES) {
                                         popUpTo("shuttle_home")
+                                        launchSingleTop = true
                                     }
                                 },
                                 onDownloadTicket = {
@@ -1025,6 +1034,16 @@ class MainActivity : ComponentActivity() {
                     composable("booking_confirmed") {
                         val booking = confirmedBooking
                         android.util.Log.d("NAV", "booking_confirmed composed, booking=$booking")
+
+                        // CHANGED: the stashed booking is now cleared when this screen has actually
+                        // left composition, NOT inside onViewMyRides. Clearing it there made this
+                        // composable recompose with booking == null while the navigation was still
+                        // animating, which fired the guard below (popBackStack) and popped the
+                        // freshly opened My Rides screen — so "View My Rides" appeared to do nothing.
+                        DisposableEffect(Unit) {
+                            onDispose { confirmedBooking = null }
+                        }
+
                         if (booking == null) {
                             // Defensive guard for process death / deep link — sameb
                             // pattern as the null-trip check in request_ride/{tripId}.
@@ -1032,13 +1051,10 @@ class MainActivity : ComponentActivity() {
                         } else {
                             BookingConfirmedScreen(
                                 details = booking,
-                                onDownloadReceipt = {
-                                    // PDF/summary generation exists
-                                },
                                 onViewMyRides = {
-                                    confirmedBooking = null
                                     navController.navigate(GyrRoutes.RIDES) {
                                         popUpTo(GyrRoutes.HOME)
+                                        launchSingleTop = true
                                     }
                                 },
                             )

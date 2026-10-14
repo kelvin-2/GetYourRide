@@ -16,8 +16,8 @@
 //       }
 //   }
 //
-// There is deliberately no "Add to Calendar" action here — Download Receipt
-// spans the full width instead.
+// There is deliberately no "Add to Calendar" or "Download Receipt" action
+// here — "View My Rides" is the only action.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.example.getyourride.ui.screens.Rides
@@ -32,7 +32,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -77,7 +76,6 @@ fun RideRequestDetails.toBookingConfirmationDetails(): BookingConfirmationDetail
 @Composable
 fun BookingConfirmedScreen(
     details: BookingConfirmationDetails,
-    onDownloadReceipt: () -> Unit,
     onViewMyRides: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -148,27 +146,6 @@ fun BookingConfirmedScreen(
             )
 
             Spacer(Modifier.height(24.dp))
-
-            // Download receipt — full width, no calendar action next to it
-            OutlinedButton(
-                onClick = onDownloadReceipt,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = OrangeAccent),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Download,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-//                Spacer(Modifier.width(8.dp))
-//                Text(text = "Download Receipt", fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(Modifier.height(12.dp))
 
             Button(
                 onClick = onViewMyRides,
@@ -261,7 +238,7 @@ private fun DriverVehicleCard(
         Spacer(Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-             Text(
+            Text(
                 text = "DRIVER & VEHICLE INFO",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
