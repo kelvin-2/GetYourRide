@@ -119,7 +119,7 @@ fun CarpoolBookingCard(
                             )
                             Spacer(Modifier.width(3.dp))
                             Text(
-                                text     = "${ride.rating} (${ride.ratingCount})",
+                                text     = ride.rating.toString(),
                                 fontSize = 12.sp,
                                 color    = TextMuted,
                             )
