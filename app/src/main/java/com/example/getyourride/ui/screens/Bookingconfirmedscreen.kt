@@ -164,8 +164,8 @@ fun BookingConfirmedScreen(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(text = "Download Receipt", fontWeight = FontWeight.SemiBold)
+//                Spacer(Modifier.width(8.dp))
+//                Text(text = "Download Receipt", fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(Modifier.height(12.dp))
