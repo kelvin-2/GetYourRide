@@ -15,10 +15,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
@@ -26,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -1220,26 +1223,37 @@ class MainActivity : ComponentActivity() {
                                 seatsLabel = "1 Seat", // TODO: booking doesn't expose seat count booked yet
                             )
 
-                            com.example.getyourride.ui.screens.ratings.RateTripScreen(
-                                trip = tripRatingData,
-                                onClose = { navController.popBackStack() },
-                                onSkip  = { navController.popBackStack() },
-                                onSubmit = { rating, tags, note ->
-                                    allRidesViewModel.submitRating(bookingId, rating, note, tags.toList()) { result ->
-                                        result.onSuccess {
-                                            // Show the confirmation pop-up on top of
-                                            // this screen rather than popping back
-                                            // immediately — "Back to Home" (below)
-                                            // is what actually navigates away.
-                                            submittedResult = Triple(tripRatingData.driverName, rating, tags.toList())
-                                        }.onFailure { e ->
-                                            android.widget.Toast.makeText(
-                                                context, e.message ?: "Couldn't submit your rating.", android.widget.Toast.LENGTH_LONG
-                                            ).show()
+                            // CHANGED: once a rating has been submitted, the rating form is no
+                            // longer drawn at all — only a plain background is left behind the
+                            // confirmation pop-up. Previously the full rating screen stayed
+                            // visible underneath the dialog.
+                            if (submittedResult == null) {
+                                com.example.getyourride.ui.screens.ratings.RateTripScreen(
+                                    trip = tripRatingData,
+                                    onClose = { navController.popBackStack() },
+                                    onSkip  = { navController.popBackStack() },
+                                    onSubmit = { rating, tags, note ->
+                                        allRidesViewModel.submitRating(bookingId, rating, note, tags.toList()) { result ->
+                                            result.onSuccess {
+                                                // Show the confirmation pop-up (the rating
+                                                // form is hidden above) — "Back to Home"
+                                                // (below) is what navigates away.
+                                                submittedResult = Triple(tripRatingData.driverName, rating, tags.toList())
+                                            }.onFailure { e ->
+                                                android.widget.Toast.makeText(
+                                                    context, e.message ?: "Couldn't submit your rating.", android.widget.Toast.LENGTH_LONG
+                                                ).show()
+                                            }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.background)
+                                )
+                            }
 
                             submittedResult?.let { (driverName, rating, tags) ->
                                 com.example.getyourride.ui.screens.ratings.RatingConfirmationDialog(
@@ -1247,8 +1261,15 @@ class MainActivity : ComponentActivity() {
                                     rating = rating,
                                     compliments = tags,
                                     onBackToHome = {
-                                        navController.navigate(GyrRoutes.HOME) {
-                                            popUpTo(GyrRoutes.HOME) { inclusive = true }
+                                        // CHANGED: go to the student's real home (shuttle home for
+                                        // NSFAS-funded, carpool home otherwise) and clear the whole
+                                        // back stack. The old popUpTo(GyrRoutes.HOME) did nothing
+                                        // for NSFAS students (HOME isn't on their stack), which left
+                                        // the rating screen and Track screen underneath — so Back
+                                        // brought the rating screen straight back.
+                                        val homeRoute = if (isNsfasFunded) "shuttle_home" else GyrRoutes.HOME
+                                        navController.navigate(homeRoute) {
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
@@ -1379,6 +1400,11 @@ private fun homeRouteFor(response: com.example.getyourride.data.remote.dto.AuthR
  * promptedTripId guards against firing more than once for the same trip —
  * e.g. if the student backs out of the rating screen back onto Tracking,
  * which is still showing the same ARRIVED state.
+ *
+ * CHANGED: promptedTripId is now rememberSaveable. A plain remember is thrown
+ * away when the Track screen leaves composition (which happens the moment the
+ * rating screen opens), so coming back to Track reset the guard to null and
+ * the rating screen was launched all over again.
  */
 @Composable
 private fun AutoPromptRatingOnArrival(
@@ -1387,7 +1413,7 @@ private fun AutoPromptRatingOnArrival(
     navController: androidx.navigation.NavController,
 ) {
     val trackingState by trackingViewModel.uiState.collectAsState()
-    var promptedTripId by remember { mutableStateOf<Long?>(null) }
+    var promptedTripId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val arrivedTripId = (trackingState as? com.example.getyourride.viewmodel.TrackingUiState.Active)
         ?.data
