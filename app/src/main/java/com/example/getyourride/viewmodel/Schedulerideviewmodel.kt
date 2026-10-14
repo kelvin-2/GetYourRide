@@ -109,6 +109,14 @@ class ScheduleRideViewModel(
             _uiState.update { it.copy(errorMessage = "Please select a pickup stop") }
             return
         }
+        if (state.destinationLabel == "Select Destination") {
+            _uiState.update { it.copy(errorMessage = "Please select a destination stop") }
+            return
+        }
+        if (state.pickupLabel == state.destinationLabel) {
+            _uiState.update { it.copy(errorMessage = "Pickup and destination must be different") }
+            return
+        }
 
         _uiState.update { it.copy(isConfirming = true, errorMessage = null) }
         viewModelScope.launch {
