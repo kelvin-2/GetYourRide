@@ -58,8 +58,8 @@ fun TripResponse.toCarpoolRide(): CarpoolRide {
     return CarpoolRide(
         driverName     = driverName ?: "Unknown Driver",
         driverInitials = initials,
-        rating         = 5.0,   // placeholder — no rating field on backend yet
-        ratingCount    = 0,     // placeholder — same reason
+        rating         = driverRating ?: 0.0,   // Use backend rating, 0.0 for unrated drivers
+        ratingCount    = 0,     // placeholder — backend doesn't provide rating count yet
         seatsLeft      = availableSeats ?: 0,
         departureTime  = formattedTime,
         fromLocation   = departureStop,
@@ -84,7 +84,7 @@ fun TripResponse.toRideRequestDetails(): RideRequestDetails {
     return RideRequestDetails(
         tripId = tripId,
         driverName = driverName ?: "Driver",
-        driverRating = 4.8,           // TODO: not in TripResponse yet — backend needs to add this
+        driverRating = driverRating ?: 0.0,   // Use backend rating, 0.0 for unrated drivers
         driverRidesCompleted = 0,     // TODO: not in TripResponse yet — backend needs to add this
         driverAvatarUrl = null,
         carDescription = listOfNotNull(vehicleColour, vehicleModel)
