@@ -2,7 +2,7 @@ package com.example.getyourride.domain.model
 
 data class TripTrackingInfo(
     val driverName: String,
-    val driverRating: Double,
+    val driverRating: Double?,
     val driverPhotoUrl: String? = null,
     val status: RideStatus = RideStatus.ON_THE_WAY,
     val etaMinutes: Int? = null,

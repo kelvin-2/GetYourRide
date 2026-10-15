@@ -40,7 +40,7 @@ import com.example.getyourride.ui.theme.*
 data class TripRatingData(
     val driverName: String,
     val isVerified: Boolean,
-    val driverRating: Double,
+    val driverRating: Double?,
     val ridesCompleted: Int,
     val vehicleDescription: String, // e.g. "Silver Toyota Corolla • ABC..."
     val pickupLabel: String,
@@ -308,7 +308,7 @@ private fun DriverCard(trip: TripRatingData) {
                     )
                     Spacer(Modifier.width(2.dp))
                     Text(
-                        trip.driverRating.toString(),
+                        com.example.getyourride.data.model.formatDriverRating(trip.driverRating),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )

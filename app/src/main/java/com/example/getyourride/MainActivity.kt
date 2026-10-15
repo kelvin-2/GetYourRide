@@ -1439,6 +1439,8 @@ private fun AutoPromptRatingOnArrival(
     allRidesViewModel: AllRidesViewModel,
     navController: androidx.navigation.NavController,
 ) {
+    // NSFAS-funded students cannot rate trips, so never auto-prompt them.
+    if (UserSession.isFunded) return
     val trackingState by trackingViewModel.uiState.collectAsState()
     var promptedTripId by rememberSaveable { mutableStateOf<Long?>(null) }
 

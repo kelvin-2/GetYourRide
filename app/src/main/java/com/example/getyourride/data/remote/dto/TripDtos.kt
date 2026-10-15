@@ -11,7 +11,6 @@ data class TripResponse(
     val tripId: Long,
     val driverId: Long?,
     val driverName: String?,
-    val driverRating: Double? = null,  // Driver's average rating from backend, null for new drivers
     val registrationNumber: String?,
     val tripType: String,
     val departureStop: String,
@@ -32,6 +31,9 @@ data class TripResponse(
     val vehicleModel: String?,
     val vehicleColour: String?,
     val vehicleCapacity: Int?,
+    // Driver's average rating. Null when the driver has not been rated yet (UI shows "New").
+    val driverRating: Double? = null,
+    val driverRatingCount: Int? = null,
     // Live tracking position, written by the backend simulation engine on every tick and returned
     // by GET /api/trips/{id}. Null until a driver starts the trip. The tracking screen polls this
     // endpoint and redraws the marker from these fields (there is no WebSocket on the app).

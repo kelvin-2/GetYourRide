@@ -160,7 +160,7 @@ data class DriverProfileResponse(
     val accountStatus: String = "Active", // "Active", "On Break", "Deactivated"
 
     // Ratings & reviews
-    val averageRating: Double = 0.0,
+    val averageRating: Double? = null,
     val reviewCount: Int = 0,
     val reviewTags: List<String> = emptyList(),
 
