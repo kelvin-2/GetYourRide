@@ -42,9 +42,16 @@ class AllRidesViewModel(
     // MyRidesScreen's composable in MainActivity needs a LaunchedEffect
     // calling loadAllTrips(), or this screen will sit on Loading forever.
 
-    fun loadAllTrips() {
+    /**
+     * [silent] = true keeps the current list on screen while refetching (no Loading flash).
+     * Needed after rating: the rate screen reads its booking from this state and would
+     * otherwise pop itself the moment the state flipped to Loading.
+     */
+    fun loadAllTrips(silent: Boolean = false) {
         viewModelScope.launch {
-            uiState = AllTripsUiState.Loading
+            if (!silent || uiState !is AllTripsUiState.Success) {
+                uiState = AllTripsUiState.Loading
+            }
 
             // status = null → fetch ALL bookings regardless of bookingStatus.
             // Tab filtering (Upcoming/Past/Cancelled) happens client-side in
@@ -54,9 +61,12 @@ class AllRidesViewModel(
                     uiState = AllTripsUiState.Success(bookings)
                 }
                 .onFailure { e ->
-                    uiState = AllTripsUiState.Error(
-                        e.userFacingMessage()
-                    )
+                    // A failed silent refresh keeps the existing list rather than replacing it.
+                    if (!silent || uiState !is AllTripsUiState.Success) {
+                        uiState = AllTripsUiState.Error(
+                            e.userFacingMessage()
+                        )
+                    }
                 }
         }
     }
@@ -96,7 +106,7 @@ class AllRidesViewModel(
     ) {
         viewModelScope.launch {
             val result = repository.rateTrip(bookingId, rating, review, tags)
-            result.onSuccess { loadAllTrips() }
+            result.onSuccess { loadAllTrips(silent = true) }
             onResult(result)
         }
     }

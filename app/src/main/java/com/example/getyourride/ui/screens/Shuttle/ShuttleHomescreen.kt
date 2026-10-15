@@ -66,6 +66,7 @@ fun ShuttleHomeScreen(
     upcomingShuttles: List<UpcomingShuttle>,
     recentTrips: List<RecentTrip>,
     navController: NavController,
+    onRefresh: () -> Unit = {},
     onBookShuttle: () -> Unit,
     onViewAllShuttles: () -> Unit,
     onShowTicket: (UpcomingShuttle) -> Unit,
@@ -84,19 +85,34 @@ fun ShuttleHomeScreen(
         ) {
             item {
                 Spacer(Modifier.height(16.dp))
-                // Greeting: "Hello," + student name
-                Text(
-                    text = "Hello,",
-                    color = OrangeAccent,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = userName.ifBlank { "Student" },
-                    color = NavyPrimary,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Greeting: "Hello," + student name, with a refresh button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Hello,",
+                            color = OrangeAccent,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = userName.ifBlank { "Student" },
+                            color = NavyPrimary,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh shuttles",
+                            tint = NavyPrimary
+                        )
+                    }
+                }
                 Spacer(Modifier.height(20.dp))
                 BookShuttleCard(onClick = onBookShuttle)
                 Spacer(Modifier.height(28.dp))

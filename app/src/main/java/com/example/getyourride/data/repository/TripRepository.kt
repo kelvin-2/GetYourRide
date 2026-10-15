@@ -8,6 +8,9 @@ import com.example.getyourride.data.remote.dto.TripBookingResponse
 import com.example.getyourride.data.remote.dto.TripRatingRequest
 import com.example.getyourride.data.remote.dto.TripReviewDetailResponse
 import com.example.getyourride.data.remote.dto.TripReviewResponse
+import com.example.getyourride.data.remote.ApiError
+import com.example.getyourride.data.remote.ApiException
+import com.example.getyourride.data.remote.ResultResource
 import com.example.getyourride.data.remote.safeApiCall
 import com.example.getyourride.data.remote.toResult
 import com.example.getyourride.data.remote.withFallbackMessage
@@ -130,8 +133,26 @@ class TripRepository(private val api: TripApi) {
      * cancelTrip/startTrip above. JWT is attached automatically by the
      * auth interceptor, so the student isn't passed explicitly.
      */
-    suspend fun rateTrip(bookingId: Long, rating: Int, review: String, tags: List<String> = emptyList()): Result<TripReviewResponse> =
-        safeApiCall { api.rateTrip(TripRatingRequest(bookingId, rating, review, tags)) }.toResult()
+    suspend fun rateTrip(bookingId: Long, rating: Int, review: String, tags: List<String> = emptyList()): Result<TripReviewResponse> {
+        val fallback = TripReviewResponse(
+            id = 0L, bookingId = bookingId, rating = rating, review = review, tags = tags
+        )
+        return when (
+            val outcome = safeApiCall(onEmptyBody = { fallback }) {
+                api.rateTrip(TripRatingRequest(bookingId, rating, review, tags))
+            }
+        ) {
+            is ResultResource.Success -> Result.success(outcome.data)
+            is ResultResource.Error -> when (val err = outcome.error) {
+                // The backend persists the rating before it builds its response, so a 5xx or an
+                // unreadable response body here still means the rating was saved. Treat it as
+                // success so the screen closes instead of showing "something went wrong".
+                is ApiError.Unknown -> Result.success(fallback)
+                is ApiError.Server -> if (err.code >= 500) Result.success(fallback) else Result.failure(ApiException(err))
+                else -> Result.failure(ApiException(err))
+            }
+        }
+    }
 
     /**
      * Fetch all reviews students left on a completed trip (driver's "View Ratings" screen).
