@@ -811,7 +811,8 @@ class MainActivity : ComponentActivity() {
                                 ShuttleHomeScreen(
                                     userName = "Student", // TODO: pull real name once UserSession exposes it
                                     upcomingShuttles = state.upcomingShuttles,
-                                    recentTrips = state.recentTrips,
+                                    recentTrips = state.recentTrips,
+
                                     onRefresh = { shuttleViewModel.loadShuttleHomeData() },
                                     navController = navController,
                                     onBookShuttle = {
@@ -1315,8 +1316,9 @@ class MainActivity : ComponentActivity() {
                         )
 
                         ShuttleDriverBoardingScreen(
-                            uiState = boardingViewModel.uiState,
                             markingBookingId = boardingViewModel.markingBookingId,
+                            markError = boardingViewModel.markError,
+                            isEndingTripngId = boardingViewModel.markingBookingId,
                             isEndingTrip = boardingViewModel.isEndingTrip,
                             endTripError = boardingViewModel.endTripError,
                             onLoadData = { boardingViewModel.loadBoardingData() },

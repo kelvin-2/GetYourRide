@@ -99,6 +99,7 @@ private val BoardingErrorText = Color(0xFFC62828)
 fun ShuttleDriverBoardingScreen(
     uiState: BoardingUiState = BoardingUiState.Loading,
     markingBookingId: Long? = null,
+    markError: String? = null,
     isEndingTrip: Boolean = false,
     endTripError: String? = null,
     onLoadData: () -> Unit = {},
@@ -369,6 +370,7 @@ fun ShuttleDriverBoardingScreen(
                     availableDates = uiState.availableDates,
                     selectedDate = uiState.selectedDate,
                     markingBookingId = markingBookingId,
+                    markError = markError,
                     isEndingTrip = isEndingTrip,
                     endTripError = endTripError,
                     onMarkAsBoarded = onMarkAsBoarded,
@@ -396,6 +398,7 @@ private fun BoardingContent(
     availableDates: List<java.time.LocalDate>,
     selectedDate: java.time.LocalDate?,
     markingBookingId: Long?,
+    markError: String?,
     isEndingTrip: Boolean,
     endTripError: String?,
     onMarkAsBoarded: (Long) -> Unit,
@@ -518,6 +521,33 @@ private fun BoardingContent(
             )
 
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Why the last "Mark as Boarded" was refused (e.g. booking cancelled, slot ended)
+            if (markError != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BoardingErrorBg,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = BoardingErrorText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = markError,
+                            color = BoardingErrorText,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
 
             if (students.isEmpty()) {
                 // No one has booked this shuttle at all
