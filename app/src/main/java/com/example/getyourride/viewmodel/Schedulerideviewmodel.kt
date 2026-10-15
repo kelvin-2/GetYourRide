@@ -3,6 +3,8 @@ package com.example.getyourride.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.getyourride.data.remote.ApiError
+import com.example.getyourride.data.remote.ApiException
 import com.example.getyourride.data.remote.UserMessageException
 import com.example.getyourride.data.remote.dto.ShuttleTimeSlot
 import com.example.getyourride.data.remote.dto.hasDepartedToday
@@ -27,9 +29,24 @@ data class ScheduleRideUiState(
     val isConfirming: Boolean = false,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    // Backend "error" text for errorCode == CAMPUS_REQUIRED; shown as an inline alert.
+    val campusRequiredMessage: String? = null,
     val lastBookedTrip: TripResponse? = null, // real trip data for the confirmation screen
     val lastBookingId: Long? = null           // real booking id from the backend, encoded into the QR
 )
+
+private const val CAMPUS_REQUIRED_CODE = "CAMPUS_REQUIRED"
+
+private const val CAMPUS_HINT_MESSAGE =
+    "Shuttles must start or end at an NMU campus: North Campus, South Campus, " +
+        "Missionvale Campus or 2nd Avenue Campus. Please change your pickup or drop-off."
+
+private val NMU_CAMPUSES = listOf("north campus", "south campus", "missionvale campus", "2nd avenue campus")
+
+private fun isCampus(label: String): Boolean {
+    val l = label.trim().lowercase()
+    return NMU_CAMPUSES.any { l.contains(it) }
+}
 
 private const val PAST_SLOT_MESSAGE =
     "That shuttle has already left. Shuttles can only be booked for today, so please pick a later time."
@@ -118,7 +135,13 @@ class ScheduleRideViewModel(
             return
         }
 
-        _uiState.update { it.copy(isConfirming = true, errorMessage = null) }
+        // Shuttle-only rule: at least one end of the trip must be an NMU campus.
+        if (!isCampus(state.pickupLabel) && !isCampus(state.destinationLabel)) {
+            _uiState.update { it.copy(campusRequiredMessage = CAMPUS_HINT_MESSAGE) }
+            return
+        }
+
+        _uiState.update { it.copy(isConfirming = true, errorMessage = null, campusRequiredMessage = null) }
         viewModelScope.launch {
             try {
                 val trip = repository.findAvailableTrip(state.pickupLabel, slot)
@@ -139,9 +162,17 @@ class ScheduleRideViewModel(
                 onSuccess()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
+                val apiError = (e as? ApiException)?.apiError as? ApiError.Server
                 // Always reset the in-flight flag so the button never stays stuck.
-                _uiState.update {
-                    it.copy(isConfirming = false, errorMessage = e.userFacingMessage())
+                if (apiError?.errorCode == CAMPUS_REQUIRED_CODE) {
+                    // Backend text is shown as-is; no retry, no field highlighting.
+                    _uiState.update {
+                        it.copy(isConfirming = false, campusRequiredMessage = apiError.message)
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(isConfirming = false, errorMessage = e.userFacingMessage())
+                    }
                 }
             }
         }
@@ -151,12 +182,16 @@ class ScheduleRideViewModel(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    fun dismissCampusRequired() {
+        _uiState.update { it.copy(campusRequiredMessage = null) }
+    }
+
     fun updatePickup(location: String) {
-        _uiState.update { it.copy(pickupLabel = location) }
+        _uiState.update { it.copy(pickupLabel = location, campusRequiredMessage = null) }
     }
 
     fun updateDestination(location: String) {
-        _uiState.update { it.copy(destinationLabel = location) }
+        _uiState.update { it.copy(destinationLabel = location, campusRequiredMessage = null) }
     }
 }
 

@@ -96,7 +96,23 @@ internal fun buildHttpError(code: Int, rawBody: String?, hadSession: Boolean): A
         code == 408 || code == 504 -> ApiError.Timeout
         // 5xx text can be technical, so users always get the friendly line.
         code >= 500 -> ApiError.Server(defaultServerMessage(code), code)
-        else -> ApiError.Server(message ?: defaultServerMessage(code), code)
+        else -> ApiError.Server(message ?: defaultServerMessage(code), code, parseErrorCode(rawBody))
+    }
+}
+
+/** Extracts the optional machine-readable "errorCode" from the error body; null if absent or malformed. */
+internal fun parseErrorCode(raw: String?): String? {
+    if (raw.isNullOrBlank()) return null
+    return try {
+        val element = JsonParser.parseString(raw)
+        if (!element.isJsonObject) return null
+        element.asJsonObject.get("errorCode")
+            ?.takeIf { it.isJsonPrimitive }
+            ?.asString
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    } catch (e: Exception) {
+        null
     }
 }
 
