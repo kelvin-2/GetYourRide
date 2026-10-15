@@ -742,6 +742,7 @@ class MainActivity : ComponentActivity() {
                         CarpoolHomeScreen(
                             uiState       = rideViewModel.uiState,
                             onRetry       = { rideViewModel.loadAvailableTrips() },
+                            onRefresh     = { rideViewModel.loadAvailableTrips() },
                             onBookRide    ={ tripId -> navController.navigate("request_ride/$tripId")},
                             onSearchRides = { pickup, destination ->
                                 rideViewModel.searchTrips(
@@ -810,7 +811,8 @@ class MainActivity : ComponentActivity() {
                                 ShuttleHomeScreen(
                                     userName = "Student", // TODO: pull real name once UserSession exposes it
                                     upcomingShuttles = state.upcomingShuttles,
-                                    recentTrips = state.recentTrips,
+                                    recentTrips = state.recentTrips,
+                                    onRefresh = { shuttleViewModel.loadShuttleHomeData() },
                                     navController = navController,
                                     onBookShuttle = {
                                         navController.navigate("book_shuttle")

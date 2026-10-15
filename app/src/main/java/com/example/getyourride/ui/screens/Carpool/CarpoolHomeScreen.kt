@@ -52,6 +52,7 @@ fun CarpoolHomeScreen(
     ),
     uiState             : TripsUiState             = TripsUiState.Loading,
     onRetry             : () -> Unit               = {},
+    onRefresh           : () -> Unit               = {},
     onBookRide          : (rideId: String) -> Unit = {},
     onViewAllRides      : () -> Unit               = {},
     onViewAllTrips      : () -> Unit               = {},
@@ -88,6 +89,8 @@ fun CarpoolHomeScreen(
                 onDestinationTextChanged        = { searchViewModel.onDestinationTextChanged(it) },
                 onDestinationSuggestionSelected = { searchViewModel.onDestinationSuggestionSelected(it) },
                 isResolving = isResolving,
+                isRefreshing = uiState is TripsUiState.Loading,
+                onRefresh = onRefresh,
                 onSearchRides = {
                     searchViewModel.onSearchClicked(
                         onReady = { pickup, destination -> onSearchRides(pickup, destination) },
@@ -125,15 +128,30 @@ private fun FindCarpoolHeader(
     onDestinationTextChanged        : (String) -> Unit,
     onDestinationSuggestionSelected : (AddressSuggestion) -> Unit,
     isResolving                     : Boolean,
+    isRefreshing                    : Boolean,
+    onRefresh                       : () -> Unit,
     onSearchRides                   : () -> Unit,
 ) {
     Column {
-        Text(
-            text       = "Find a Carpool",
-            fontSize   = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color      = NavyPrimary,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text       = "Find a Carpool",
+                fontSize   = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color      = NavyPrimary,
+            )
+            IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Refresh rides",
+                    tint = NavyPrimary,
+                )
+            }
+        }
         Text(
             text     = "Connect with students traveling your way",
             fontSize = 13.sp,
