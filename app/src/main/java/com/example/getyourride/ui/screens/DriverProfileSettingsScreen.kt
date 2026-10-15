@@ -3,6 +3,7 @@ package com.example.getyourride.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -115,6 +116,11 @@ data class DriverProfileDetails(
     val verificationStatus: String,
     val driversLicenceStatus: String,
     val vehicleRegistrationStatus: String,
+
+    // ── NEW: rejection details (shown when the application was rejected) ──
+    val rejectionReason: String? = null,
+    val reviewedBy: String? = null,
+    val reviewedAt: String? = null,
 
     // ── NEW: additional read-only data from shuttle_db ──
     // All default so existing call sites / previews keep working.
@@ -312,6 +318,18 @@ fun DriverProfileSettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
+            // ─── Rejection Reason Card ───────────────────────────────────────
+            // Shown only when the application was rejected, so the student driver
+            // understands why and what to fix before re-applying.
+            if (profileDetails.verificationStatus.trim().contains("reject", ignoreCase = true)) {
+                RejectionReasonCard(
+                    reason = profileDetails.rejectionReason,
+                    reviewedBy = profileDetails.reviewedBy,
+                    reviewedAt = profileDetails.reviewedAt
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // ─── Personal Details Card ───────────────────────────────────────
             ProfileSectionCard(
@@ -997,6 +1015,91 @@ private fun DocumentLinkRow(
     }
 }
 
+// ─── Rejection Reason Card ───────────────────────────────────────────────────
+/**
+ * Highlighted card that explains why a driver application was rejected.
+ * Rendered on the student driver profile only when the application status is
+ * "Rejected". Reads the rejection_reason (and reviewer details) that the admin
+ * saved in shuttle_db.driverapplications.
+ */
+@Composable
+private fun RejectionReasonCard(
+    reason: String?,
+    reviewedBy: String?,
+    reviewedAt: String?
+) {
+    val borderColor = Color(0xFFDC2626)
+    val backgroundColor = Color(0xFFFEE2E2)
+    val textColor = Color(0xFF7F1D1D)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    tint = borderColor,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = "Application Rejected",
+                    color = borderColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Reason",
+                color = textColor.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (!reason.isNullOrBlank()) reason
+                       else "Your application was rejected. Please check your emails for rejected Reason",
+                color = textColor,
+                fontSize = 14.sp
+            )
+
+            // Reviewer attribution — only shown when the backend provides it.
+            if (!reviewedBy.isNullOrBlank() || !reviewedAt.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                val attribution = buildString {
+                    if (!reviewedBy.isNullOrBlank()) append("Reviewed by $reviewedBy")
+                    if (!reviewedAt.isNullOrBlank()) {
+                        if (isNotEmpty()) append(" • ")
+                        append(reviewedAt)
+                    }
+                }
+                Text(
+                    text = attribution,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "You can update your details or documents above and re-submit for review.",
+                color = textColor.copy(alpha = 0.8f),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
 // ─── Status Style Helper ─────────────────────────────────────────────────────
 private fun statusStyleFor(status: String): StatusStyle {
     val cleaned = status.trim().lowercase()
@@ -1046,9 +1149,12 @@ fun DriverProfileSettingsScreenPreview() {
                 vehicleRegistrationNumber = "ABC 123 EC",
                 vehicleColour = "White",
                 seatingCapacity = 4,
-                verificationStatus = "Pending Review",
+                verificationStatus = "Rejected",
                 driversLicenceStatus = "Uploaded",
                 vehicleRegistrationStatus = "Not Uploaded",
+                rejectionReason = "Driver's licence photo is blurry and the expiry date is not readable. Please re-upload a clear copy.",
+                reviewedBy = "Admin (Transport Office)",
+                reviewedAt = "2026-10-12 14:30",
                 // NEW sample values
                 totalTrips = 23,
                 joinDate = "2025-01-20",

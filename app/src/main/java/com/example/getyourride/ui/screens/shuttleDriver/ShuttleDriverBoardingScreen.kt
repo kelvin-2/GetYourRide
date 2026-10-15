@@ -99,8 +99,11 @@ private val BoardingErrorText = Color(0xFFC62828)
 fun ShuttleDriverBoardingScreen(
     uiState: BoardingUiState = BoardingUiState.Loading,
     markingBookingId: Long? = null,
+    isEndingTrip: Boolean = false,
+    endTripError: String? = null,
     onLoadData: () -> Unit = {},
     onMarkAsBoarded: (Long) -> Unit = {},
+    onEndTrip: () -> Unit = {},
     onSelectTimeSlot: (TimeSlot) -> Unit = {},
     onSelectDate: (java.time.LocalDate) -> Unit = {},
     onScanQrCodeClick: () -> Unit = {},
@@ -366,7 +369,10 @@ fun ShuttleDriverBoardingScreen(
                     availableDates = uiState.availableDates,
                     selectedDate = uiState.selectedDate,
                     markingBookingId = markingBookingId,
+                    isEndingTrip = isEndingTrip,
+                    endTripError = endTripError,
                     onMarkAsBoarded = onMarkAsBoarded,
+                    onEndTrip = onEndTrip,
                     onSelectTimeSlot = onSelectTimeSlot,
                     onSelectDate = onSelectDate,
                     modifier = Modifier
@@ -390,7 +396,10 @@ private fun BoardingContent(
     availableDates: List<java.time.LocalDate>,
     selectedDate: java.time.LocalDate?,
     markingBookingId: Long?,
+    isEndingTrip: Boolean,
+    endTripError: String?,
     onMarkAsBoarded: (Long) -> Unit,
+    onEndTrip: () -> Unit,
     onSelectTimeSlot: (TimeSlot) -> Unit,
     onSelectDate: (java.time.LocalDate) -> Unit,
     modifier: Modifier = Modifier
@@ -527,7 +536,161 @@ private fun BoardingContent(
             }
         }
 
+        // ── End Trip Section (below the student list) ───────────────────
+        EndTripSection(
+            tripStatus = trip.status,
+            isEndingTrip = isEndingTrip,
+            endTripError = endTripError,
+            onEndTrip = onEndTrip
+        )
+
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+
+// ── End Trip Section ────────────────────────────────────────────────────────
+
+@Composable
+private fun EndTripSection(
+    tripStatus: String,
+    isEndingTrip: Boolean,
+    endTripError: String?,
+    onEndTrip: () -> Unit
+) {
+    val isCompleted = tripStatus.equals("COMPLETED", ignoreCase = true)
+    val isCancelled = tripStatus.equals("CANCELLED", ignoreCase = true)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        when {
+            isCompleted -> {
+                // Trip already completed — show a confirmation banner instead of the button
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BoardingSuccessBg,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = BoardingSuccessText,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = "This trip has been completed.",
+                            color = BoardingSuccessText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            isCancelled -> {
+                // Cancelled trips can't be ended
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BoardingErrorBg,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = BoardingErrorText,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = "This trip was cancelled.",
+                            color = BoardingErrorText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                // Error (if any) from the last attempt
+                if (endTripError != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = BoardingErrorBg,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = BoardingErrorText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = endTripError,
+                                color = BoardingErrorText,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onEndTrip,
+                    enabled = !isEndingTrip,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BoardingErrorText,
+                        contentColor = Color.White,
+                        disabledContainerColor = BoardingErrorText.copy(alpha = 0.5f)
+                    )
+                ) {
+                    if (isEndingTrip) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Ending Trip...",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "End Trip",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

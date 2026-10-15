@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.AirlineSeatReclineNormal
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Payments
@@ -110,6 +111,10 @@ private val OfferSectionIcon = Color(0xFF6366F1)
 @Composable
 fun OfferRideScreen(
     isDriverVerified: Boolean = false,
+    applicationStatus: String? = null,
+    rejectionReason: String? = null,
+    reviewedBy: String? = null,
+    reviewedAt: String? = null,
     maxSeats: Int = 7,
     pickupState: LocationFieldState = LocationFieldState(),
     destinationState: LocationFieldState = LocationFieldState(),
@@ -480,8 +485,26 @@ fun OfferRideScreen(
                 }
             }
 
+            // Whether the admin rejected this driver's application. When true we
+            // show the rejection reason instead of the generic pending banner.
+            val isRejected = applicationStatus
+                ?.trim()
+                ?.contains("reject", ignoreCase = true) == true
+
+            // ─── Rejection Reason Banner ─────────────────────────────────────
+            // Shown when the driver application was rejected, so the driver can
+            // read exactly why the admin rejected it.
+            if (!isDriverVerified && isRejected) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OfferRejectionReasonBanner(
+                    reason = rejectionReason,
+                    reviewedBy = reviewedBy,
+                    reviewedAt = reviewedAt
+                )
+            }
+
             // ─── Pending Verification Banner ─────────────────────────────────
-            if (!isDriverVerified) {
+            if (!isDriverVerified && !isRejected) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Surface(
                     modifier = Modifier
@@ -609,6 +632,94 @@ fun OfferRideScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+// ─── Rejection Reason Banner ─────────────────────────────────────────────────
+/**
+ * Highlighted banner shown on the Post Your Ride screen when the driver's
+ * application was rejected. Reads the admin's rejection reason (and reviewer
+ * details, when available) so the driver knows exactly why they can't post rides.
+ */
+@Composable
+private fun OfferRejectionReasonBanner(
+    reason: String?,
+    reviewedBy: String?,
+    reviewedAt: String?
+) {
+    val borderColor = Color(0xFFDC2626)
+    val backgroundColor = Color(0xFFFEE2E2)
+    val textColor = Color(0xFF7F1D1D)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    tint = borderColor,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = "Application Rejected",
+                    color = borderColor,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Reason",
+                color = textColor.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (!reason.isNullOrBlank()) reason
+                        else "Your application was rejected. Please check your emails for rejected Reason",
+                color = textColor,
+                fontSize = 14.sp,
+                lineHeight = 19.sp
+            )
+
+            // Reviewer attribution — only shown when the backend provides it.
+            if (!reviewedBy.isNullOrBlank() || !reviewedAt.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                val attribution = buildString {
+                    if (!reviewedBy.isNullOrBlank()) append("Reviewed by $reviewedBy")
+                    if (!reviewedAt.isNullOrBlank()) {
+                        if (isNotEmpty()) append(" • ")
+                        append(reviewedAt)
+                    }
+                }
+                Text(
+                    text = attribution,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Update your details or documents in your profile and re-submit for review.",
+                color = textColor.copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
         }
     }
 }

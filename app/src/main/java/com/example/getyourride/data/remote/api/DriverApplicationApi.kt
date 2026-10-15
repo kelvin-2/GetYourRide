@@ -143,6 +143,13 @@ data class DriverProfileResponse(
     val driversLicenceStatus: String,    // "Uploaded", "Not Uploaded"
     val vehicleRegistrationStatus: String, // "Uploaded", "Not Uploaded"
 
+    // ── NEW: rejection details (from shuttle_db.driverapplications) ──
+    // Populated by the backend only when the application was rejected by an admin.
+    // Defaults keep old responses safe when the fields are absent.
+    val rejectionReason: String? = null,   // admin's reason for rejecting the application
+    val reviewedBy: String? = null,        // admin who reviewed the application
+    val reviewedAt: String? = null,        // ISO datetime of the review
+
     // ── NEW: additional profile data (read-only, from shuttle_db) ──
     // Defaults keep old clients/responses safe if a field is missing.
 

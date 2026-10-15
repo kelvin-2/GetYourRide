@@ -203,11 +203,11 @@ fun StudentDriverHomeScreen(
 @Composable
 private fun HeroHeader(driverName: String, verificationStatus: String) {
     val isApproved = verificationStatus.contains("Approved", true)
-    val (statusBg, statusColor, statusIcon) = when {
-        isApproved -> Triple(DriverSuccessBg, DriverSuccessText, Icons.Outlined.CheckCircle)
-        verificationStatus.contains("Pending", true) -> Triple(DriverPendingBg, DriverPendingText, Icons.Outlined.Schedule)
-        else -> Triple(DriverPendingBg, DriverPendingText, Icons.Outlined.Schedule)
-    }
+//    val (statusBg, statusColor, statusIcon) = when {
+//        isApproved -> Triple(DriverSuccessBg, DriverSuccessText, Icons.Outlined.CheckCircle)
+//        verificationStatus.contains("Pending", true) -> Triple(DriverPendingBg, DriverPendingText, Icons.Outlined.Schedule)
+//        else -> Triple(DriverPendingBg, DriverPendingText, Icons.Outlined.Schedule)
+//    }
 
     Box(
         modifier = Modifier
@@ -276,45 +276,45 @@ private fun HeroHeader(driverName: String, verificationStatus: String) {
             }
 
             // Verification status badge
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = statusBg.copy(alpha = 0.95f)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = statusIcon,
-                        contentDescription = null,
-                        tint = statusColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Driver Status",
-                            color = statusColor.copy(alpha = 0.7f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = verificationStatus,
-                            color = statusColor,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Outlined.VerifiedUser,
-                        contentDescription = null,
-                        tint = statusColor.copy(alpha = 0.5f),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
+//            Surface(
+//                shape = RoundedCornerShape(12.dp),
+//                color = statusBg.copy(alpha = 0.95f)
+//            ) {
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(horizontal = 16.dp, vertical = 12.dp),
+//                    verticalAlignment = Alignment.CenterVertically,
+//                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+//                ) {
+//                    Icon(
+//                        imageVector = statusIcon,
+//                        contentDescription = null,
+//                        tint = statusColor,
+//                        modifier = Modifier.size(22.dp)
+//                    )
+//                    Column(modifier = Modifier.weight(1f)) {
+//                        Text(
+//                            text = "Driver Status",
+//                            color = statusColor.copy(alpha = 0.7f),
+//                            fontSize = 11.sp,
+//                            fontWeight = FontWeight.Medium
+//                        )
+//                        Text(
+//                            text = verificationStatus,
+//                            color = statusColor,
+//                            fontSize = 15.sp,
+//                            fontWeight = FontWeight.Bold
+//                        )
+//                    }
+//                    Icon(
+//                        imageVector = Icons.Outlined.VerifiedUser,
+//                        contentDescription = null,
+//                        tint = statusColor.copy(alpha = 0.5f),
+//                        modifier = Modifier.size(28.dp)
+//                    )
+//                }
+//            }
         }
     }
 }

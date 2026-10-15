@@ -422,6 +422,10 @@ class MainActivity : ComponentActivity() {
 
                         OfferRideScreen(
                             isDriverVerified = isDriverVerifiedLive,
+                            applicationStatus = offerProfile?.applicationStatus,
+                            rejectionReason = offerProfile?.rejectionReason,
+                            reviewedBy = offerProfile?.reviewedBy,
+                            reviewedAt = offerProfile?.reviewedAt,
                             maxSeats = driverMaxSeats,
                             pickupState = pickupState,
                             destinationState = destinationState,
@@ -623,6 +627,10 @@ class MainActivity : ComponentActivity() {
                                         verificationStatus        = profile.applicationStatus,
                                         driversLicenceStatus      = profile.driversLicenceStatus,
                                         vehicleRegistrationStatus = profile.vehicleRegistrationStatus,
+                                        // NEW: rejection details
+                                        rejectionReason           = profile.rejectionReason,
+                                        reviewedBy                = profile.reviewedBy,
+                                        reviewedAt                = profile.reviewedAt,
                                         // NEW: driver stats
                                         totalTrips                = profile.totalTrips,
                                         joinDate                  = profile.joinDate,
@@ -1307,10 +1315,13 @@ class MainActivity : ComponentActivity() {
                         ShuttleDriverBoardingScreen(
                             uiState = boardingViewModel.uiState,
                             markingBookingId = boardingViewModel.markingBookingId,
+                            isEndingTrip = boardingViewModel.isEndingTrip,
+                            endTripError = boardingViewModel.endTripError,
                             onLoadData = { boardingViewModel.loadBoardingData() },
                             onMarkAsBoarded = { bookingId ->
                                 boardingViewModel.markStudentAsBoarded(bookingId)
                             },
+                            onEndTrip = { boardingViewModel.endTrip() },
                             onSelectTimeSlot = { slot ->
                                 boardingViewModel.selectTimeSlot(slot)
                             },
