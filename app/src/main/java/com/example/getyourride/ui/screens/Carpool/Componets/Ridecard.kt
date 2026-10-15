@@ -75,9 +75,11 @@ fun RideCard(
     // students, who don't use live tracking). Defaults to true so every existing
     // caller keeps working exactly as before.
     showTrack    : Boolean = true,
+    // False for NSFAS-funded students, who cannot rate trips.
+    canRate      : Boolean = true,
 ) {
     var showCancelDialog by remember { mutableStateOf(false) }
-    val isUnratedCompleted = ride.status == RideStatus.COMPLETED && !ride.hasRating
+    val isUnratedCompleted = canRate && ride.status == RideStatus.COMPLETED && !ride.hasRating
 
     Card(
         modifier  = Modifier

@@ -181,6 +181,7 @@ fun MyRidesScreen(
                                     ride         = ride,
                                     // Hidden for NSFAS-funded students (see showTrack above).
                                     showTrack    = showTrack,
+                                    canRate      = !UserSession.isFunded,
                                     // Track by tripId, NOT ride.id. Under the TripBookingResponse
                                     // mapper ride.id is the bookingId, so passing it made the
                                     // tracking screen call GET /api/trips/{bookingId} and get a 404

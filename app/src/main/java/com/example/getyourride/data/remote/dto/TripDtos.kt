@@ -11,7 +11,6 @@ data class TripResponse(
     val tripId: Long,
     val driverId: Long?,
     val driverName: String?,
-    val driverRating: Double? = null,  // Driver's average rating from backend, null for new drivers
     val registrationNumber: String?,
     val tripType: String,
     val departureStop: String,
