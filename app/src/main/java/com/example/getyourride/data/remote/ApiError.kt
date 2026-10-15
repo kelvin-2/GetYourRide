@@ -15,7 +15,7 @@ const val SESSION_EXPIRED_MESSAGE = "Your session expired. Please log in again."
 sealed class ApiError {
 
     /** Backend answered with an error. [message] comes from the {"error": "..."} body when present. */
-    data class Server(val message: String, val code: Int) : ApiError()
+    data class Server(val message: String, val code: Int, val errorCode: String? = null) : ApiError()
 
     /** 401. [sessionExpired] is true when a logged-in user's JWT was rejected. */
     data class Unauthorized(

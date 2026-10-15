@@ -27,6 +27,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -123,6 +126,11 @@ fun BookShuttleScreen(
                     selectedTime = uiState.selectedTime,
                     onTimeSelected = { slot -> viewModel.onTimeSelected(slot) }
                 )
+
+                uiState.campusRequiredMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CampusRequiredAlert(message = message, onDismiss = { viewModel.dismissCampusRequired() })
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -223,6 +231,42 @@ private fun BookShuttleHero(modifier: Modifier = Modifier) {
                     color = Color.White.copy(alpha = 0.7f)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Non-blocking inline alert for the backend's CAMPUS_REQUIRED error. Displays the API's
+ * own text (never hardcoded) and is announced politely by screen readers.
+ */
+@Composable
+private fun CampusRequiredAlert(message: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF3E0)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = OrangeAccent,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = message,
+                fontSize = 13.sp,
+                color = NavyPrimary,
+                lineHeight = 18.sp,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onDismiss) { Text("Dismiss", color = NavyPrimary) }
         }
     }
 }
