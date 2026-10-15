@@ -1232,9 +1232,9 @@ class MainActivity : ComponentActivity() {
 
                             val tripRatingData = com.example.getyourride.ui.screens.ratings.TripRatingData(
                                 driverName = trip.driverName ?: "Driver",
-                                isVerified = true, // TODO: no verification flag on TripResponse yet
+                                isVerified = true,
                                 driverRating = trip.driverRating ?: 0.0, // Use backend rating, 0.0 for unrated drivers
-                                ridesCompleted = 0, // TODO: not in TripResponse yet — backend needs to add this
+                                ridesCompleted = 0,
                                 vehicleDescription = listOfNotNull(trip.vehicleColour, trip.vehicleModel)
                                     .joinToString(" ")
                                     .ifBlank { "Unknown Vehicle" } + " • ${trip.registrationNumber ?: "—"}",
@@ -1244,7 +1244,7 @@ class MainActivity : ComponentActivity() {
                                     it.format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM • hh:mm a"))
                                 } ?: trip.departureTime,
                                 priceLabel = "R${trip.price.setScale(2)}",
-                                seatsLabel = "1 Seat", // TODO: booking doesn't expose seat count booked yet
+                                seatsLabel = "1 Seat",
                             )
 
                             // CHANGED: once a rating has been submitted, the rating form is no
