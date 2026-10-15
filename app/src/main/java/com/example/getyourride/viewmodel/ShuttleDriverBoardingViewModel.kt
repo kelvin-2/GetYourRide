@@ -87,6 +87,10 @@ class ShuttleDriverBoardingViewModel(
     var markingBookingId: Long? by mutableStateOf(null)
         private set
 
+    // Why the last "Mark as Boarded" was refused or failed; null when none (shown in the UI)
+    var markError: String? by mutableStateOf(null)
+        private set
+
     // True while the "End Trip" request is in flight (for button loading state)
     var isEndingTrip: Boolean by mutableStateOf(false)
         private set
@@ -109,6 +113,9 @@ class ShuttleDriverBoardingViewModel(
 
     // Auto-advance timer job — moves to next trip after drop-off (30 min after departure)
     private var autoAdvanceJob: Job? = null
+
+    // Polls the booked-student list so new bookings and cancellations show up on their own
+    private var studentRefreshJob: Job? = null
 
     /**
      * Load boarding data: fetches all trips, filters for this driver and today,
@@ -232,8 +239,9 @@ class ShuttleDriverBoardingViewModel(
                     }
                 }
 
-                // Start the auto-advance timer
+                // Start the auto-advance timer and the booked-student refresh
                 startAutoAdvanceTimer(driverId)
+                startStudentRefresh()
             } catch (e: Exception) {
                 val msg = e.message ?: "Failed to load boarding data"
                 uiState = BoardingUiState.Error(msg)
@@ -304,6 +312,8 @@ class ShuttleDriverBoardingViewModel(
      * Load the trip and students for a specific time slot.
      */
     private suspend fun loadTripForSlot(slot: TimeSlot, driverId: Long) {
+        markError = null
+
         // Find trip(s) matching this slot for the driver
         val tripsForSlot = allDriverTrips.filter { trip ->
             tripMatchesSlot(trip, slot)
@@ -470,9 +480,21 @@ class ShuttleDriverBoardingViewModel(
         }
     }
 
+    /** Refreshes the booked-student list every 15 seconds while the screen is alive. */
+    private fun startStudentRefresh() {
+        studentRefreshJob?.cancel()
+        studentRefreshJob = viewModelScope.launch {
+            while (true) {
+                delay(15_000L)
+                refreshStudents()
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         autoAdvanceJob?.cancel()
+        studentRefreshJob?.cancel()
     }
 
     /**
@@ -481,9 +503,17 @@ class ShuttleDriverBoardingViewModel(
      */
     fun markStudentAsBoarded(bookingId: Long) {
         markingBookingId = bookingId
+        markError = null
         viewModelScope.launch {
             try {
                 val result = repository.markAsBoarded(bookingId)
+
+                // The backend answers HTTP 200 with success=false for refused marks (cancelled
+                // booking, slot ended, trip completed). Don't show the student as boarded then.
+                if (!result.success) {
+                    markError = result.message.ifBlank { "Could not mark student as boarded." }
+                    return@launch
+                }
 
                 // Update local state on success
                 val currentState = uiState
@@ -502,12 +532,42 @@ class ShuttleDriverBoardingViewModel(
                     )
                 }
             } catch (e: Exception) {
-                // Don't change screen state — just log error silently
-                // The button will stop loading and student stays as "Pending"
+                // The student stays "Pending"; tell the driver why.
+                markError = e.message ?: "Could not mark student as boarded."
             } finally {
                 markingBookingId = null
             }
         }
+    }
+
+    /**
+     * Re-reads the booked students for the trip on screen, so a student who books after the
+     * driver opened the screen appears, and one who cancelled (booking_status = CANCELLED,
+     * which the backend leaves out of the list) disappears. Silent on failure: the list on
+     * screen is simply kept.
+     */
+    private suspend fun refreshStudents() {
+        val state = uiState as? BoardingUiState.Success ?: return
+        if (markingBookingId != null) return // don't race an in-flight "mark as boarded"
+
+        val tripId = state.trip.tripId
+        val students = try {
+            repository.getBookedStudents(tripId)
+        } catch (e: Exception) {
+            return
+        }
+
+        // The driver may have switched slot while the request was running.
+        val latest = uiState as? BoardingUiState.Success ?: return
+        if (latest.trip.tripId != tripId) return
+
+        uiState = latest.copy(
+            students = students,
+            trip = latest.trip.copy(
+                totalBooked = students.size,
+                totalBoarded = students.count { it.boardedAt != null }
+            )
+        )
     }
 
     /**
@@ -533,8 +593,9 @@ class ShuttleDriverBoardingViewModel(
                     tripApi.updateTripStatus(tripId, "COMPLETED")
                 }.getOrThrow()
 
-                // Stop auto-advancing — the trip is now finished.
+                // Stop auto-advancing and polling — the trip is now finished.
                 autoAdvanceJob?.cancel()
+                studentRefreshJob?.cancel()
 
                 // Reflect the backend status locally. Prefer the status the backend
                 // returned; fall back to COMPLETED if it echoed nothing useful.

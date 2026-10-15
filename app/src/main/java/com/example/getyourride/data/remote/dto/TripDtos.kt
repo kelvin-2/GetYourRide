@@ -64,7 +64,11 @@ data class TripStopResponse(
     // Defaulted so existing constructor calls keep compiling.
     val status: String = "PENDING",
     val studentId: Long?,
-    val studentName: String?
+    val studentName: String?,
+    // The student's current trip_booking.booking_status for this trip ("CONFIRMED", "CANCELLED",
+    // "BOARDED", ...). Null for stops that don't belong to a student. Lets the driver's
+    // passenger list show who is still booked and who has cancelled.
+    val bookingStatus: String? = null
 )
 
 data class TripBookingResponse(

@@ -595,7 +595,10 @@ private fun ActiveRideCard(
     onStartRide: (Long) -> Unit = {},
     isStarting: Boolean = false
 ) {
-    val bookedPassengers = trip.stops.filter { it.studentId != null }
+    // Passengers come from the student stops; trip_booking decides whether each is still booked.
+    val studentStops = trip.stops.filter { it.studentId != null }
+    val bookedPassengers = studentStops.filter { !it.bookingStatus.equals("CANCELLED", ignoreCase = true) }
+    val cancelledPassengers = studentStops.filter { it.bookingStatus.equals("CANCELLED", ignoreCase = true) }
     val seatsRemaining = (trip.availableSeats ?: trip.vehicleCapacity ?: 0) - bookedPassengers.size
     val isScheduled = trip.status.equals("SCHEDULED", ignoreCase = true) ||
             trip.status.equals("CONFIRMED", ignoreCase = true)
@@ -683,7 +686,7 @@ private fun ActiveRideCard(
             }
 
             // Passengers section
-            if (bookedPassengers.isNotEmpty()) {
+            if (studentStops.isNotEmpty()) {
                 HorizontalDivider(color = DriverBorder)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -694,6 +697,9 @@ private fun ActiveRideCard(
                 }
                 bookedPassengers.forEach { stop ->
                     PassengerRow(name = stop.studentName ?: "Student", pickup = stop.stopName)
+                }
+                cancelledPassengers.forEach { stop ->
+                    PassengerRow(name = stop.studentName ?: "Student", pickup = stop.stopName, cancelled = true)
                 }
             }
 
@@ -783,7 +789,7 @@ private fun TripDetailChip(icon: ImageVector, text: String, modifier: Modifier =
 }
 
 @Composable
-private fun PassengerRow(name: String, pickup: String) {
+private fun PassengerRow(name: String, pickup: String, cancelled: Boolean = false) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color(0xFFF9FAFB),
@@ -812,11 +818,14 @@ private fun PassengerRow(name: String, pickup: String) {
                 Text(name, color = DriverText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text("Pickup: $pickup", color = DriverTextMuted, fontSize = 12.sp)
             }
-            Surface(color = DriverSuccessBg, shape = RoundedCornerShape(999.dp)) {
+            Surface(
+                color = if (cancelled) Color(0xFFFFEBEE) else DriverSuccessBg,
+                shape = RoundedCornerShape(999.dp)
+            ) {
                 Text(
-                    "Booked",
+                    if (cancelled) "Cancelled" else "Booked",
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    color = DriverSuccessText,
+                    color = if (cancelled) Color(0xFFC62828) else DriverSuccessText,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
