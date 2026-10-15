@@ -53,7 +53,10 @@ fun RatingConfirmationDialog(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                     .background(CardWhite)
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                    // Keep the button clear of the system navigation bar / gesture area,
+                    // which was covering "Back to Home" on edge-to-edge screens.
+                    .navigationBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
